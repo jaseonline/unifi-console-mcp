@@ -1938,7 +1938,9 @@ paths:
         API cannot change: name, LED, management network and IP, SNMP contact/location; on switches jumbo frames,
         flow control, STP version/priority, 802.1X and every port's settings; on gateways NAT mode, hardware offload
         and firewall state timeouts. The UI sends either the settings panel or `port_overrides`, not both.
-        Whether partial panel bodies are accepted has not been tested, so send every field read from the device.
+        **Partial bodies are accepted** (confirmed 2026-10-18 on an access point): `{"name": ..., "mgmt_network_id": ...}`
+        changes just those fields, and `{"disabled": true|false}` disables or enables the device. The one exception is
+        `port_overrides`, which replaces the whole array (see below). `unifi_console_device` sends changed fields only.
 
         **Switch ports (`port_overrides`):** the array **replaces** the device's saved port settings. There is no
         separate read call: the UI builds it from the `port_overrides` it already holds from `getDeviceDetail` /
@@ -2138,13 +2140,42 @@ paths:
               type: object
               required: [cmd, mac]
               properties:
-                cmd: {type: string, enum: [set-locate, unset-locate, restart]}
+                cmd: {type: string, enum: [set-locate, unset-locate, restart, adopt]}
                 mac: {$ref: '#/components/schemas/MacAddress'}
-                reboot_type: {type: string, enum: [soft, hard], description: '`restart` only. `hard` also power-cycles PoE ports.'}
+                reboot_type: {type: string, enum: [soft, hard], description: '`restart` only. The UI sends `hard` (which also power-cycles PoE ports); there is no soft reset on this console.'}
+                client: {type: string, enum: [web], description: '`adopt` only: the UI sends `"client": "web"`.'}
             examples:
               locate: {summary: 'Start flashing the LED', value: {cmd: set-locate, mac: '00:00:5e:00:53:04'}}
               stopLocate: {summary: 'Stop flashing', value: {cmd: unset-locate, mac: '00:00:5e:00:53:04'}}
               restartHard: {summary: 'Restart and power-cycle PoE ports', value: {cmd: restart, mac: '00:00:5e:00:53:04', reboot_type: hard}}
+      responses:
+        '200': {$ref: '#/components/responses/LegacyOk'}
+        '400': {$ref: '#/components/responses/LegacyBadRequest'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+  /proxy/network/api/s/{site}/cmd/sitemgr:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    post:
+      operationId: siteManagerCommand
+      summary: Site command (remove devices)
+      description: |
+        Captured 2026-10-18 (`device-remove.har`): `{"macs": [mac, ...], "cmd": "delete-device"}` removes ("forgets") the
+        devices from the site. The reply is the device record. The device must be adopted again to rejoin, and the
+        device's `_id` changes when it is. **Irreversible short of re-adopting**; use `unifi_console_device`.
+      x-destructive: true
+      tags: [Controller · Devices]
+      security: [{ControllerSession: [], CsrfToken: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cmd, macs]
+              properties:
+                cmd: {type: string, enum: [delete-device]}
+                macs: {type: array, items: {$ref: '#/components/schemas/MacAddress'}}
+            examples:
+              remove: {summary: Remove one device, value: {cmd: delete-device, macs: ['00:00:5e:00:53:04']}}
       responses:
         '200': {$ref: '#/components/responses/LegacyOk'}
         '400': {$ref: '#/components/responses/LegacyBadRequest'}
@@ -3681,6 +3712,7 @@ paths:
         '400': {description: Validation failed}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
   /proxy/network/v2/api/site/{site}/firewall-policies/batch:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     put:
       operationId: batchUpdateFirewallPolicies
       summary: Enable or disable firewall policies (batch)
@@ -3701,6 +3733,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/firewall-policies/batch-reorder:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     put:
       operationId: reorderFirewallPolicies
       summary: Reorder the custom firewall policies of one zone pair
@@ -3723,6 +3756,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/firewall-policies/batch-delete:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     post:
       operationId: batchDeleteFirewallPolicies
       summary: Delete firewall policies (batch)
@@ -4676,6 +4710,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/api/s/{site}/rest/dynamicdns:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listDynamicDns
       summary: Dynamic DNS entries
@@ -4781,6 +4816,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/api/s/{site}/stat/routing:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listActiveRoutes
       summary: Active routing table (gateway)
@@ -4794,6 +4830,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/api/s/{site}/stat/voucher:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listHotspotVouchers
       summary: Hotspot vouchers
@@ -4832,6 +4869,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/api/s/{site}/stat/user/{mac}:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getClientRecord
       summary: Full record for one known client (historic, online or offline)
@@ -4883,6 +4921,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/api/s/{site}/stat/spectrum-scan/{mac}:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getSpectrumScan
       summary: RF spectrum scan state and results for one access point
@@ -4928,6 +4967,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/api/s/{site}/stat/rogueap:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     post:
       operationId: listRogueAps
       summary: Neighbouring (rogue) access points seen by your APs
@@ -4948,7 +4988,7 @@ paths:
                 within: {type: integer, description: 'Look-back window in hours', examples: [24]}
                 _limit: {type: integer, description: 'Maximum entries', examples: [50]}
             examples:
-              last24hTop50: {summary: Last 24 hours, 50 entries, value: {within: 24, _limit: 50}}
+              last24hTop50: {summary: "Last 24 hours, 50 entries", value: {within: 24, _limit: 50}}
               everything: {summary: Everything seen (large), value: {}}
       responses:
         '200':
@@ -4985,6 +5025,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/acl-rules:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listMacAclRules
       summary: MAC ACL rules (controller format, layer-2 access control)
@@ -5004,6 +5045,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/nat:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listNatRules
       summary: NAT rules (masquerade, source and destination NAT)
@@ -5021,6 +5063,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/qos-rules:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listQosRules
       summary: QoS rules (the dashboard QoS widget)
@@ -5062,6 +5105,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/qos-rules/{id}:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     put:
       operationId: updateQosRule
       summary: Update a QoS rule (whole rule)
@@ -5083,6 +5127,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/qos-rules/batch-delete:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     post:
       operationId: batchDeleteQosRules
       summary: Delete QoS rules (batch)
@@ -5104,6 +5149,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/static-dns:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listStaticDns
       summary: Local DNS records on the gateway
@@ -5175,7 +5221,7 @@ paths:
             schema: {$ref: '#/components/schemas/StaticDnsRecord'}
       responses:
         '200': {description: OK}
-        '400': {description: Validation failed (partial body, bad value)}
+        '400': {description: "Validation failed (partial body, bad value)"}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
     delete:
       operationId: deleteStaticDns
@@ -5190,6 +5236,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/network-members-groups:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listNetworkMemberGroups
       summary: Client groups (named sets of client MACs used by policies)
@@ -5207,6 +5254,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/network-members-group/{id}:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getNetworkMemberGroup
       summary: One client group
@@ -5240,7 +5288,7 @@ paths:
       responses:
         '200': {description: OK}
         '204': {description: Updated}
-        '400': {description: Validation failed (partial body, bad member)}
+        '400': {description: "Validation failed (partial body, bad member)"}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
     delete:
       operationId: deleteNetworkMemberGroup
@@ -5257,6 +5305,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/network-members-group:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     post:
       operationId: createNetworkMemberGroup
       summary: Create a client group
@@ -5281,6 +5330,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/settings/ips/available-categories:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listIpsCategories
       summary: Intrusion prevention categories and their sensitivity levels
@@ -5305,6 +5355,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/traffic-flow-latest-statistics:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getTrafficFlowStatistics
       summary: Insights > Flows summary (top applications, clients, destinations, blocked traffic)
@@ -5346,6 +5397,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/cybersecure/summary:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getCyberSecureSummary
       summary: CyberSecure (threat) summary for a period
@@ -5375,6 +5427,7 @@ paths:
                   message: {type: string}
 
   /proxy/network/v2/api/site/{site}/system-log/count:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     post:
       operationId: getSystemLogCount
       summary: System Log entry counts by category, event and type for a time window
@@ -5411,6 +5464,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/object-oriented-network-configs:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listTrafficPolicyObjects
       summary: Traffic policy objects (per-network or per-client QoS, routing and secure settings)
@@ -5426,6 +5480,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/object-oriented-network-config:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     post:
       operationId: createTrafficPolicyObject
       summary: Create a traffic policy object (per-network QoS limit)
@@ -5448,6 +5503,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/object-oriented-network-config/{id}:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     put:
       operationId: updateTrafficPolicyObject
       summary: Update a traffic policy object (whole object)
@@ -5484,6 +5540,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/api/s/{site}/stat/portforward:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listPortForwardStats
       summary: Port forwarding rules with traffic counters
@@ -5502,6 +5559,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/static-dns/devices:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listStaticDnsDevices
       summary: Devices offered when creating a Local DNS record
@@ -5517,6 +5575,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/ports/port-anomalies/{mac}/port/{portIdx}:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getPortAnomaliesForPort
       summary: Anomaly detail for one switch port
@@ -5535,6 +5594,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/settings/doh/available-server-names:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getDohAvailableServerNames
       summary: Public DoH resolvers the UI offers by name
@@ -5550,6 +5610,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/settings/doh/defaults:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getDohDefaults
       summary: Default DoH settings
@@ -5565,6 +5626,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/settings/ips/suricata:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getIpsSuricataSettings
       summary: Suricata (IPS engine) settings
@@ -5580,6 +5642,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/settings/ips/advanced-filtering-defaults:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getIpsAdvancedFilteringDefaults
       summary: Default IPS advanced filtering
@@ -5595,6 +5658,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/ssl-inspection/setting:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getSslInspectionSetting
       summary: SSL inspection setting
@@ -5610,6 +5674,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/ssl-inspection/setting/defaults:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getSslInspectionSettingDefaults
       summary: Default SSL inspection setting
@@ -5625,6 +5690,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/ssl-inspection/certificates:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listSslInspectionCertificates
       summary: Certificates available for SSL inspection
@@ -5640,6 +5706,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/ssl-inspection/certificates/active:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getActiveSslInspectionCertificate
       summary: Certificate currently used for SSL inspection
@@ -5655,6 +5722,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/client/{mac}/24hr-satisfaction:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getClient24hrSatisfaction
       summary: Client experience (satisfaction) over the last 24 hours
@@ -5672,6 +5740,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/client/{mac}/ap-stats:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getClientApStats
       summary: Client activity per access point
@@ -5689,6 +5758,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/system-log/client-connection/{mac}:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getClientConnectionLog
       summary: Connection history for one client (System Log)
@@ -5706,6 +5776,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/device/wireless-links:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listDeviceWirelessLinks
       summary: Wireless uplinks between devices (mesh and bridge)
@@ -5721,6 +5792,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/power-supervisors/links:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listPowerSupervisorLinks
       summary: Links between power supervisors and the devices they feed
@@ -5736,6 +5808,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/device/{mac}/replacement-candidates:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listDeviceReplacementCandidates
       summary: Devices that could replace this one (adopt-in-place)
@@ -5753,21 +5826,51 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/firewall-app-blocks:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listFirewallAppBlocks
-      summary: Application block entries (App Block feature)
-      description: "Shape not yet captured in detail (seen in a HAR of the Network 11.0.81 UI, 2026-10-17)."
+      summary: Application block entries (Simple App Blocking)
+      description: |
+        Captured 2026-10-18. A JSON array; each entry: `_id`, `name`, `type` (`DEVICE` or `NETWORK`), `target_type`
+        (`APP_ID` or `APP_CATEGORY`), `app_ids`, `app_category_ids`, `client_macs`, `network_ids` (all lists, the ones
+        that do not apply are `[]`) and `schedule` (`mode` ALWAYS, EVERY_DAY, EVERY_WEEK, ONE_TIME_ONLY or CUSTOM). The
+        console generates a `simple_app_block` firewall policy for each entry (`origin_id` is the entry's `_id`).
       tags: [Controller · Firewall]
       security: [{ControllerSession: []}]
       responses:
         '200':
-          description: OK
+          description: OK (array)
           content:
             application/json:
-              schema: {}
+              schema:
+                type: array
+                items: {type: object, additionalProperties: true}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+    post:
+      operationId: replaceFirewallAppBlocks
+      summary: Replace the whole set of application blocks
+      description: |
+        Captured 2026-10-18 (Network 11.0.81). The body is the **complete array** of blocks and replaces the collection:
+        an entry sent without `_id` is created, an entry with its `_id` is updated, an entry left out is deleted, and `[]`
+        deletes them all. The UI edits the table locally and sends everything in one request when Apply is pressed. The
+        response is the new collection with `_id`s. Not callable through the generic tool: use `unifi_console_app_block`.
+      x-destructive: true
+      tags: [Controller · Firewall]
+      security: [{ControllerSession: [], CsrfToken: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: OK (the new array)}
+        '400': {description: Validation failed}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/content-filtering/categories:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listContentFilteringCategories
       summary: Categories available to content filtering
@@ -5783,6 +5886,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/firewall-policies/defaults:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getFirewallPolicyDefaults
       summary: Defaults the UI pre-fills for a new firewall policy
@@ -5798,6 +5902,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/firewall/zone/defaults:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getFirewallZoneDefaults
       summary: Firewall zones (built-in set) with ids and member networks
@@ -5813,6 +5918,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/settings/global_switch/defaults:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getGlobalSwitchSettingDefaults
       summary: Default global switch settings
@@ -5828,6 +5934,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/ports/mac-tables:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     post:
       operationId: getPortMacTables
       summary: MAC address tables for selected switch ports
@@ -5856,6 +5963,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/ports/system-logs:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     post:
       operationId: queryPortSystemLogs
       summary: System Log entries for one switch port
@@ -5885,6 +5993,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/wan/ddns:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listDdnsServices
       summary: Dynamic DNS providers the UI offers
@@ -5900,6 +6009,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/wan/defaults:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getWanDefaults
       summary: Default WAN settings
@@ -5915,6 +6025,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/wan/load-balancing/configuration:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getWanLoadBalancingConfiguration
       summary: WAN load balancing and failover configuration
@@ -5930,6 +6041,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/wan/load-balancing/status:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getWanLoadBalancingStatus
       summary: WAN load balancing and failover status
@@ -5945,6 +6057,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/wlan/defaults:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getWlanDefaults
       summary: Defaults the UI pre-fills for a new WLAN
@@ -5960,6 +6073,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/wlan-capabilities:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getWlanCapabilities
       summary: What the adopted APs support (bands, security modes)
@@ -5975,6 +6089,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/vpn/connections:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listVpnConnections
       summary: Active VPN connections
@@ -5990,6 +6105,7 @@ paths:
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
 
   /proxy/network/v2/api/site/{site}/firewall-policies/{id}:
+    parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getControllerFirewallPolicy
       summary: One firewall policy

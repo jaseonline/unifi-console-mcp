@@ -28,7 +28,7 @@ cover.
 
 **Typed write tools** (all off until enabled; see [docs/write-tools.md](docs/write-tools.md)): port forwards, network
 lists, clients (edit and block/unblock/forget/reconnect), static DNS, client groups, Dynamic DNS, traffic and QoS
-objects, dashboard QoS rules, DNS over HTTPS, firewall policies, switch ports, Wi-Fi, networks/VLANs, the WAN, syslog,
+objects, dashboard QoS rules, application blocks, devices (locate, restart, update, adopt, remove), DNS over HTTPS, firewall policies, switch ports, Wi-Fi, networks/VLANs, the WAN, syslog,
 data retention and logging levels.
 
 ## How writes stay safe

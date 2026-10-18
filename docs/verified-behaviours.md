@@ -26,6 +26,35 @@ versions. Where a finding explains a design choice in a tool, it says so.
   or MAC addresses it has never seen in a client group), so the tools validate more strictly than the console.
 * A fixed IP applies when the client renews its lease.
 
+## Application blocks
+* The console keeps **one collection** at `firewall-app-blocks`. Every write is a `POST` of the complete array: an entry without
+  `_id` is created, one with its `_id` is updated, one left out is deleted, and `[]` deletes everything. The UI sends one request
+  for all the changes made before Apply, so the tool does too.
+* The UI posts every list on every entry, including stale ones; the tool sends `[]` for the lists that do not apply.
+* Schedule modes seen: `ALWAYS`, `EVERY_DAY`, `EVERY_WEEK`, `ONE_TIME_ONLY`, `CUSTOM`. All-day shapes for daily and one-time
+  schedules, a network block for specific applications, and the mapping from application ids to the DPI lists are **not verified**.
+* The console generates a `simple_app_block` firewall policy for each block (`origin_id` is the block's `_id`); the tool checks for it
+  after applying.
+* **Verified live** with `scripts/app_block_live_check.py` (dry run and `--run`, all checks passed): create, schedule change,
+  rename, category switch, several changes in one request, rollback replay, and restoring the original set exactly. The items above
+  marked not verified are still open.
+
+## Devices
+* Locate, restart and adopt are `POST cmd/devmgr` with the device **MAC** (`set-locate`, `unset-locate`, `restart` with
+  `reboot_type: "hard"`, `adopt` with `client: "web"`). There is no soft reset. Remove is `POST cmd/sitemgr` with a list of MACs
+  and `cmd: "delete-device"`.
+* Disable, enable and settings changes are `PUT rest/device/{_id}` with the device `_id`, not the MAC. **Partial bodies are
+  accepted**: `{"disabled": true}`, or `{"name": ..., "mgmt_network_id": ...}`, changed the device without the rest of the form.
+  The `_id` changes after a remove and re-adopt, so the tool always reads it live.
+* A restart is checked by watching the device leave and return (or its uptime drop); adopt and remove by the adopted flag.
+* Firmware updates cannot run while scheduled upgrades are on, so they are not offered.
+* **Verified live** with `scripts/device_live_check.py` on a small switch with two clients: locate on and off, rename and back
+  (a partial `PUT` carrying only the name), LED override off and back, disable then enable (the device reconnected), and a hard
+  restart (seen leaving and returning). Remove and adopt have also been run live (as two separate runs on the same switch) and
+  passed. Removing a device drops its saved settings, so the script snapshots them first and restores the name, LED, SNMP and STP
+  priority after adopt. A re-adopted switch comes back on a **dynamic** management address, not its previous static one; the
+  script lists that, and the per-port settings, as not restored.
+
 ## Traffic objects and QoS
 * Traffic objects use the v2 `object-oriented-network-config` resource. QoS limits are stored in **kbit/s**.
 * The console rejects **PRIORITIZE with a limit or burst switched on** (`Invalid QoS rule objective`, HTTP 400). The

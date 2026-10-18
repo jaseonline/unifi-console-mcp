@@ -32,7 +32,7 @@ Previews work without either; they state why applying would be refused. Take a c
 (`unifi_console_backup`).
 
 Entity keys: `port_forward`, `network_list`, `client`, `static_dns`, `client_group`, `dynamic_dns`, `traffic_object`,
-`qos_rule`, `doh`, `firewall_policy`, `switch_port`, `wifi`, `network`, `wan`, `syslog`, `data_retention`,
+`qos_rule`, `app_block`, `device`, `doh`, `firewall_policy`, `switch_port`, `wifi`, `network`, `wan`, `syslog`, `data_retention`,
 `logging_levels`. Client commands (block, unblock, forget, reconnect) share the `client` switch.
 
 ## 6. Running the live checks (optional)

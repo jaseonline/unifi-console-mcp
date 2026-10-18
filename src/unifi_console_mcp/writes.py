@@ -139,6 +139,11 @@ class EntitySpec:
     rollback: Callable[["Plan", "str | None"], "dict[str, Any] | None"] | None = None   # the tool call that undoes this change
     # Shows only the part of a big object that changes (one port of a switch): (before, after) -> (before view, after view).
     focus: Callable[["dict[str, Any] | None", "dict[str, Any] | None"], "tuple[dict[str, Any] | None, dict[str, Any] | None]"] | None = None
+    # A list endpoint whose whole content is replaced on every write (App Block): the rows are folded into one pseudo-object
+    # (a singleton) so the fingerprint covers every entry and the engine's gates, journal and read-back apply unchanged.
+    wrap_rows: Callable[["list[dict[str, Any]]"], "list[dict[str, Any]]"] | None = None
+    # Keys of the changes that the entity's own `verify` checks, so the generic read-back comparison skips them.
+    verify_skip: frozenset[str] = frozenset()
 
 
 # ----------------------------------------------------------------------------------------------- helpers
@@ -220,7 +225,8 @@ class WriteEngine:
         return [r for r in (data or []) if isinstance(r, dict)]
 
     async def _rows(self, spec: EntitySpec) -> list[dict[str, Any]]:
-        return await self._read_list(spec.list_op, spec.list_path_params)
+        rows = await self._read_list(spec.list_op, spec.list_path_params)
+        return spec.wrap_rows(rows) if spec.wrap_rows else rows
 
     async def _context(self, spec: EntitySpec) -> dict[str, list[dict[str, Any]]]:
         out: dict[str, list[dict[str, Any]]] = {}
@@ -518,7 +524,7 @@ class WriteEngine:
             mismatches.append({"field": "(object)", "requested": "present", "stored": "not found on read-back"})
         elif plan.action != "move":
             for key, wanted in plan.changes.items():
-                if key in spec.ignore or is_secret_key(key):
+                if key in spec.ignore or key in spec.verify_skip or is_secret_key(key):
                     continue
                 if not (covers if spec.loose_verify else same)(stored.get(key), wanted):
                     mismatches.append({"field": key, "requested": wanted, "stored": stored.get(key)})
