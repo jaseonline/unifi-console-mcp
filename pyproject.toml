@@ -1,0 +1,40 @@
+[project]
+name = "unifi-console-mcp"
+version = "0.1.0"
+description = "MCP server for the undocumented UniFi OS / Network console APIs, with typed, gated write tools"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "jaseonline" }]
+keywords = ["unifi", "mcp", "ubiquiti", "network"]
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28.1",
+    # MCP SDK 2.x (MCPServer replaces FastMCP). Keep the upper bound: 3.x will be another major.
+    "mcp>=2.3,<3",
+    "pydantic>=2.10",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+unifi-console-mcp = "unifi_console_mcp.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/unifi_console_mcp"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0",
+    "pytest-asyncio>=1.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[project.urls]
+Homepage = "https://github.com/jaseonline/unifi-console-mcp"
+Issues = "https://github.com/jaseonline/unifi-console-mcp/issues"

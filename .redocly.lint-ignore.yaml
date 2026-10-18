@@ -1,0 +1,7 @@
+# Redocly lint suppressions.
+# system-log/{logId}/cef shares a shape with these two routes; all three are real controller endpoints,
+# so the ambiguity is the API's, not the spec's.
+src/unifi_console_mcp/openapi.yaml:
+  no-ambiguous-paths:
+    - '#/paths/~1proxy~1network~1v2~1api~1site~1{site}~1system-log~1{logId}~1cef'
+    - '#/paths/~1proxy~1network~1v2~1api~1site~1{site}~1system-log~1client-connection~1{mac}'

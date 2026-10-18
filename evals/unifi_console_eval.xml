@@ -1,0 +1,48 @@
+<evaluation>
+  <!--
+    Ten read-only questions for the unifi-console-mcp tools, originally answered from the author's own console; replace each answer with the value from yours
+    (Network 11.0.81). Answers depend on configuration, not on traffic, so they stay valid until the network is
+    changed (a device renamed, a port re-assigned, a policy added). Re-verify after any such change with
+    scripts/live_check.py. Each question needs several calls; none needs a write.
+  -->
+  <qa_pair>
+    <question>The site has power supervisors that power-cycle a PoE port when a device goes silent. Taking the supervisor that protects the access point named "AP-AC-Mesh", on which port number of the switch that powers it is that access point connected? Answer with the number only.</question>
+    <answer>REPLACE_WITH_YOUR_VALUE</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>For the power supervisor that protects the access point named "AP-AC-Pro", how many seconds is the configured power-off duration (how long the port stays unpowered during a power cycle)? Answer with the number only.</question>
+    <answer>REPLACE_WITH_YOUR_VALUE</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Two switches have very similar names: "Switch 8" (model USC8) and "Switch 8 PoE-60W". Switch 8 (the USC8) is uplinked to another switch. On which port number of that upstream switch does its uplink terminate? Answer with the number only.</question>
+    <answer>REPLACE_WITH_YOUR_VALUE</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Across all of the site's switches, what is the lowest (most preferred) STP bridge priority value that is configured? Answer with the number only.</question>
+    <answer>REPLACE_WITH_YOUR_VALUE</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>The zone-based firewall has built-in zones and custom zones. Custom zones are the ones with no zone_key. How many custom firewall zones exist? Answer with the number only.</question>
+    <answer>REPLACE_WITH_YOUR_VALUE</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>How many user-defined (non-predefined) firewall policies have the IoT zone as their source and the Internal zone as their destination? Answer with the number only.</question>
+    <answer>REPLACE_WITH_YOUR_VALUE</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>On the switch named "Switch 16 PoE", how many ports are configured as STP edge ports? Answer with the number only.</question>
+    <answer>REPLACE_WITH_YOUR_VALUE</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Among the PoE-enabled ports of the switch "Switch 16 PoE", look at the one with the highest port number. What is the name of the port (the device it is labelled for)?</question>
+    <answer>REPLACE_WITH_YOUR_VALUE</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>What fixed IP address is assigned to the known client named "Amazon Echo"? Answer with the address only.</question>
+    <answer>REPLACE_WITH_YOUR_VALUE</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>How many of the site's switches are running the plain STP protocol version (stp) rather than rstp? Answer with the number only.</question>
+    <answer>REPLACE_WITH_YOUR_VALUE</answer>
+  </qa_pair>
+</evaluation>

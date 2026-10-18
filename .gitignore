@@ -1,0 +1,25 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+downloads/
+.env
+*.tgz
+*.unifi
+probe_out/
+
+# Browser captures contain session cookies: never commit
+*.har
+har-files/
+.claude
+
+# Never commit local state, captures or logs
+*.log
+*.err
+journal/
+.env*
+.claude/
+.vscode/
+*.har
+*.jsonl
+_pub/
