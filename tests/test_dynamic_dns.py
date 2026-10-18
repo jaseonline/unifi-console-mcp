@@ -17,7 +17,7 @@ from unifi_console_mcp.server import create_server
 DDNS = "/proxy/network/api/s/default/rest/dynamicdns"
 SERVICES = "/proxy/network/v2/api/site/default/wan/ddns"
 TOOL = "unifi_console_dynamic_dns"
-TOKEN = "tok-SECRET-0123456789abcdef"
+TOKEN = "fake-ddns-value-for-tests"
 REAL = {"_id": "real-id", "interface": "wan", "service": "cloudflare", "server": "", "host_name": "unifi.example.home",
         "login": "example.home", "x_password": "[console-hidden]", "site_id": "s"}
 
