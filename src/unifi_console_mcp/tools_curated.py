@@ -1,6 +1,7 @@
 """Curated tools for the gap areas: System Log, firewall hit counts, PoE, switch port detail,
-backups, support files and console access review. Each is a thin, tolerant wrapper over spec
-operations (paths come from the registry), so field drift degrades output rather than breaking it.
+backups, support files, the gateway's provisioned config and console access review. Each is a thin,
+tolerant wrapper over spec operations (paths come from the registry), so field drift degrades output
+rather than breaking it.
 """
 
 from __future__ import annotations
@@ -10,11 +11,12 @@ import json
 import re
 import time
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel, ConfigDict, Field
 
+from . import gateway_config
 from .api import Api, RunResult, error_text
 from .client import UniFiError
 
@@ -105,11 +107,46 @@ class SupportFileInput(BaseModel):
     confirm: bool = Field(default=False, description="Required. Creates a file containing secrets in plain text.")
 
 
+GatewaySection = Literal["summary", "interfaces", "services", "firewall", "policy_drift"]
+
+
+class GatewayConfigInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    sections: list[GatewaySection] | None = Field(default=None, description="Parts to return. Omit for all: summary (model, firmware, cfgversion, section versions), interfaces (WAN/LAN addressing, DHCPv6-PD request), services (DHCP scopes, DNS forwarder, DoH, mDNS, WAN failover, IPS, NTP, syslog), firewall (chains, rule counts, sets, field-type check), policy_drift (controller policies vs the rules sent to the gateway).")
+    firewall_chain: str | None = Field(default=None, description="Also return the rules of this gateway chain, e.g. 'WAN_LOCAL' (traffic from the internet to the gateway).")
+    device_mac: str | None = Field(default=None, pattern=MAC, description="Which gateway, if the bundle holds more than one.")
+    refresh: bool = Field(default=False, description="Generate a new console support file first (about 90 s). Needs confirm=true, UNIFI_CONSOLE_ENABLE_WRITES=true and Control Plane = Admin.")
+    max_age_minutes: int = Field(default=1440, ge=1, le=43200, description="Without refresh, use the newest support file in the download folder if it is at most this old.")
+    wait_seconds: int = Field(default=180, ge=30, le=600, description="refresh only: how long to wait for the bundle.")
+    confirm: bool = Field(default=False, description="Required with refresh=true.")
+
+
 # ---------------------------------------------------------------- helpers
 def _first(data: Any) -> dict[str, Any]:
     if isinstance(data, list) and data and isinstance(data[0], dict):
         return data[0]
     return data if isinstance(data, dict) else {}
+
+
+async def _console_support_file(api: Api, *, recreate: bool, targets: list[str] | None, wait_seconds: int,
+                                confirm: bool) -> RunResult:
+    """Generate the console bundle and poll the download until it is ready (423/404 while it is being built)."""
+    body: dict[str, Any] = {"recreate": recreate, "requiredDevices": {}}
+    if targets:
+        body["targets"] = targets
+    await api.run("generateSupportFile", body=body, confirm=confirm)
+    deadline = time.monotonic() + wait_seconds
+    last_error = "Generation started but the wait was 0 seconds; call again with download via unifi_console_call_operation(operation_id='downloadSupportFile', confirm=true)."
+    while wait_seconds > 0:
+        try:
+            return await api.run("downloadSupportFile", confirm=True)
+        except UniFiError as exc:
+            last_error = str(exc)
+        if time.monotonic() >= deadline:
+            break
+        await asyncio.sleep(10)
+    raise UniFiError(f"Support file not ready within {wait_seconds}s. Last response: {last_error}")
 
 
 def register(mcp: MCPServer, api: Api) -> None:
@@ -350,22 +387,83 @@ def register(mcp: MCPServer, api: Api) -> None:
                     await asyncio.sleep(5)
                 return api.render(RunResult("getDeviceSupportFileStatus", 200, {"mac": mac, "status": status}),
                                   extra={"note": "The ready/download step for device files has not been captured in the spec yet."})
-            body: dict[str, Any] = {"recreate": params.recreate, "requiredDevices": {}}
-            if params.targets:
-                body["targets"] = params.targets
-            await api.run("generateSupportFile", body=body, confirm=params.confirm)
-            deadline = time.monotonic() + params.wait_seconds
-            last_error = "Generation started but the wait was 0 seconds; call again with download via unifi_console_call_operation(operation_id='downloadSupportFile', confirm=true)."
-            while params.wait_seconds > 0:
+            result = await _console_support_file(api, recreate=params.recreate, targets=params.targets,
+                                                 wait_seconds=params.wait_seconds, confirm=params.confirm)
+            return api.render(result)
+        except Exception as exc:  # noqa: BLE001
+            return error_text(exc)
+
+    @mcp.tool(
+        name="unifi_console_gateway_config",
+        annotations={"title": "Gateway provisioned config", "readOnlyHint": False, "destructiveHint": False,
+                     "idempotentHint": True, "openWorldHint": False},
+    )
+    async def unifi_console_gateway_config(params: GatewayConfigInput) -> str:
+        """What the controller actually sent the gateway, read from a console support file, and whether it matches.
+
+        Use it when the console's view and the gateway's behaviour disagree: a policy that seems not to apply,
+        a WAN or DHCPv6-PD setting in doubt, DHCP/DNS handed out differently from the network settings, or after
+        a provisioning error. policy_drift lists enabled custom policies missing from the gateway config,
+        disabled ones still present, action/IP version/logging mismatches and orphan rules. firewall reports the
+        types seen per rule field; mixed_type_fields points at 'X must be an object' validation errors.
+
+        Reuses the newest support file in the download folder (default: up to a day old); refresh=true with
+        confirm=true builds a new one first. Read-only on the console otherwise. Credentials are never returned:
+        services holding them are skipped and key-like fields are redacted. This is the config sent to the
+        gateway, not the rules it loaded (that needs the device support file, not captured yet).
+
+        Returns JSON: {"ok", "data": {"source": {...}, "summary", "interfaces", "services", "firewall",
+        "policy_drift"}}.
+        """
+        try:
+            settings = api.settings
+            if params.refresh:
+                result = await _console_support_file(api, recreate=True, targets=None,
+                                                     wait_seconds=params.wait_seconds, confirm=params.confirm)
+                archive = result.download.path if result.download else None
+            else:
+                archive = gateway_config.latest_support_file(settings.download_dir)
+                if archive and time.time() - archive.stat().st_mtime > params.max_age_minutes * 60:
+                    archive = None
+            if archive is None:
+                raise UniFiError(f"No console support file newer than {params.max_age_minutes} minutes in "
+                                 f"{settings.download_dir}. Call again with refresh=true and confirm=true (about 90 s; "
+                                 "needs UNIFI_CONSOLE_ENABLE_WRITES=true and Control Plane = Admin), or raise max_age_minutes.")
+            gateways = await asyncio.to_thread(gateway_config.load_gateways, archive)
+            if params.device_mac:
+                gateways = [g for g in gateways if g.mac == params.device_mac.lower()]
+            if not gateways:
+                raise UniFiError(f"No gateway config found in {archive.name}"
+                                 f"{' for ' + params.device_mac if params.device_mac else ''}.")
+            if len(gateways) > 1:
+                raise UniFiError("The bundle holds several gateways; pass device_mac: "
+                                 + ", ".join(g.mac for g in gateways))
+            gw = gateways[0]
+            wanted = set(params.sections or get_args(GatewaySection))
+            age_min = round((time.time() - archive.stat().st_mtime) / 60, 1)
+            data: dict[str, Any] = {"source": {"file": archive.name, "saved": iso(archive.stat().st_mtime),
+                                               "age_minutes": age_min}}
+            if "summary" in wanted:
+                summary = gateway_config.summary_view(gw)
                 try:
-                    result = await api.run("downloadSupportFile", confirm=True)
-                    return api.render(result)
-                except UniFiError as exc:
-                    last_error = str(exc)
-                if time.monotonic() >= deadline:
-                    break
-                await asyncio.sleep(10)
-            raise UniFiError(f"Support file not ready within {params.wait_seconds}s. Last response: {last_error}")
+                    dev = _first((await api.run("getDeviceDetail", path_params={"mac": gw.mac})).data)
+                    summary["controller_now"] = {"cfgversion": dev.get("cfgversion"), "state": dev.get("state"),
+                                                 "provisioned_at": iso(dev.get("provisioned_at"))}
+                except UniFiError:
+                    pass  # the bundle still answers the question without the live record
+                data["summary"] = summary
+            if "interfaces" in wanted:
+                data["interfaces"] = gateway_config.interfaces_view(gw.udapi)
+            if "services" in wanted:
+                data.update(gateway_config.services_view(gw.udapi))
+            if "firewall" in wanted:
+                data["firewall"] = gateway_config.firewall_view(gw.udapi, params.firewall_chain)
+            if "policy_drift" in wanted:
+                policies = (await api.run("listFirewallPoliciesWithHits")).data or []
+                data["policy_drift"] = gateway_config.compare_policies(policies, gw.udapi)
+            note = ("The bundle is a snapshot: compare inform.cfgversion with controller_now.cfgversion only when it "
+                    "is fresh (refresh=true); a mismatch then means the gateway has not taken the latest config.")
+            return api.render(RunResult("gatewayConfig", 200, data), extra={"note": note})
         except Exception as exc:  # noqa: BLE001
             return error_text(exc)
 

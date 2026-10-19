@@ -14,7 +14,7 @@ EXPECTED = {
     "unifi_console_list_operations", "unifi_console_describe_operation", "unifi_console_call_operation",
     "unifi_console_session_status", "unifi_console_system_log", "unifi_console_firewall_policy_hits",
     "unifi_console_poe_overview", "unifi_console_switch_port_detail", "unifi_console_backup",
-    "unifi_console_support_file", "unifi_console_access_review", "unifi_console_port_forward", "unifi_console_network_list", "unifi_console_client", "unifi_console_static_dns", "unifi_console_client_group", "unifi_console_dynamic_dns", "unifi_console_traffic_object", "unifi_console_doh", "unifi_console_firewall_policy", "unifi_console_switch_port", "unifi_console_wifi", "unifi_console_network", "unifi_console_wan", "unifi_console_client_command", "unifi_console_syslog", "unifi_console_data_retention", "unifi_console_logging_levels", "unifi_console_qos_rule", "unifi_console_app_block", "unifi_console_device",
+    "unifi_console_support_file", "unifi_console_gateway_config", "unifi_console_access_review", "unifi_console_port_forward", "unifi_console_network_list", "unifi_console_client", "unifi_console_static_dns", "unifi_console_client_group", "unifi_console_dynamic_dns", "unifi_console_traffic_object", "unifi_console_doh", "unifi_console_firewall_policy", "unifi_console_switch_port", "unifi_console_wifi", "unifi_console_network", "unifi_console_wan", "unifi_console_client_command", "unifi_console_syslog", "unifi_console_data_retention", "unifi_console_logging_levels", "unifi_console_qos_rule", "unifi_console_app_block", "unifi_console_device",
 }
 SITE = "/proxy/network/v2/api/site/default"
 MAC = "aa:bb:cc:dd:ee:ff"
@@ -44,7 +44,7 @@ async def test_tool_list_and_annotations(open_session):
     async with open_session() as (client, _, _):
         tools = {t.name: t for t in (await client.list_tools()).tools}
         assert set(tools) == EXPECTED
-        writers = {"unifi_console_call_operation", "unifi_console_backup", "unifi_console_support_file", "unifi_console_port_forward", "unifi_console_network_list", "unifi_console_client", "unifi_console_static_dns", "unifi_console_client_group", "unifi_console_dynamic_dns", "unifi_console_traffic_object", "unifi_console_doh", "unifi_console_firewall_policy", "unifi_console_switch_port", "unifi_console_wifi", "unifi_console_network", "unifi_console_wan", "unifi_console_client_command", "unifi_console_syslog", "unifi_console_data_retention", "unifi_console_logging_levels", "unifi_console_qos_rule", "unifi_console_app_block", "unifi_console_device"}
+        writers = {"unifi_console_call_operation", "unifi_console_backup", "unifi_console_support_file", "unifi_console_gateway_config", "unifi_console_port_forward", "unifi_console_network_list", "unifi_console_client", "unifi_console_static_dns", "unifi_console_client_group", "unifi_console_dynamic_dns", "unifi_console_traffic_object", "unifi_console_doh", "unifi_console_firewall_policy", "unifi_console_switch_port", "unifi_console_wifi", "unifi_console_network", "unifi_console_wan", "unifi_console_client_command", "unifi_console_syslog", "unifi_console_data_retention", "unifi_console_logging_levels", "unifi_console_qos_rule", "unifi_console_app_block", "unifi_console_device"}
         for name in EXPECTED - writers:
             assert tools[name].annotations.read_only_hint is True, name
         assert tools["unifi_console_port_forward"].annotations.destructive_hint is True

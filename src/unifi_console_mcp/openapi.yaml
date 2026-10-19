@@ -1,6 +1,7 @@
+# yaml-language-server: $schema=https://spec.openapis.org/oas/3.1/schema/2022-10-07
 openapi: 3.1.0
 info:
-  title: UniFi API - Local Console and Site Manager Cloud
+  title: UniFi API for use with unifi-console-mcp
   version: 2.0.0
   summary: Reference for the UniFi Cloud Key Gen2 Plus console (official Integration API, controller API, UniFi OS) and UniFi Site Manager.
   description: |
@@ -61,7 +62,8 @@ servers:
     variables:
       host:
         default: 192.168.1.2
-        description: Console IP or DNS name on the management LAN
+        enum: ['192.168.1.2']
+        description: Console address on the management LAN
 tags:
   - name: Auth
     description: UniFi OS console login/logout. Produces the session used by the **Controller** and **UniFi OS** tags.
@@ -186,6 +188,11 @@ paths:
           description: Too many failed login attempts; the console blocks the source for a period.
           headers:
             Retry-After: {$ref: '#/components/headers/Retry-After'}
+          content:
+            application/json:
+              schema: {type: object, additionalProperties: true}
+              example: {code: AUTHENTICATION_FAILED_LIMIT_REACHED, message: Too many failed attempts}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /api/auth/logout:
     post:
       operationId: localLogout
@@ -195,6 +202,7 @@ paths:
       responses:
         '200': {description: 'Logged out; the `TOKEN` cookie is cleared'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   # ================================================================== INTEGRATION API (local, official)
   /proxy/network/integration/v1/info:
@@ -213,6 +221,7 @@ paths:
                 properties:
                   applicationVersion: {type: string, examples: ['11.0.81']}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites:
     get:
       operationId: listLocalSites
@@ -247,6 +256,7 @@ paths:
               parameters: {siteId: '$response.body#/data/0/id'}
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
 
   # ------------------------------------------------------------------ Devices
   /proxy/network/integration/v1/sites/{siteId}/devices:
@@ -277,6 +287,7 @@ paths:
               parameters: {siteId: '$request.path.siteId', deviceId: '$response.body#/data/0/id'}
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
     post:
       operationId: adoptDevice
       summary: Adopt a pending device
@@ -303,6 +314,7 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '409': {$ref: '#/components/responses/Conflict'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/devices/{deviceId}:
     parameters:
       - {$ref: '#/components/parameters/SiteId'}
@@ -325,6 +337,7 @@ paths:
               parameters: {siteId: '$request.path.siteId', deviceId: '$response.body#/uplink/deviceId'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
     delete:
       operationId: removeDevice
       summary: Remove (unadopt) a device
@@ -335,6 +348,7 @@ paths:
         '200': {description: 'Device removed'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/devices/{deviceId}/statistics/latest:
     parameters:
       - {$ref: '#/components/parameters/SiteId'}
@@ -352,6 +366,7 @@ paths:
               schema: {$ref: '#/components/schemas/DeviceStatistics'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/devices/{deviceId}/actions:
     parameters:
       - {$ref: '#/components/parameters/SiteId'}
@@ -373,6 +388,7 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/devices/{deviceId}/interfaces/ports/{portIdx}/actions:
     parameters:
       - {$ref: '#/components/parameters/SiteId'}
@@ -400,6 +416,7 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/pending-devices:
     get:
       operationId: listPendingDevices
@@ -417,6 +434,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/PendingDevicePage'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
 
   # ------------------------------------------------------------------ Clients
   /proxy/network/integration/v1/sites/{siteId}/clients:
@@ -442,6 +460,7 @@ paths:
               parameters: {siteId: '$request.path.siteId', clientId: '$response.body#/data/0/id'}
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/clients/{clientId}:
     parameters:
       - {$ref: '#/components/parameters/SiteId'}
@@ -462,6 +481,7 @@ paths:
               parameters: {siteId: '$request.path.siteId', deviceId: '$response.body#/uplinkDeviceId'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/clients/{clientId}/actions:
     parameters:
       - {$ref: '#/components/parameters/SiteId'}
@@ -493,6 +513,7 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
 
   # ------------------------------------------------------------------ Networks
   /proxy/network/integration/v1/sites/{siteId}/networks:
@@ -517,6 +538,7 @@ paths:
               operationId: getNetworkDetails
               parameters: {siteId: '$request.path.siteId', networkId: '$response.body#/data/0/id'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
     post:
       operationId: createNetwork
       summary: Create a network (VLAN)
@@ -565,6 +587,7 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '409': {$ref: '#/components/responses/Conflict'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/networks/{networkId}:
     parameters:
       - {$ref: '#/components/parameters/SiteId'}
@@ -585,6 +608,7 @@ paths:
               parameters: {siteId: '$request.path.siteId', networkId: '$request.path.networkId'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
     put:
       operationId: updateNetwork
       summary: Update a network
@@ -605,6 +629,7 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
     delete:
       operationId: deleteNetwork
       summary: Delete a network
@@ -617,6 +642,7 @@ paths:
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/networks/{networkId}/references:
     parameters:
       - {$ref: '#/components/parameters/SiteId'}
@@ -634,6 +660,7 @@ paths:
               schema: {$ref: '#/components/schemas/NetworkReferences'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
 
   # ------------------------------------------------------------------ WiFi
   /proxy/network/integration/v1/sites/{siteId}/wifi/broadcasts:
@@ -658,6 +685,7 @@ paths:
               operationId: getWifiBroadcast
               parameters: {siteId: '$request.path.siteId', wifiBroadcastId: '$response.body#/data/0/id'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
     post:
       operationId: createWifiBroadcast
       summary: Create a Wi-Fi broadcast
@@ -691,6 +719,7 @@ paths:
               schema: {$ref: '#/components/schemas/WifiBroadcast'}
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/wifi/broadcasts/{wifiBroadcastId}:
     parameters:
       - {$ref: '#/components/parameters/SiteId'}
@@ -707,6 +736,7 @@ paths:
               schema: {$ref: '#/components/schemas/WifiBroadcast'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
     put:
       operationId: updateWifiBroadcast
       summary: Update a Wi-Fi broadcast
@@ -726,6 +756,7 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
     delete:
       operationId: deleteWifiBroadcast
       summary: Delete a Wi-Fi broadcast
@@ -737,6 +768,7 @@ paths:
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
+        '500': {$ref: '#/components/responses/ServerError'}
 
   # ------------------------------------------------------------------ Firewall (zone-based)
   /proxy/network/integration/v1/sites/{siteId}/firewall/zones:
@@ -765,6 +797,7 @@ paths:
                 sourceFirewallZoneId: '$response.body#/data/0/id'
                 destinationFirewallZoneId: '$response.body#/data/1/id'
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
     post:
       operationId: createFirewallZone
       summary: Create a custom firewall zone
@@ -784,6 +817,7 @@ paths:
               schema: {$ref: '#/components/schemas/IntegrationFirewallZone'}
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/firewall/zones/{firewallZoneId}:
     parameters:
       - {$ref: '#/components/parameters/SiteId'}
@@ -800,6 +834,7 @@ paths:
               schema: {$ref: '#/components/schemas/IntegrationFirewallZone'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
     put:
       operationId: updateFirewallZone
       summary: Update a firewall zone (name, member networks)
@@ -820,6 +855,7 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
     delete:
       operationId: deleteFirewallZone
       summary: Delete a custom firewall zone
@@ -831,6 +867,7 @@ paths:
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/firewall/policies:
     parameters: [{$ref: '#/components/parameters/SiteId'}]
     get:
@@ -853,6 +890,7 @@ paths:
               operationId: getFirewallPolicy
               parameters: {siteId: '$request.path.siteId', firewallPolicyId: '$response.body#/data/0/id'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
     post:
       operationId: createFirewallPolicy
       summary: Create a firewall policy
@@ -901,6 +939,7 @@ paths:
               schema: {$ref: '#/components/schemas/FirewallPolicy'}
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/firewall/policies/{firewallPolicyId}:
     parameters:
       - {$ref: '#/components/parameters/SiteId'}
@@ -917,6 +956,7 @@ paths:
               schema: {$ref: '#/components/schemas/FirewallPolicy'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
     put:
       operationId: updateFirewallPolicy
       summary: Replace a firewall policy
@@ -937,6 +977,7 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
     patch:
       operationId: patchFirewallPolicy
       summary: Patch logging and flow reporting on a firewall policy
@@ -964,6 +1005,7 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
     delete:
       operationId: deleteFirewallPolicy
       summary: Delete a firewall policy
@@ -973,6 +1015,7 @@ paths:
         '200': {description: 'Deleted'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/firewall/policies/ordering:
     parameters:
       - {$ref: '#/components/parameters/SiteId'}
@@ -990,6 +1033,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/FirewallPolicyOrdering'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
     put:
       operationId: updateFirewallPolicyOrdering
       summary: Reorder policies for a zone pair
@@ -1009,6 +1053,7 @@ paths:
               schema: {$ref: '#/components/schemas/FirewallPolicyOrdering'}
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/traffic-matching-lists:
     parameters: [{$ref: '#/components/parameters/SiteId'}]
     get:
@@ -1027,6 +1072,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/TrafficMatchingListPage'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
     post:
       operationId: createTrafficMatchingList
       summary: Create a traffic matching list
@@ -1049,10 +1095,11 @@ paths:
               schema: {$ref: '#/components/schemas/TrafficMatchingList'}
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/traffic-matching-lists/{trafficMatchingListId}:
     parameters:
       - {$ref: '#/components/parameters/SiteId'}
-      - {name: trafficMatchingListId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: trafficMatchingListId, in: path, required: true, description: 'Traffic matching list `id`', schema: {type: string, format: uuid}}
     get:
       operationId: getTrafficMatchingList
       summary: Get a traffic matching list
@@ -1065,6 +1112,7 @@ paths:
               schema: {$ref: '#/components/schemas/TrafficMatchingList'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
     put:
       operationId: updateTrafficMatchingList
       summary: Update a traffic matching list
@@ -1084,6 +1132,7 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
     delete:
       operationId: deleteTrafficMatchingList
       summary: Delete a traffic matching list
@@ -1095,6 +1144,7 @@ paths:
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/Conflict'}
+        '500': {$ref: '#/components/responses/ServerError'}
 
   # ------------------------------------------------------------------ ACL rules
   /proxy/network/integration/v1/sites/{siteId}/acl-rules:
@@ -1118,6 +1168,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/AclRulePage'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
     post:
       operationId: createAclRule
       summary: Create a switch ACL rule
@@ -1137,10 +1188,11 @@ paths:
               schema: {$ref: '#/components/schemas/AclRule'}
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/acl-rules/{aclRuleId}:
     parameters:
       - {$ref: '#/components/parameters/SiteId'}
-      - {name: aclRuleId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: aclRuleId, in: path, required: true, description: 'ACL rule `id`', schema: {type: string, format: uuid}}
     get:
       operationId: getAclRule
       summary: Get a switch ACL rule
@@ -1153,6 +1205,7 @@ paths:
               schema: {$ref: '#/components/schemas/AclRule'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
     put:
       operationId: updateAclRule
       summary: Update a switch ACL rule
@@ -1172,6 +1225,7 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
     delete:
       operationId: deleteAclRule
       summary: Delete a switch ACL rule
@@ -1182,6 +1236,7 @@ paths:
         '200': {description: 'Deleted'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/acl-rules/ordering:
     parameters: [{$ref: '#/components/parameters/SiteId'}]
     get:
@@ -1195,6 +1250,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/AclRuleOrdering'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
     put:
       operationId: updateAclRuleOrdering
       summary: Reorder ACL rules
@@ -1213,6 +1269,7 @@ paths:
               schema: {$ref: '#/components/schemas/AclRuleOrdering'}
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
 
   # ------------------------------------------------------------------ Switching (read-only)
   /proxy/network/integration/v1/sites/{siteId}/switching/switch-stacks:
@@ -1236,10 +1293,11 @@ paths:
                   - {$ref: '#/components/schemas/Page'}
                   - properties: {data: {type: array, items: {$ref: '#/components/schemas/SwitchStack'}}}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/switching/switch-stacks/{switchStackId}:
     parameters:
       - {$ref: '#/components/parameters/SiteId'}
-      - {name: switchStackId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: switchStackId, in: path, required: true, description: 'Switch stack `id`', schema: {type: string, format: uuid}}
     get:
       operationId: getSwitchStack
       summary: Get a switch stack
@@ -1252,6 +1310,7 @@ paths:
               schema: {$ref: '#/components/schemas/SwitchStack'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/switching/mc-lag-domains:
     parameters: [{$ref: '#/components/parameters/SiteId'}]
     get:
@@ -1273,10 +1332,11 @@ paths:
                   - {$ref: '#/components/schemas/Page'}
                   - properties: {data: {type: array, items: {$ref: '#/components/schemas/McLagDomain'}}}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/switching/mc-lag-domains/{mcLagDomainId}:
     parameters:
       - {$ref: '#/components/parameters/SiteId'}
-      - {name: mcLagDomainId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: mcLagDomainId, in: path, required: true, description: 'MC-LAG domain `id`', schema: {type: string, format: uuid}}
     get:
       operationId: getMcLagDomain
       summary: Get an MC-LAG domain
@@ -1289,6 +1349,7 @@ paths:
               schema: {$ref: '#/components/schemas/McLagDomain'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/switching/lags:
     parameters: [{$ref: '#/components/parameters/SiteId'}]
     get:
@@ -1310,10 +1371,11 @@ paths:
                   - {$ref: '#/components/schemas/Page'}
                   - properties: {data: {type: array, items: {$ref: '#/components/schemas/Lag'}}}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/switching/lags/{lagId}:
     parameters:
       - {$ref: '#/components/parameters/SiteId'}
-      - {name: lagId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: lagId, in: path, required: true, description: 'LAG `id`', schema: {type: string, format: uuid}}
     get:
       operationId: getLag
       summary: Get a LAG
@@ -1326,6 +1388,7 @@ paths:
               schema: {$ref: '#/components/schemas/Lag'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
 
   # ------------------------------------------------------------------ DNS policies
   /proxy/network/integration/v1/sites/{siteId}/dns/policies:
@@ -1346,6 +1409,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/DnsPolicyPage'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
     post:
       operationId: createDnsPolicy
       summary: Create a DNS record or forwarder
@@ -1379,10 +1443,11 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '409': {$ref: '#/components/responses/Conflict'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/dns/policies/{dnsPolicyId}:
     parameters:
       - {$ref: '#/components/parameters/SiteId'}
-      - {name: dnsPolicyId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: dnsPolicyId, in: path, required: true, description: 'DNS policy `id`', schema: {type: string, format: uuid}}
     get:
       operationId: getDnsPolicy
       summary: Get a DNS record or forwarder
@@ -1395,6 +1460,7 @@ paths:
               schema: {$ref: '#/components/schemas/DnsPolicy'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
     put:
       operationId: updateDnsPolicy
       summary: Update a DNS record or forwarder
@@ -1414,6 +1480,7 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
     delete:
       operationId: deleteDnsPolicy
       summary: Delete a DNS record or forwarder
@@ -1423,6 +1490,7 @@ paths:
         '200': {description: 'Deleted'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
 
   # ------------------------------------------------------------------ Hotspot vouchers
   /proxy/network/integration/v1/sites/{siteId}/hotspot/vouchers:
@@ -1443,6 +1511,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/VoucherPage'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
     post:
       operationId: createVouchers
       summary: Generate hotspot vouchers
@@ -1468,6 +1537,7 @@ paths:
                   vouchers: {type: array, items: {$ref: '#/components/schemas/Voucher'}}
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
     delete:
       operationId: deleteVouchers
       summary: Delete vouchers matching a filter
@@ -1478,6 +1548,7 @@ paths:
         - name: filter
           in: query
           required: true
+          description: Filter expression selecting the vouchers to delete
           schema: {type: string}
           examples:
             expired: {summary: 'All expired vouchers', value: "expired.eq(true)"}
@@ -1492,10 +1563,11 @@ paths:
                   vouchersDeleted: {type: integer, examples: [12]}
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/hotspot/vouchers/{voucherId}:
     parameters:
       - {$ref: '#/components/parameters/SiteId'}
-      - {name: voucherId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: voucherId, in: path, required: true, description: 'Hotspot voucher `id`', schema: {type: string, format: uuid}}
     get:
       operationId: getVoucher
       summary: Get a hotspot voucher
@@ -1508,6 +1580,7 @@ paths:
               schema: {$ref: '#/components/schemas/Voucher'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
     delete:
       operationId: deleteVoucher
       summary: Delete a hotspot voucher
@@ -1524,6 +1597,7 @@ paths:
                   vouchersDeleted: {type: integer, examples: [1]}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/ServerError'}
 
   # ------------------------------------------------------------------ Supporting resources (read-only)
   /proxy/network/integration/v1/sites/{siteId}/wans:
@@ -1542,6 +1616,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/NamedResourcePage'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/vpn/servers:
     parameters: [{$ref: '#/components/parameters/SiteId'}]
     get:
@@ -1559,6 +1634,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/VpnServerPage'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/vpn/site-to-site-tunnels:
     parameters: [{$ref: '#/components/parameters/SiteId'}]
     get:
@@ -1576,6 +1652,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/VpnTunnelPage'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/radius/profiles:
     parameters: [{$ref: '#/components/parameters/SiteId'}]
     get:
@@ -1593,6 +1670,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/NamedResourcePage'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/sites/{siteId}/device-tags:
     parameters: [{$ref: '#/components/parameters/SiteId'}]
     get:
@@ -1611,6 +1689,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/DeviceTagPage'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/countries:
     get:
       operationId: listCountries
@@ -1627,6 +1706,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/CountryPage'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/dpi/categories:
     get:
       operationId: listDpiCategories
@@ -1644,6 +1724,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/DpiPage'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
   /proxy/network/integration/v1/dpi/applications:
     get:
       operationId: listDpiApplications
@@ -1660,6 +1741,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/DpiPage'}
         '401': {$ref: '#/components/responses/Unauthorized'}
+        '500': {$ref: '#/components/responses/ServerError'}
 
   # ================================================================== CONTROLLER API (undocumented)
   /proxy/network/api/s/{site}/stat/health:
@@ -1680,6 +1762,7 @@ paths:
                   - {$ref: '#/components/schemas/LegacyEnvelope'}
                   - properties: {data: {type: array, items: {$ref: '#/components/schemas/LegacyHealth'}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/stat/sysinfo:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -1697,6 +1780,7 @@ paths:
                   - {$ref: '#/components/schemas/LegacyEnvelope'}
                   - properties: {data: {type: array, items: {$ref: '#/components/schemas/LegacySysInfo'}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/stat/widget/warnings:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -1707,6 +1791,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyOk'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/stat/event:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -1730,6 +1815,7 @@ paths:
                   - {$ref: '#/components/schemas/LegacyEnvelope'}
                   - properties: {data: {type: array, items: {$ref: '#/components/schemas/LegacyEvent'}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/stat/alarm:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -1749,6 +1835,7 @@ paths:
                   - {$ref: '#/components/schemas/LegacyEnvelope'}
                   - properties: {data: {type: array, items: {$ref: '#/components/schemas/LegacyEvent'}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/cmd/backup:
     parameters: [{$ref: '#/components/parameters/Site'}]
     post:
@@ -1770,6 +1857,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyOk'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/cmd/system:
     parameters: [{$ref: '#/components/parameters/Site'}]
     post:
@@ -1794,6 +1882,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyOk'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/api/s/{site}/stat/current-channel:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -1805,6 +1894,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyOk'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/stat/device:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -1823,6 +1913,7 @@ paths:
                   - {$ref: '#/components/schemas/LegacyEnvelope'}
                   - properties: {data: {type: array, items: {$ref: '#/components/schemas/LegacyDevice'}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     post:
       operationId: listDevicesDetailedFiltered
       summary: Detailed device list filtered by MAC
@@ -1847,6 +1938,7 @@ paths:
                   - {$ref: '#/components/schemas/LegacyEnvelope'}
                   - properties: {data: {type: array, items: {$ref: '#/components/schemas/LegacyDevice'}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/stat/device-basic:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -1864,6 +1956,7 @@ paths:
                   - {$ref: '#/components/schemas/LegacyEnvelope'}
                   - properties: {data: {type: array, items: {$ref: '#/components/schemas/LegacyDeviceBasic'}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/device:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -1873,7 +1966,7 @@ paths:
       security: [{ControllerSession: []}]
       parameters:
         - {name: separateUnmanaged, in: query, description: 'Return unmanaged (third-party) devices in a separate array', schema: {type: boolean, default: false}}
-        - {name: includeTrafficUsage, in: query, schema: {type: boolean, default: false}}
+        - {name: includeTrafficUsage, in: query, description: 'Include per-device traffic counters', schema: {type: boolean, default: false}}
       responses:
         '200':
           description: OK
@@ -1885,6 +1978,7 @@ paths:
                 properties:
                   network_devices: {type: array, items: {$ref: '#/components/schemas/LegacyDevice'}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/topology:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -1921,6 +2015,7 @@ paths:
                         type: {type: string, examples: [DEVICE, CLIENT]}
                   has_unknown_switch: {type: boolean, description: 'True when an unmanaged switch is inferred between two nodes'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/api/s/{site}/rest/device/{id}:
     parameters:
@@ -2023,6 +2118,7 @@ paths:
                   - properties: {data: {type: array, items: {$ref: '#/components/schemas/LegacyDevice'}}}
         '400': {$ref: '#/components/responses/LegacyBadRequest'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/stats/recent/series:
     get:
       operationId: getStatsSeries
@@ -2082,12 +2178,14 @@ paths:
             application/json:
               schema: {type: array, items: {$ref: '#/components/schemas/StatsSeries'}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/stat/device/{mac}:
     parameters:
       - {$ref: '#/components/parameters/Site'}
       - name: mac
         in: path
         required: true
+        description: Device MAC address
         schema: {$ref: '#/components/schemas/MacAddress'}
     get:
       operationId: getDeviceDetail
@@ -2114,6 +2212,7 @@ paths:
                   - {$ref: '#/components/schemas/LegacyEnvelope'}
                   - properties: {data: {type: array, items: {$ref: '#/components/schemas/LegacyDevice'}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/cmd/devmgr:
     parameters: [{$ref: '#/components/parameters/Site'}]
     post:
@@ -2152,6 +2251,7 @@ paths:
         '200': {$ref: '#/components/responses/LegacyOk'}
         '400': {$ref: '#/components/responses/LegacyBadRequest'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/cmd/sitemgr:
     parameters: [{$ref: '#/components/parameters/Site'}]
     post:
@@ -2180,6 +2280,7 @@ paths:
         '200': {$ref: '#/components/responses/LegacyOk'}
         '400': {$ref: '#/components/responses/LegacyBadRequest'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/set/setting/{key}:
     parameters:
       - {$ref: '#/components/parameters/Site'}
@@ -2225,6 +2326,7 @@ paths:
         '200': {$ref: '#/components/responses/LegacyList'}
         '400': {$ref: '#/components/responses/LegacyBadRequest'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/set/setting/doh:
     parameters: [{$ref: '#/components/parameters/Site'}]
     post:
@@ -2273,6 +2375,7 @@ paths:
         '200': {$ref: '#/components/responses/LegacyList'}
         '400': {$ref: '#/components/responses/LegacyBadRequest'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/settings/usg/defaults:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -2288,12 +2391,14 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/FirewallStateTimeouts'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/support/{mac}:
     parameters:
       - {$ref: '#/components/parameters/Site'}
       - name: mac
         in: path
         required: true
+        description: Device MAC address
         schema: {$ref: '#/components/schemas/MacAddress'}
     get:
       operationId: getDeviceSupportFileStatus
@@ -2315,12 +2420,14 @@ paths:
                   status: {type: string, examples: [READY_TO_GENERATE, GENERATING]}
               example: {mac: '00:00:5e:00:53:04', status: READY_TO_GENERATE}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/support/{mac}/generation:
     parameters:
       - {$ref: '#/components/parameters/Site'}
       - name: mac
         in: path
         required: true
+        description: Device MAC address
         schema: {$ref: '#/components/schemas/MacAddress'}
     post:
       operationId: generateDeviceSupportFile
@@ -2339,6 +2446,7 @@ paths:
       responses:
         '200': {description: 'Generation started (empty body)'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/system-log/device/{mac}:
     parameters:
       - {$ref: '#/components/parameters/Site'}
@@ -2351,12 +2459,12 @@ paths:
       operationId: listDeviceSystemLog
       summary: Recent System Log entries for one device
       description: What the device panel's *Activity* list shows, including admin changes made to the device.
-      tags: [Controller · System Log]
+      tags: [Controller · Alerts]
       security: [{ControllerSession: []}]
       parameters:
         - {name: mac, in: query, required: true, description: 'Same MAC as the path', schema: {$ref: '#/components/schemas/MacAddress'}}
-        - {name: scope, in: query, schema: {type: string, examples: [DEVICE]}}
-        - {name: limit, in: query, schema: {type: integer, minimum: 1, examples: [6]}}
+        - {name: scope, in: query, description: 'Log scope; `DEVICE` for device entries', schema: {type: string, examples: [DEVICE]}}
+        - {name: limit, in: query, description: 'Maximum entries returned', schema: {type: integer, minimum: 1, examples: [6]}}
       responses:
         '200':
           description: Newest first
@@ -2364,6 +2472,7 @@ paths:
             application/json:
               schema: {type: array, items: {$ref: '#/components/schemas/SystemLogEntry'}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/poe-info:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -2390,6 +2499,7 @@ paths:
                       max_poe_usage: {type: number, description: 'Watts'}
                       near_power_limit_downlinks: {type: array, items: {type: object, additionalProperties: true}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/ports/port-anomalies:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -2405,6 +2515,7 @@ paths:
             application/json:
               schema: {type: array, items: {type: object, additionalProperties: true}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/ports/history/timeline:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -2423,6 +2534,7 @@ paths:
             application/json:
               schema: {type: array, items: {type: object, additionalProperties: true}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/ports/history/timestamps:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -2440,6 +2552,7 @@ paths:
             application/json:
               schema: {type: array, items: {type: integer}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/power-supervisors:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -2482,12 +2595,14 @@ paths:
                         power_off_duration: {type: integer}
                         silence_threshold: {type: integer}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/device/{mac}/fw-revert-options:
     parameters:
       - {$ref: '#/components/parameters/Site'}
       - name: mac
         in: path
         required: true
+        description: Device MAC address
         schema: {$ref: '#/components/schemas/MacAddress'}
     get:
       operationId: getFirmwareRevertOptions
@@ -2505,6 +2620,7 @@ paths:
                   previous_firmware_version: {type: string}
                   previous_firmware_url: {type: string, format: uri}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/device/upgrade/rollupgrade/eligible-devices:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -2522,6 +2638,7 @@ paths:
                 properties:
                   macs: {type: array, items: {$ref: '#/components/schemas/MacAddress'}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/stat/sta:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -2540,6 +2657,7 @@ paths:
                   - {$ref: '#/components/schemas/LegacyEnvelope'}
                   - properties: {data: {type: array, items: {$ref: '#/components/schemas/ActiveClient'}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/rest/user:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -2558,6 +2676,7 @@ paths:
                   - {$ref: '#/components/schemas/LegacyEnvelope'}
                   - properties: {data: {type: array, items: {$ref: '#/components/schemas/KnownClient'}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     post:
       operationId: createKnownClient
       summary: Create a known client (for example a fixed-IP reservation)
@@ -2581,6 +2700,7 @@ paths:
         '200': {$ref: '#/components/responses/LegacyOk'}
         '400': {$ref: '#/components/responses/LegacyBadRequest'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/rest/user/{id}:
     parameters:
       - {$ref: '#/components/parameters/Site'}
@@ -2617,6 +2737,7 @@ paths:
         '200': {$ref: '#/components/responses/LegacyOk'}
         '400': {$ref: '#/components/responses/LegacyBadRequest'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/cmd/stamgr:
     parameters: [{$ref: '#/components/parameters/Site'}]
     post:
@@ -2655,6 +2776,7 @@ paths:
         '200': {$ref: '#/components/responses/LegacyOk'}
         '400': {$ref: '#/components/responses/LegacyBadRequest'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/clients/active:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -2663,7 +2785,7 @@ paths:
       tags: [Controller · Clients]
       security: [{ControllerSession: []}]
       parameters:
-        - {name: includeTrafficUsage, in: query, schema: {type: boolean, default: false}}
+        - {name: includeTrafficUsage, in: query, description: 'Include per-client traffic counters', schema: {type: boolean, default: false}}
         - {name: includeUnifiDevices, in: query, description: 'Include UniFi devices that appear as clients', schema: {type: boolean, default: false}}
       responses:
         '200':
@@ -2674,6 +2796,7 @@ paths:
                 type: array
                 items: {$ref: '#/components/schemas/ActiveClient'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/clients/history:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -2698,6 +2821,7 @@ paths:
                 type: array
                 items: {$ref: '#/components/schemas/ActiveClient'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/api/s/{site}/rest/networkconf:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -2716,6 +2840,7 @@ paths:
                   - {$ref: '#/components/schemas/LegacyEnvelope'}
                   - properties: {data: {type: array, items: {$ref: '#/components/schemas/LegacyNetworkConf'}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     post:
       operationId: createNetworkConfig
       summary: Create a network / VLAN (controller format)
@@ -2734,6 +2859,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/rest/networkconf/{id}:
     parameters:
       - {$ref: '#/components/parameters/Site'}
@@ -2755,6 +2881,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     delete:
       operationId: deleteNetworkConfig
       summary: Delete a network
@@ -2765,6 +2892,7 @@ paths:
       responses:
         '200': {description: Deleted}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/group/networkconf:
     parameters: [{$ref: '#/components/parameters/Site'}]
     put:
@@ -2784,6 +2912,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/active-leases:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -2808,6 +2937,7 @@ paths:
                     network_id: {type: string}
                     lease_expiry: {type: integer, description: 'Unix epoch seconds'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/api/s/{site}/rest/firewallgroup:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -2826,6 +2956,7 @@ paths:
                   - {$ref: '#/components/schemas/LegacyEnvelope'}
                   - properties: {data: {type: array, items: {$ref: '#/components/schemas/FirewallGroup'}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     post:
       operationId: createFirewallGroup
       summary: Create a network list (firewall group)
@@ -2845,6 +2976,7 @@ paths:
         '200': {$ref: '#/components/responses/LegacyOk'}
         '400': {$ref: '#/components/responses/LegacyBadRequest'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/rest/firewallgroup/{id}:
     parameters:
       - {$ref: '#/components/parameters/Site'}
@@ -2870,6 +3002,7 @@ paths:
         '200': {$ref: '#/components/responses/LegacyOk'}
         '400': {$ref: '#/components/responses/LegacyBadRequest'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     delete:
       operationId: deleteFirewallGroup
       summary: Delete a network list (firewall group)
@@ -2880,6 +3013,7 @@ paths:
       responses:
         '200': {description: Deleted}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/rest/firewallrule:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -2892,6 +3026,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyOk'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/firewall/zone:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -2909,6 +3044,7 @@ paths:
                 type: array
                 items: {$ref: '#/components/schemas/FirewallZone'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/firewall/zone-matrix:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -2924,6 +3060,7 @@ paths:
             application/json:
               schema: {type: array, items: {type: object, additionalProperties: true}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   # ================================================================== UNIFI OS (console root)
   /api/system/syslog/settings:
@@ -2935,6 +3072,7 @@ paths:
       responses:
         '200': {description: 'OK, content: {application/json: {schema: {type: object, additionalProperties: true}}}'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /api/firmware/update:
     get:
       operationId: getFirmwareUpdates
@@ -2944,6 +3082,7 @@ paths:
       responses:
         '200': {description: 'OK, content: {application/json: {schema: {type: object, additionalProperties: true}}}'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /api/userCertificates:
     get:
       operationId: listUserCertificates
@@ -2977,6 +3116,7 @@ paths:
                   acme_renew_error: null
                   active: true
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /api/userCertificates/challenge/current:
     get:
       operationId: getCertificateChallenge
@@ -2992,6 +3132,7 @@ paths:
               schema: {type: object, additionalProperties: true}
               example: {}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api-docs/integration.json:
     get:
       operationId: getIntegrationOpenApi
@@ -3009,6 +3150,7 @@ paths:
             application/json:
               schema: {type: object, additionalProperties: true}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /api/support/file/generate:
     post:
       operationId: generateSupportFile
@@ -3061,6 +3203,7 @@ paths:
         '200': {description: 'Support file generated (response body not captured)'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '403': {description: 'Missing or stale `X-CSRF-Token`'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /api/support/file/download:
     get:
       operationId: downloadSupportFile
@@ -3077,6 +3220,7 @@ paths:
             application/octet-stream:
               schema: {type: string, format: binary}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /api/backup/now:
     post:
       operationId: createConsoleBackup
@@ -3098,6 +3242,7 @@ paths:
         '204': {description: 'Backup created'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '403': {description: 'Missing or stale `X-CSRF-Token`'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /api/backup/local/list:
     get:
       operationId: listConsoleBackups
@@ -3122,12 +3267,13 @@ paths:
                     firmware_version: 6.0.11
                     hardware_shortname: UCKP
                     id: 3f2b6c1e-8a4d-4e7f-9b0c-1d2e3f4a5b6c
-                    mac: 00005E005301
+                    mac: '00005E005301'
                     owner_id: 9c8b7a6f-5e4d-4c3b-2a1f-0e9d8c7b6a5f
                     timezone: Europe/London
                     created_at: 1792205209266
                     frequency: WEEKLY
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /api/backup/download:
     get:
       operationId: downloadBackup
@@ -3171,6 +3317,7 @@ paths:
             application/octet-stream:
               schema: {type: string, format: binary}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   # ================================================================== CONTROLLER: traffic and Insights (from UI captures, 11.0.81)
   /proxy/network/v2/api/site/{site}/traffic-flows:
@@ -3214,6 +3361,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/TrafficFlowPage'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/traffic-flows/filter-data:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -3225,7 +3373,7 @@ paths:
       parameters:
         - {name: inputSize, in: query, description: 'Flows to scan', schema: {type: integer, examples: [10000]}}
         - {name: outputSize, in: query, description: 'Maximum values returned per list', schema: {type: integer, examples: [1000]}}
-        - {name: skipElements, in: query, schema: {type: integer, default: 0}}
+        - {name: skipElements, in: query, description: 'Values to skip per list (paging offset)', schema: {type: integer, default: 0}}
       responses:
         '200':
           description: OK
@@ -3233,6 +3381,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/TrafficFlowFilterData'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/traffic:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -3254,6 +3403,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/TrafficByApplication'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/app-traffic-rate:
     parameters: [{$ref: '#/components/parameters/Site'}]
     post:
@@ -3265,7 +3415,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/TimeStartMs'
         - $ref: '#/components/parameters/TimeEndMs'
-        - {name: includeUnidentified, in: query, schema: {type: boolean, default: false}}
+        - {name: includeUnidentified, in: query, description: 'Include traffic not matched to a known application', schema: {type: boolean, default: false}}
       requestBody:
         required: true
         content:
@@ -3279,6 +3429,7 @@ paths:
             application/json:
               schema: {type: array, items: {$ref: '#/components/schemas/AppTrafficRateInterval'}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/country-traffic:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -3308,6 +3459,7 @@ paths:
                         bytes_transmitted: {type: integer}
                         total_bytes: {type: integer}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/aggregated-dashboard:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -3328,6 +3480,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/Dashboard'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/wan/networkgroups:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -3365,6 +3518,7 @@ paths:
                             port_ifname: {type: string, examples: [eth4]}
                             disabled: {type: boolean}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/wan-slas:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -3403,6 +3557,7 @@ paths:
                               loss_threshold: {type: integer, description: 'Percent'}
                               threshold_policy: {type: string}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   # ================================================================== CONTROLLER: alerts and logs
   /proxy/network/v2/api/site/{site}/system-log/critical:
@@ -3487,6 +3642,7 @@ paths:
                     DOWNLINK_MACS: {id: '00:00:5e:00:53:03', list_values: ['00:00:5e:00:53:05']}
                     LEARN_MORE: {id: LEARN_MORE_ABOUT_LOOP, name: Learn more, url: 'https://help.ui.com/hc/en-us/articles/24292724428311'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/system-log/all:
     parameters: [{$ref: '#/components/parameters/Site'}]
     post:
@@ -3548,6 +3704,7 @@ paths:
                   total_element_count: {type: integer}
                   total_page_count: {type: integer}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/system-log/filter-data:
     parameters: [{$ref: '#/components/parameters/Site'}]
     post:
@@ -3568,6 +3725,7 @@ paths:
             application/json:
               schema: {type: object, additionalProperties: true}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/system-log/{logId}/cef:
     parameters:
       - {$ref: '#/components/parameters/Site'}
@@ -3602,6 +3760,7 @@ paths:
               example:
                 cef_log: 'CEF:0|Ubiquiti|UniFi Network|11.0.81|401|WiFi Client Disconnected|2|UNIFIcategory=Client Devices UNIFIsite=Example Site UNIFIhost=Cloud Key Gen2 Plus UNIFIlastConnectedToDeviceName=AP-Hall UNIFIlastConnectedToDeviceIp=192.168.1.6 UNIFIclientAlias=Tablet UNIFIclientIp=192.168.1.150 UNIFIclientMac=00:00:5e:00:53:2e UNIFIwifiChannel=100 UNIFIwifiName=example-ssid UNIFIwifiBand=na UNIFIlastConnectedToWiFiRssi=-61 UNIFIduration=9m 43s UNIFInetworkName=LAN UNIFInetworkVlan=1 UNIFIutcTime=2026-10-16T11:41:55.474Z msg=Tablet disconnected from example-ssid. Time Connected: 9m 43s. Last Connected To: AP-Hall at -61 dBm.'
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /api/v2/alarms/network:
     get:
       operationId: listAlarmRules
@@ -3616,6 +3775,7 @@ paths:
             application/json:
               schema: {type: array, items: {$ref: '#/components/schemas/AlarmRule'}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /api/v2/alarms/network/activity-24h:
     get:
       operationId: getAlarmActivity
@@ -3634,6 +3794,7 @@ paths:
                   report_middle: {type: string, format: date-time}
                   entries: {type: array, items: {type: object, additionalProperties: true}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /api/v2/alarms/network/manifest:
     get:
       operationId: getAlarmManifest
@@ -3644,6 +3805,7 @@ paths:
       responses:
         '200': {description: 'OK, content: {application/json: {schema: {type: object, additionalProperties: true}}}'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /api/notifications/settings:
     get:
       operationId: getConsoleNotificationSettings
@@ -3669,6 +3831,7 @@ paths:
                         pushEnabled: {type: boolean}
                         visible: {type: boolean}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   # ================================================================== CONTROLLER: firewall (UI view)
   /proxy/network/v2/api/site/{site}/firewall-policies:
@@ -3689,6 +3852,7 @@ paths:
             application/json:
               schema: {type: array, items: {$ref: '#/components/schemas/FirewallPolicyUi'}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     post:
       operationId: createControllerFirewallPolicy
       summary: Create a zone-based firewall policy
@@ -3711,6 +3875,7 @@ paths:
         '201': {description: Created}
         '400': {description: Validation failed}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/firewall-policies/batch:
     parameters: [{$ref: '#/components/parameters/Site'}]
     put:
@@ -3731,6 +3896,7 @@ paths:
         '200': {description: OK}
         '400': {description: Validation failed}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/firewall-policies/batch-reorder:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -3754,6 +3920,7 @@ paths:
         '200': {description: OK}
         '400': {description: Validation failed}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/firewall-policies/batch-delete:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -3777,6 +3944,7 @@ paths:
         '204': {description: Deleted}
         '400': {description: Validation failed}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/trafficrules:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -3792,6 +3960,7 @@ paths:
             application/json:
               schema: {type: array, items: {type: object, additionalProperties: true}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/trafficroutes:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -3806,6 +3975,7 @@ paths:
             application/json:
               schema: {type: array, items: {type: object, additionalProperties: true}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/content-filtering:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -3820,6 +3990,7 @@ paths:
             application/json:
               schema: {type: array, items: {type: object, additionalProperties: true}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/rest/portforward:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -3830,6 +4001,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     post:
       operationId: createPortForward
       summary: Create a port forward
@@ -3849,6 +4021,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/rest/portforward/{id}:
     parameters:
       - {$ref: '#/components/parameters/Site'}
@@ -3870,6 +4043,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     delete:
       operationId: deletePortForward
       summary: Delete a port forward
@@ -3880,6 +4054,7 @@ paths:
       responses:
         '200': {description: Deleted}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   # ================================================================== CONTROLLER: configuration
   /proxy/network/api/s/{site}/get/setting:
@@ -3899,6 +4074,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/get/setting/{key}:
     parameters:
       - {$ref: '#/components/parameters/Site'}
@@ -3918,6 +4094,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/described-features:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -3929,7 +4106,7 @@ paths:
       tags: [Controller · System]
       security: [{ControllerSession: []}]
       parameters:
-        - {name: includeSystemFeatures, in: query, schema: {type: boolean, default: false}}
+        - {name: includeSystemFeatures, in: query, description: 'Include internal system features as well as user-facing ones', schema: {type: boolean, default: false}}
       responses:
         '200':
           description: OK
@@ -3943,6 +4120,7 @@ paths:
                     name: {type: string, examples: [ZONE_BASED_FIREWALL]}
                     feature_exists: {type: boolean}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/global/config/network:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -3968,6 +4146,7 @@ paths:
                   mdns_enabled_for_network_ids: {type: array, items: {type: string}}
                   ipv6_pd_interfaces: {type: array, items: {type: object, properties: {wan_id: {type: string}, wan_networkgroup: {type: string}}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/lan/enriched-configuration:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -3983,6 +4162,7 @@ paths:
             application/json:
               schema: {type: array, items: {$ref: '#/components/schemas/EnrichedConfiguration'}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/wlan/enriched-configuration:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -3998,6 +4178,7 @@ paths:
             application/json:
               schema: {type: array, items: {$ref: '#/components/schemas/EnrichedConfiguration'}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/wan/enriched-configuration:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -4012,6 +4193,7 @@ paths:
             application/json:
               schema: {type: array, items: {$ref: '#/components/schemas/EnrichedConfiguration'}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/rest/wlanconf:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -4026,6 +4208,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     post:
       operationId: createWlanConfig
       summary: Create an SSID (controller format)
@@ -4044,6 +4227,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/rest/wlanconf/{id}:
     parameters:
       - {$ref: '#/components/parameters/Site'}
@@ -4065,6 +4249,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     delete:
       operationId: deleteWlanConfig
       summary: Delete an SSID
@@ -4075,6 +4260,7 @@ paths:
       responses:
         '200': {description: Deleted}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/apgroups:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -4098,6 +4284,7 @@ paths:
                     for_wlanconf: {type: boolean}
                     attr_no_delete: {type: boolean}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/rest/portconf:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -4108,6 +4295,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/rest/routing:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -4118,6 +4306,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/rest/usergroup:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -4129,6 +4318,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/rest/radiusprofile:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -4140,6 +4330,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/rest/scheduletask:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -4150,6 +4341,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   # ================================================================== UNIFI OS: applications, updates, cloud backups
   /proxy/users/api/v2/ucore/controllers:
@@ -4183,6 +4375,7 @@ paths:
                             port: {type: integer}
                             features: {type: object, additionalProperties: {type: boolean}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/users/api/v2/info:
     get:
       operationId: getConsoleInfo
@@ -4204,6 +4397,7 @@ paths:
                     properties:
                       data: {type: object, additionalProperties: true}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /api/controllers/checkUpdates:
     post:
       operationId: checkApplicationUpdates
@@ -4224,6 +4418,7 @@ paths:
       responses:
         '204': {description: 'Check started'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /api/cloud/backup/settings/list:
     get:
       operationId: listCloudBackups
@@ -4234,7 +4429,7 @@ paths:
       tags: [UniFi OS · System]
       security: [{ControllerSession: []}]
       parameters:
-        - {name: allBackups, in: query, schema: {type: boolean, default: false}}
+        - {name: allBackups, in: query, description: 'List every stored backup, not only the most recent', schema: {type: boolean, default: false}}
       responses:
         '200':
           description: OK
@@ -4259,6 +4454,7 @@ paths:
                           time: {type: integer, description: 'Unix epoch milliseconds'}
                           metadata: {type: object, additionalProperties: true, description: 'As `ConsoleBackup.metadata`, plus `encryption-version`'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   # ================================================================== UNIFI OS: users, roles and API keys
   /proxy/users/api/v2/user/self:
@@ -4294,6 +4490,7 @@ paths:
                   roles: [{unique_id: 5c4b3a29-1807-4f6e-9d5c-4b3a29180700, name: Network read-only, system_role: false, level: 3}]
                   permissions: {network.management: [readonly], system.management.user: [readonly]}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/users/api/v2/users/admin/uos:
     get:
       operationId: listConsoleAdmins
@@ -4302,8 +4499,8 @@ paths:
       tags: [UniFi OS · Users]
       security: [{ControllerSession: []}]
       parameters:
-        - {name: page_num, in: query, schema: {type: integer, default: 1}}
-        - {name: page_size, in: query, schema: {type: integer, examples: [999]}}
+        - {name: page_num, in: query, description: 'Page number, starting at 1', schema: {type: integer, default: 1}}
+        - {name: page_size, in: query, description: 'Users per page', schema: {type: integer, examples: [999]}}
       responses:
         '200':
           description: OK
@@ -4316,6 +4513,7 @@ paths:
                     properties:
                       data: {type: array, items: {$ref: '#/components/schemas/ConsoleUser'}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/users/api/v2/custom_roles:
     get:
       operationId: listRoles
@@ -4349,6 +4547,7 @@ paths:
                                       manifest_unique_key: {type: string, examples: [network.management]}
                                       formulas: {type: array, items: {type: string}, examples: [[readonly]]}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/users/api/v2/permission_manifests:
     get:
       operationId: listPermissionManifests
@@ -4356,7 +4555,7 @@ paths:
       tags: [UniFi OS · Users]
       security: [{ControllerSession: []}]
       parameters:
-        - {name: clean, in: query, schema: {type: integer, enum: [0, 1]}}
+        - {name: clean, in: query, description: '`1` returns a de-duplicated manifest', schema: {type: integer, enum: [0, 1]}}
       responses:
         '200':
           description: OK
@@ -4386,6 +4585,7 @@ paths:
                                   key: {type: string}
                                   scopes: {type: array, items: {type: string}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/users/api/v2/keys:
     get:
       operationId: listApiKeys
@@ -4418,6 +4618,7 @@ paths:
                             updated_at: {type: string, format: date-time}
                             last_used_at: {type: [string, 'null'], format: date-time}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   # ================================================================== CLOUD (Site Manager)
   /v1/hosts:
     servers: [{url: 'https://api.ui.com', description: UniFi Site Manager (cloud)}]
@@ -4469,6 +4670,7 @@ paths:
         '401': {$ref: '#/components/responses/CloudUnauthorized'}
         '404': {$ref: '#/components/responses/CloudNotFound'}
         '429': {$ref: '#/components/responses/CloudTooManyRequests'}
+        '500': {$ref: '#/components/responses/CloudServerError'}
   /v1/sites:
     servers: [{url: 'https://api.ui.com', description: UniFi Site Manager (cloud)}]
     get:
@@ -4491,6 +4693,7 @@ paths:
                       nextToken: {type: [string, 'null']}
         '401': {$ref: '#/components/responses/CloudUnauthorized'}
         '429': {$ref: '#/components/responses/CloudTooManyRequests'}
+        '500': {$ref: '#/components/responses/CloudServerError'}
   /v1/devices:
     servers: [{url: 'https://api.ui.com', description: UniFi Site Manager (cloud)}]
     get:
@@ -4528,6 +4731,7 @@ paths:
                       nextToken: {type: [string, 'null']}
         '401': {$ref: '#/components/responses/CloudUnauthorized'}
         '429': {$ref: '#/components/responses/CloudTooManyRequests'}
+        '500': {$ref: '#/components/responses/CloudServerError'}
   /ea/isp-metrics/{type}:
     servers: [{url: 'https://api.ui.com', description: UniFi Site Manager (cloud)}]
     get:
@@ -4540,8 +4744,8 @@ paths:
       tags: [Cloud · ISP metrics]
       parameters:
         - {$ref: '#/components/parameters/IspMetricType'}
-        - {name: beginTimestamp, in: query, schema: {type: string, format: date-time}}
-        - {name: endTimestamp, in: query, schema: {type: string, format: date-time}}
+        - {name: beginTimestamp, in: query, description: 'Start of the window (RFC 3339). Use with `endTimestamp` instead of `duration`', schema: {type: string, format: date-time}}
+        - {name: endTimestamp, in: query, description: 'End of the window (RFC 3339)', schema: {type: string, format: date-time}}
         - name: duration
           in: query
           description: '`24h` for `5m` data; `7d` or `30d` for `1h` data.'
@@ -4555,6 +4759,7 @@ paths:
         '400': {$ref: '#/components/responses/CloudBadRequest'}
         '401': {$ref: '#/components/responses/CloudUnauthorized'}
         '429': {$ref: '#/components/responses/CloudTooManyRequests'}
+        '500': {$ref: '#/components/responses/CloudServerError'}
   /ea/isp-metrics/{type}/query:
     servers: [{url: 'https://api.ui.com', description: UniFi Site Manager (cloud)}]
     post:
@@ -4593,6 +4798,7 @@ paths:
         '400': {$ref: '#/components/responses/CloudBadRequest'}
         '401': {$ref: '#/components/responses/CloudUnauthorized'}
         '429': {$ref: '#/components/responses/CloudTooManyRequests'}
+        '500': {$ref: '#/components/responses/CloudServerError'}
   /ea/sd-wan-configs:
     servers: [{url: 'https://api.ui.com', description: UniFi Site Manager (cloud)}]
     get:
@@ -4615,13 +4821,14 @@ paths:
               parameters: {id: '$response.body#/data/0/id'}
         '401': {$ref: '#/components/responses/CloudUnauthorized'}
         '429': {$ref: '#/components/responses/CloudTooManyRequests'}
+        '500': {$ref: '#/components/responses/CloudServerError'}
   /ea/sd-wan-configs/{id}:
     servers: [{url: 'https://api.ui.com', description: UniFi Site Manager (cloud)}]
     get:
       operationId: cloudGetSdwanConfig
       summary: Get an SD-WAN configuration (Early Access)
       tags: [Cloud · SD-WAN]
-      parameters: [{name: id, in: path, required: true, schema: {type: string}}]
+      parameters: [{name: id, in: path, required: true, description: 'SD-WAN configuration `id`', schema: {type: string}}]
       responses:
         '200':
           description: OK
@@ -4634,13 +4841,14 @@ paths:
         '401': {$ref: '#/components/responses/CloudUnauthorized'}
         '404': {$ref: '#/components/responses/CloudNotFound'}
         '429': {$ref: '#/components/responses/CloudTooManyRequests'}
+        '500': {$ref: '#/components/responses/CloudServerError'}
   /ea/sd-wan-configs/{id}/status:
     servers: [{url: 'https://api.ui.com', description: UniFi Site Manager (cloud)}]
     get:
       operationId: cloudGetSdwanConfigStatus
       summary: Get SD-WAN deployment status (Early Access)
       tags: [Cloud · SD-WAN]
-      parameters: [{name: id, in: path, required: true, schema: {type: string}}]
+      parameters: [{name: id, in: path, required: true, description: 'SD-WAN configuration `id`', schema: {type: string}}]
       responses:
         '200':
           description: OK
@@ -4666,6 +4874,7 @@ paths:
         '401': {$ref: '#/components/responses/CloudUnauthorized'}
         '404': {$ref: '#/components/responses/CloudNotFound'}
         '429': {$ref: '#/components/responses/CloudTooManyRequests'}
+        '500': {$ref: '#/components/responses/CloudServerError'}
 
   # ---------------------------------------------------------------------------------------------
   # Added 2026-10-17 from live probes of Network 11.0.81 (scripts/probe_endpoints.py) plus the
@@ -4708,6 +4917,7 @@ paths:
                             location_lng: {type: number}
                             attr_no_delete: {type: boolean}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/api/s/{site}/rest/dynamicdns:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -4741,6 +4951,7 @@ paths:
                             login: {type: string}
                             x_password: {type: string, description: 'Always redacted'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     post:
       operationId: createDynamicDns
       summary: Create a Dynamic DNS entry
@@ -4769,6 +4980,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/api/s/{site}/rest/dynamicdns/{id}:
     parameters:
@@ -4802,6 +5014,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     delete:
       operationId: deleteDynamicDns
       summary: Delete a Dynamic DNS entry
@@ -4814,6 +5027,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/api/s/{site}/stat/routing:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -4828,6 +5042,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/api/s/{site}/stat/voucher:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -4867,6 +5082,7 @@ paths:
                             status: {type: string, examples: [VALID_ONE]}
                             status_expires: {type: integer}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/api/s/{site}/stat/user/{mac}:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -4919,6 +5135,7 @@ paths:
                             radio: {type: string}
                             anomalies: {type: integer}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/api/s/{site}/stat/spectrum-scan/{mac}:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -4965,6 +5182,7 @@ paths:
                                   radio: {type: string}
                                   spectrum_table: {type: array, items: {type: object, additionalProperties: true}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/api/s/{site}/stat/rogueap:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5023,6 +5241,7 @@ paths:
                             is_adhoc: {type: boolean}
                             last_seen: {type: integer}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/acl-rules:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5043,6 +5262,7 @@ paths:
                 type: array
                 items: {type: object, additionalProperties: true}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/nat:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5061,6 +5281,7 @@ paths:
                 type: array
                 items: {type: object, additionalProperties: true}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/qos-rules:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5084,6 +5305,7 @@ paths:
                 type: array
                 items: {type: object, additionalProperties: true}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     post:
       operationId: createQosRule
       summary: Create a QoS rule
@@ -5103,6 +5325,7 @@ paths:
         '201': {description: Created}
         '400': {description: Validation failed}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/qos-rules/{id}:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5125,6 +5348,7 @@ paths:
         '204': {description: Updated}
         '400': {description: Validation failed}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/qos-rules/batch-delete:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5147,6 +5371,7 @@ paths:
         '204': {description: Deleted}
         '400': {description: Validation failed}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/static-dns:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5179,6 +5404,7 @@ paths:
                     priority: {type: integer}
                     weight: {type: integer}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     post:
       operationId: createStaticDns
       summary: Create a Local DNS record
@@ -5200,6 +5426,7 @@ paths:
         '200': {description: OK, content: {application/json: {schema: {$ref: '#/components/schemas/StaticDnsRecord'}}}}
         '400': {description: Validation failed}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/static-dns/{id}:
     parameters:
@@ -5223,6 +5450,7 @@ paths:
         '200': {description: OK}
         '400': {description: "Validation failed (partial body, bad value)"}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     delete:
       operationId: deleteStaticDns
       summary: Delete a Local DNS record
@@ -5234,6 +5462,7 @@ paths:
         '200': {description: OK}
         '204': {description: Deleted}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/network-members-groups:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5252,6 +5481,7 @@ paths:
                 type: array
                 items: {$ref: '#/components/schemas/NetworkMemberGroup'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/network-members-group/{id}:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5269,6 +5499,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/NetworkMemberGroup'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     put:
       operationId: updateNetworkMemberGroup
       summary: Update a client group (whole object)
@@ -5290,6 +5521,7 @@ paths:
         '204': {description: Updated}
         '400': {description: "Validation failed (partial body, bad member)"}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     delete:
       operationId: deleteNetworkMemberGroup
       summary: Delete a client group
@@ -5303,6 +5535,7 @@ paths:
         '200': {description: OK}
         '204': {description: Deleted}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/network-members-group:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5328,6 +5561,7 @@ paths:
         '201': {description: Created, content: {application/json: {schema: {$ref: '#/components/schemas/NetworkMemberGroup'}}}}
         '400': {description: Validation failed}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/settings/ips/available-categories:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5353,6 +5587,7 @@ paths:
                     sensitivity: {type: string}
                     value: {type: string}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/traffic-flow-latest-statistics:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5395,6 +5630,7 @@ paths:
                         bytes: {type: integer}
         '400': {$ref: '#/components/responses/LegacyBadRequest'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/cybersecure/summary:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5425,6 +5661,7 @@ paths:
                 properties:
                   errorCode: {type: integer}
                   message: {type: string}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/system-log/count:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5435,7 +5672,7 @@ paths:
         Read-only despite POST. Takes the same filters as `querySystemLogAll` without paging. Cheap way to
         see what is noisy before pulling entries: `categories[]`, `events[]` (event type names) and
         `type[]`, each as `{name, count}`.
-      tags: ["Controller · System Log"]
+      tags: [Controller · Alerts]
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -5462,6 +5699,7 @@ paths:
                   events: {type: array, items: {$ref: '#/components/schemas/NamedCount'}}
                   type: {type: array, items: {$ref: '#/components/schemas/NamedCount'}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/object-oriented-network-configs:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5478,6 +5716,7 @@ paths:
             application/json:
               schema: {type: array, items: {type: object, additionalProperties: true}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/object-oriented-network-config:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5501,6 +5740,7 @@ paths:
         '201': {description: Created}
         '400': {description: Validation failed}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/object-oriented-network-config/{id}:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5525,6 +5765,7 @@ paths:
         '204': {description: Updated}
         '400': {description: Validation failed}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     delete:
       operationId: deleteTrafficPolicyObject
       summary: Delete a traffic policy object
@@ -5538,6 +5779,7 @@ paths:
         '200': {description: OK}
         '204': {description: Deleted}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/api/s/{site}/stat/portforward:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5557,6 +5799,7 @@ paths:
                   - {$ref: '#/components/schemas/LegacyEnvelope'}
                   - properties: {data: {type: array, items: {type: object, additionalProperties: true}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/static-dns/devices:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5573,6 +5816,7 @@ paths:
             application/json:
               schema: {type: array, items: {type: object, properties: {hostname: {type: string, examples: [nuc.example.net]}, ip_address: {type: string}, mac_address: {type: string}, name: {type: string}}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/ports/port-anomalies/{mac}/port/{portIdx}:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5592,6 +5836,7 @@ paths:
             application/json:
               schema: {}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/settings/doh/available-server-names:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5608,6 +5853,7 @@ paths:
             application/json:
               schema: {}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/settings/doh/defaults:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5624,6 +5870,7 @@ paths:
             application/json:
               schema: {type: object, properties: {state: {type: string, examples: [off]}, server_names: {type: array, items: {type: string}, examples: [[cloudflare, google]]}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/settings/ips/suricata:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5640,6 +5887,7 @@ paths:
             application/json:
               schema: {type: object, properties: {current_version: {type: integer, examples: [6]}, supported_version: {type: integer, examples: [8]}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/settings/ips/advanced-filtering-defaults:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5656,6 +5904,7 @@ paths:
             application/json:
               schema: {type: object, properties: {key: {type: string}, ips_mode: {type: string, examples: [ids]}, advanced_filtering_preference: {type: string, examples: [manual]}, memory_optimized: {type: boolean}, enabled_categories: {type: array, items: {type: string}}, enabled_networks: {type: array, items: {type: string}}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/ssl-inspection/setting:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5672,6 +5921,7 @@ paths:
             application/json:
               schema: {type: object, properties: {state: {type: string, examples: [off]}, identity_certificate_all_users: {type: boolean}, identity_certificate_groups: {type: array, items: {type: string}}, identity_certificate_users: {type: array, items: {type: string}}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/ssl-inspection/setting/defaults:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5688,6 +5938,7 @@ paths:
             application/json:
               schema: {}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/ssl-inspection/certificates:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5704,6 +5955,7 @@ paths:
             application/json:
               schema: {}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/ssl-inspection/certificates/active:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5720,6 +5972,7 @@ paths:
             application/json:
               schema: {type: object, properties: {id: {type: string}, name: {type: string}, status: {type: string, examples: [active]}, type: {type: string, examples: [generated]}, valid: {type: boolean}, root_certificate: {type: object, additionalProperties: true}, intermediate_certificates: {type: array, items: {type: object}}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/client/{mac}/24hr-satisfaction:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5738,6 +5991,7 @@ paths:
             application/json:
               schema: {}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/client/{mac}/ap-stats:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5756,6 +6010,7 @@ paths:
             application/json:
               schema: {}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/system-log/client-connection/{mac}:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5774,6 +6029,7 @@ paths:
             application/json:
               schema: {}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/device/wireless-links:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5790,6 +6046,7 @@ paths:
             application/json:
               schema: {}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/power-supervisors/links:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5806,6 +6063,7 @@ paths:
             application/json:
               schema: {}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/device/{mac}/replacement-candidates:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5824,6 +6082,7 @@ paths:
             application/json:
               schema: {}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/firewall-app-blocks:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5846,6 +6105,7 @@ paths:
                 type: array
                 items: {type: object, additionalProperties: true}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     post:
       operationId: replaceFirewallAppBlocks
       summary: Replace the whole set of application blocks
@@ -5868,6 +6128,7 @@ paths:
         '200': {description: OK (the new array)}
         '400': {description: Validation failed}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/content-filtering/categories:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5884,6 +6145,7 @@ paths:
             application/json:
               schema: {}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/firewall-policies/defaults:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5900,6 +6162,7 @@ paths:
             application/json:
               schema: {type: object, additionalProperties: true, properties: {action: {type: string, examples: [BLOCK]}, connection_state_type: {type: string, examples: [ALL]}, ip_version: {type: string, examples: [BOTH]}, protocol: {type: string, examples: [all]}, logging: {type: boolean}, report_flow: {type: boolean}, enabled: {type: boolean}, schedule: {type: object, properties: {mode: {type: string, examples: [ALWAYS]}}}, source: {type: object, additionalProperties: true}, destination: {type: object, additionalProperties: true}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/firewall/zone/defaults:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5916,6 +6179,7 @@ paths:
             application/json:
               schema: {type: array, items: {type: object, properties: {_id: {type: string}, name: {type: string, examples: [Internal]}, zone_key: {type: string, examples: [internal, external, gateway, vpn, hotspot, dmz]}, network_ids: {type: array, items: {type: string}}, default_zone: {type: boolean}, attr_no_edit: {type: boolean}, external_id: {type: string}}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/settings/global_switch/defaults:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5932,6 +6196,7 @@ paths:
             application/json:
               schema: {type: object, additionalProperties: true, properties: {stp_version: {type: string, examples: [rstp]}, dhcp_snoop: {type: boolean}, jumboframe_enabled: {type: boolean}, flowctrl_enabled: {type: boolean}, link_debounce: {type: integer}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/ports/mac-tables:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5961,6 +6226,7 @@ paths:
             application/json:
               schema: {}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/ports/system-logs:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -5991,6 +6257,7 @@ paths:
             application/json:
               schema: {}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/wan/ddns:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -6007,6 +6274,7 @@ paths:
             application/json:
               schema: {type: object, properties: {ddns: {type: array, items: {type: string}, examples: [[cloudflare, noip, duckdns]]}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/wan/defaults:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -6023,6 +6291,7 @@ paths:
             application/json:
               schema: {type: object, additionalProperties: true, properties: {purpose: {type: string, examples: [wan]}, wan_type: {type: string, examples: [dhcp]}, wan_type_v6: {type: string, examples: [disabled]}, wan_dns_preference: {type: string, examples: [auto]}, setting_preference: {type: string, examples: [auto]}, wan_smartq_enabled: {type: boolean}, wan_vlan_enabled: {type: boolean}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/wan/load-balancing/configuration:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -6039,6 +6308,7 @@ paths:
             application/json:
               schema: {type: object, properties: {mode: {type: string, examples: [FAILOVER_ONLY]}, wan_interfaces: {type: array, items: {type: object, properties: {name: {type: string}, wan_networkgroup: {type: string, examples: [WAN]}, mode: {type: string, examples: [DISTRIBUTED]}, priority: {type: integer}, weight: {type: integer}, wan_sla: {type: string, description: Id of the WAN health-check profile}}}}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/wan/load-balancing/status:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -6055,6 +6325,7 @@ paths:
             application/json:
               schema: {type: object, properties: {wan_interfaces: {type: array, items: {type: object, properties: {name: {type: string}, state: {type: string, examples: [ACTIVE]}, wan_networkgroup: {type: string, examples: [WAN]}}}}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/wlan/defaults:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -6071,6 +6342,7 @@ paths:
             application/json:
               schema: {}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/wlan-capabilities:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -6087,6 +6359,7 @@ paths:
             application/json:
               schema: {type: object, properties: {'6ghz_band_supported': {type: boolean}, owe_supported: {type: boolean}, wpa3_supported: {type: boolean}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/vpn/connections:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -6103,6 +6376,7 @@ paths:
             application/json:
               schema: {type: object, properties: {connections: {type: array, items: {type: object, additionalProperties: true}}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/v2/api/site/{site}/firewall-policies/{id}:
     parameters: [{$ref: '#/components/parameters/Site'}]
@@ -6121,6 +6395,7 @@ paths:
             application/json:
               schema: {}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
     put:
       operationId: updateControllerFirewallPolicy
       summary: Update a zone-based firewall policy (whole object)
@@ -6142,6 +6417,7 @@ paths:
         '200': {description: OK}
         '400': {description: Validation failed}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
 components:
   securitySchemes:
@@ -6373,6 +6649,11 @@ components:
       content:
         application/json:
           schema: {$ref: '#/components/schemas/Error'}
+    ServerError:
+      description: Network application error; retry with back-off
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
     # ---- Controller API errors
     LegacyOk:
       description: OK
@@ -6391,6 +6672,11 @@ components:
         application/json:
           schema: {$ref: '#/components/schemas/LegacyEnvelope'}
           example: {meta: {rc: error, msg: api.err.LoginRequired}, data: []}
+    LegacyServerError:
+      description: Console or Network application error. The body varies (controller envelope, or HTML from the UniFi OS proxy).
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/LegacyEnvelope'}
     # ---- Cloud errors
     CloudBadRequest:
       description: Invalid parameters

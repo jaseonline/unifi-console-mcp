@@ -24,7 +24,9 @@ cover.
 
 **Curated read tools** for areas other servers skip: `unifi_console_session_status`, `unifi_console_system_log`,
 `unifi_console_firewall_policy_hits` (find unused rules), `unifi_console_poe_overview`,
-`unifi_console_switch_port_detail`, `unifi_console_backup`, `unifi_console_support_file`, `unifi_console_access_review`.
+`unifi_console_switch_port_detail`, `unifi_console_backup`, `unifi_console_support_file`,
+`unifi_console_gateway_config` (the config the controller sent the gateway, with policy drift),
+`unifi_console_access_review`.
 
 **Typed write tools** (all off until enabled; see [docs/write-tools.md](docs/write-tools.md)): port forwards, network
 lists, clients (edit and block/unblock/forget/reconnect), static DNS, client groups, Dynamic DNS, traffic and QoS
