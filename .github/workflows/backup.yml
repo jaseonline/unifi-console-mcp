@@ -28,6 +28,6 @@ jobs:
           access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
           secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           bucket: github
-          prefix: /
+          # prefix: /folder
           file: ${{ steps.archive.outputs.file }}
           retention-days: '90'
