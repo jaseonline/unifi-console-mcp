@@ -1,0 +1,33 @@
+---
+name: Cloudflare R2 Backup
+on:
+  schedule:
+    - cron: "0 0 * * 0" # Every Sunday at midnight
+  workflow_dispatch: # Manual trigger option
+permissions:
+  contents: read
+jobs:
+  backup:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v4
+      # The R2 action uploads an existing file; it does not create one. git archive packs the committed tree only
+      # (no .git, nothing gitignored). The name comes from github.repository because scheduled runs have no
+      # github.event.repository.
+      - name: Create archive
+        id: archive
+        run: |
+          file="${GITHUB_REPOSITORY#*/}_backup.tar.gz"
+          git archive --format=tar.gz --prefix="${GITHUB_REPOSITORY#*/}/" -o "$file" HEAD
+          ls -l "$file"
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+      - uses: NX1X/Cloudflare-R2-backup-action@v1
+        with:
+          operation: upload
+          account-id: ${{ secrets.CF_ACCOUNT_ID }}
+          access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          bucket: github
+          prefix: /
+          file: ${{ steps.archive.outputs.file }}
+          retention-days: '90'
