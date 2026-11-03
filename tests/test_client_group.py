@@ -1,4 +1,5 @@
 """Client groups through the write framework: whole-object v2 updates, MAC handling, the reference check."""
+
 from __future__ import annotations
 
 import contextlib
@@ -8,10 +9,10 @@ import uuid
 
 import httpx
 import pytest
-from mcp.client import Client
-
 from conftest import make_jwt
+from mcp.client import Client
 from test_writes import Wrapped
+
 from unifi_console_mcp.server import create_server
 
 BASE = "/proxy/network/v2/api/site/default"
@@ -29,7 +30,11 @@ CAMS = {"id": "cams-id", "name": "Cameras", "type": "CLIENTS", "members": ["aa:a
 class FakeGroups:
     def __init__(self, items=(SONOS, CAMS)) -> None:
         self.items = {r["id"]: json.loads(json.dumps(r)) for r in items}
-        self.clients = [{"mac": M1, "name": "Sonos Port"}, {"mac": M2, "name": "Sonos Beam"}, {"mac": "aa:aa:aa:aa:aa:20", "name": "Hub"}]
+        self.clients = [
+            {"mac": M1, "name": "Sonos Port"},
+            {"mac": M2, "name": "Sonos Beam"},
+            {"mac": "aa:aa:aa:aa:aa:20", "name": "Hub"},
+        ]
         self.policies: list[dict] = []
         self.objects: list[dict] = []
         self.policy_status = 200
@@ -40,7 +45,9 @@ class FakeGroups:
     def __call__(self, request: httpx.Request) -> httpx.Response:
         path, method = request.url.path, request.method
         if path == "/api/auth/login":
-            return httpx.Response(200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"})
+            return httpx.Response(
+                200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"}
+            )
         body = json.loads(request.content) if request.content else None
         self.log.append((method, path, body))
         if path == USER:
@@ -59,7 +66,7 @@ class FakeGroups:
         if path.startswith(GROUP + "/"):
             ident = path.rsplit("/", 1)[1]
             if method == "PUT":
-                if not {"id", "name", "members", "type"} <= set(body):          # the real console rejects a partial body
+                if not {"id", "name", "members", "type"} <= set(body):  # the real console rejects a partial body
                     return httpx.Response(400, json={"errorCode": 400, "message": "Validation failed"})
                 self.bodies.append(body)
                 if not self.ignore_put:
@@ -85,6 +92,7 @@ def make_session(settings, tmp_path):
                 yield Wrapped(client)
         finally:
             await api.client.aclose()
+
     return opener
 
 
@@ -108,8 +116,12 @@ async def test_create_sends_what_the_ui_sends_and_normalises_macs(make_session):
     async with make_session(net) as c:
         pre, out = await apply(c, NEW)
     assert pre["request"]["method"] == "POST"
-    assert net.bodies == [{"type": "CLIENTS", "name": "zz-group", "members": ["aa:bb:cc:dd:ee:01", "aa:bb:cc:dd:ee:02"]}]
-    assert out["verified"] and out["http_status"] == 201 and out["rollback"] == {"action": "delete", "target": out["id"]}
+    assert net.bodies == [
+        {"type": "CLIENTS", "name": "zz-group", "members": ["aa:bb:cc:dd:ee:01", "aa:bb:cc:dd:ee:02"]}
+    ]
+    assert (
+        out["verified"] and out["http_status"] == 201 and out["rollback"] == {"action": "delete", "target": out["id"]}
+    )
 
 
 async def test_update_sends_the_whole_group_with_its_id(make_session):
@@ -124,11 +136,18 @@ async def test_update_sends_the_whole_group_with_its_id(make_session):
 async def test_add_and_remove_members_replace_the_array_whole(make_session):
     net = FakeGroups()
     async with make_session(net) as c:
-        pre, out = await apply(c, {"action": "update", "target": SONOS["id"], "add_members": ["AA:AA:AA:AA:AA:20", M1.upper()],
-                                   "remove_members": [M2]})
+        pre, out = await apply(
+            c,
+            {
+                "action": "update",
+                "target": SONOS["id"],
+                "add_members": ["AA:AA:AA:AA:AA:20", M1.upper()],
+                "remove_members": [M2],
+            },
+        )
     assert net.bodies[0]["members"] == [M1, M3, "aa:aa:aa:aa:aa:20"]
     assert out["verified"] and out["rollback"]["changes"] == {"members": [M1, M2, M3]}
-    assert pre["warnings"] == []                                     # the added MAC is a known client
+    assert pre["warnings"] == []  # the added MAC is a known client
 
 
 async def test_deleting_the_unused_group_works_and_rollback_recreates(make_session):
@@ -155,7 +174,9 @@ async def test_a_group_a_policy_uses_cannot_be_deleted_and_editing_it_warns(make
     async with make_session(net) as c:
         gone = await call(c, {"action": "delete", "target": "Sonos"})
         edit = await call(c, {"action": "update", "target": "Sonos", "remove_members": [M3]})
-        res = await c.call_tool(TOOL, {"action": "delete", "target": "Sonos", "confirm": True, "fingerprint": gone["fingerprint"]})
+        res = await c.call_tool(
+            TOOL, {"action": "delete", "target": "Sonos", "confirm": True, "fingerprint": gone["fingerprint"]}
+        )
     assert gone["used_by"] == ["firewall policy: Sonos allow"] and "still used" in " ".join(gone["errors"])
     assert "takes effect for them" in " ".join(edit["warnings"]) and not edit["errors"]
     assert "Refused" in res.content[0].text and net.writes() == []
@@ -179,19 +200,22 @@ async def test_a_failed_reference_read_blocks_everything(make_session):
     assert net.writes() == []
 
 
-@pytest.mark.parametrize("args,needle", [
-    ({"name": "sonos"}, "already called"),
-    ({"name": ""}, "create needs name and members"),
-    ({"members": ["not-a-mac"]}, "Not a MAC address"),
-    ({"members": ["aa:bb:cc:dd:ee:01", "AA-BB-CC-DD-EE-01"]}, "Duplicate members"),
-    ({"members": []}, "create needs name and members"),
-])
+@pytest.mark.parametrize(
+    "args,needle",
+    [
+        ({"name": "sonos"}, "already called"),
+        ({"name": ""}, "create needs name and members"),
+        ({"members": ["not-a-mac"]}, "Not a MAC address"),
+        ({"members": ["aa:bb:cc:dd:ee:01", "AA-BB-CC-DD-EE-01"]}, "Duplicate members"),
+        ({"members": []}, "create needs name and members"),
+    ],
+)
 async def test_bad_groups_are_refused(make_session, args, needle):
     net = FakeGroups()
     base = {**NEW, **args}
     async with make_session(net) as c:
         res = await c.call_tool(TOOL, base)
-        if res.is_error or "error" in res.content[0].text[:20].lower():          # create validation in the tool itself
+        if res.is_error or "error" in res.content[0].text[:20].lower():  # create validation in the tool itself
             assert needle in res.content[0].text
             assert net.writes() == []
             return
@@ -232,8 +256,17 @@ async def test_no_change_sends_nothing(make_session):
     net = FakeGroups()
     async with make_session(net) as c:
         pre = await call(c, {"action": "update", "target": "Sonos", "name": "Sonos", "members": [M1, M2, M3]})
-        out = await call(c, {"action": "update", "target": "Sonos", "name": "Sonos", "members": [M1, M2, M3],
-                             "confirm": True, "fingerprint": pre["fingerprint"]})
+        out = await call(
+            c,
+            {
+                "action": "update",
+                "target": "Sonos",
+                "name": "Sonos",
+                "members": [M1, M2, M3],
+                "confirm": True,
+                "fingerprint": pre["fingerprint"],
+            },
+        )
     assert out["applied"] is False and net.writes() == []
 
 
@@ -242,7 +275,11 @@ async def test_silent_failure_is_reported(make_session):
     net.ignore_put = True
     async with make_session(net) as c:
         _, out = await apply(c, {"action": "update", "target": "cams-id", "name": "Cams"})
-    assert out["verified"] is False and out["mismatches"][0]["field"] == "name" and "Nothing was retried" in out["attention"]
+    assert (
+        out["verified"] is False
+        and out["mismatches"][0]["field"] == "name"
+        and "Nothing was retried" in out["attention"]
+    )
 
 
 async def test_a_partial_put_would_be_rejected_by_the_fake_and_is_never_sent(make_session):
@@ -256,19 +293,33 @@ async def test_the_entity_switch_and_previews_when_writes_are_off(make_session):
     net = FakeGroups()
     async with make_session(net, entities=frozenset({"port_forward"})) as c:
         pre = await call(c, {"action": "delete", "target": "cams-id"})
-        res = await c.call_tool(TOOL, {"action": "delete", "target": "cams-id", "confirm": True, "fingerprint": pre["fingerprint"]})
+        res = await c.call_tool(
+            TOOL, {"action": "delete", "target": "cams-id", "confirm": True, "fingerprint": pre["fingerprint"]}
+        )
     assert "not enabled for writes" in pre["apply_blocked_reason"] and "not enabled for writes" in res.content[0].text
     assert net.writes() == []
 
 
 async def test_the_generic_tool_refuses_and_names_the_typed_one(settings, tmp_path):
     net = FakeGroups()
-    mcp, api = create_server(dataclasses.replace(settings, enable_writes=True, write_entities=frozenset({"client_group"}),
-                                                 journal_dir=tmp_path / "journal"), transport=httpx.MockTransport(net))
+    mcp, api = create_server(
+        dataclasses.replace(
+            settings, enable_writes=True, write_entities=frozenset({"client_group"}), journal_dir=tmp_path / "journal"
+        ),
+        transport=httpx.MockTransport(net),
+    )
     try:
         async with Client(mcp) as c:
-            res = await c.call_tool("unifi_console_call_operation", {"params": {
-                "operation_id": "deleteNetworkMemberGroup", "path_params": {"id": "cams-id"}, "confirm": True}})
+            res = await c.call_tool(
+                "unifi_console_call_operation",
+                {
+                    "params": {
+                        "operation_id": "deleteNetworkMemberGroup",
+                        "path_params": {"id": "cams-id"},
+                        "confirm": True,
+                    }
+                },
+            )
             text = json.loads(res.content[0].text)["error"]
     finally:
         await api.client.aclose()
@@ -279,6 +330,14 @@ async def test_removing_every_member_is_refused(make_session):
     net = FakeGroups()
     async with make_session(net) as c:
         pre = await call(c, {"action": "update", "target": "cams-id", "remove_members": ["aa:aa:aa:aa:aa:10"]})
-        res = await c.call_tool(TOOL, {"action": "update", "target": "cams-id", "remove_members": ["aa:aa:aa:aa:aa:10"],
-                                       "confirm": True, "fingerprint": pre["fingerprint"]})
+        res = await c.call_tool(
+            TOOL,
+            {
+                "action": "update",
+                "target": "cams-id",
+                "remove_members": ["aa:aa:aa:aa:aa:10"],
+                "confirm": True,
+                "fingerprint": pre["fingerprint"],
+            },
+        )
     assert "at least one member" in " ".join(pre["errors"]) and "Refused" in res.content[0].text and net.writes() == []

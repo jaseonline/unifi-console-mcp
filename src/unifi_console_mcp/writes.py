@@ -24,7 +24,7 @@ import json
 import uuid
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -45,7 +45,9 @@ class Findings:
 Validator = Callable[[str, "dict[str, Any] | None", "dict[str, Any]", "list[dict[str, Any]]"], Findings]
 # Same, plus the rows of the extra read-only lists named in `EntitySpec.context_ops`, keyed by the name given there.
 ContextValidator = Callable[
-    [str, "dict[str, Any] | None", "dict[str, Any]", "list[dict[str, Any]]", "dict[str, list[dict[str, Any]]]"], Findings]
+    [str, "dict[str, Any] | None", "dict[str, Any]", "list[dict[str, Any]]", "dict[str, list[dict[str, Any]]]"],
+    Findings,
+]
 
 
 @dataclass(frozen=True)
@@ -68,8 +70,10 @@ class ActionOp:
     """Use another spec operation (and body) for one action, for endpoints that batch (a list body, no id in the path)."""
 
     op: str
-    body: Callable[["dict[str, Any] | None", "dict[str, Any] | None", dict[str, Any]], Any] | None = None   # (before, after, effective) -> body
-    with_id: bool = True              # whether the path carries the object's id
+    body: Callable[[dict[str, Any] | None, dict[str, Any] | None, dict[str, Any]], Any] | None = (
+        None  # (before, after, effective) -> body
+    )
+    with_id: bool = True  # whether the path carries the object's id
 
 
 @dataclass(frozen=True)
@@ -81,7 +85,7 @@ class MovePlan:
     body: Any
     after: dict[str, Any]
     effective: dict[str, Any]
-    undo: Any = None                  # what the restore needs to put the order back (kept on the plan)
+    undo: Any = None  # what the restore needs to put the order back (kept on the plan)
 
 
 @dataclass(frozen=True)
@@ -93,25 +97,27 @@ class RestoreStep:
 
 @dataclass(frozen=True)
 class EntitySpec:
-    key: str                          # name used in UNIFI_CONSOLE_WRITE_ENTITIES, e.g. "port_forward"
-    label: str                        # for messages, e.g. "port forward"
-    tier: str                         # "A" reversible and local, "B" affects several clients, "C" can cut or expose the network
+    key: str  # name used in UNIFI_CONSOLE_WRITE_ENTITIES, e.g. "port_forward"
+    label: str  # for messages, e.g. "port forward"
+    tier: str  # "A" reversible and local, "B" affects several clients, "C" can cut or expose the network
     list_op: str
     create_op: str | None = None
     update_op: str | None = None
     delete_op: str | None = None
     id_field: str = "_id"
     name_field: str = "name"
-    whole_object: bool = False        # True: updates send the whole object (v2 endpoints, arrays); False: changed fields only
+    whole_object: bool = False  # True: updates send the whole object (v2 endpoints, arrays); False: changed fields only
     defaults: Mapping[str, Any] = field(default_factory=dict)
     validate: Validator | None = None
     ignore: frozenset[str] = VOLATILE
     # Fields the console's own UI sends on create (for example `_id: null`). Sent, never compared on read-back.
     create_extra: Mapping[str, Any] = field(default_factory=dict)
     # Turns convenience inputs into real fields (for example add_members -> group_members) before planning.
-    prepare: Callable[[str, "dict[str, Any] | None", dict[str, Any]], dict[str, Any]] | None = None
+    prepare: Callable[[str, dict[str, Any] | None, dict[str, Any]], dict[str, Any]] | None = None
     # Same, but also given the rows of `context_ops` (for example to turn zone and network names into ids).
-    prepare_ctx: Callable[[str, "dict[str, Any] | None", dict[str, Any], "dict[str, list[dict[str, Any]]]"], dict[str, Any]] | None = None
+    prepare_ctx: (
+        Callable[[str, dict[str, Any] | None, dict[str, Any], dict[str, list[dict[str, Any]]]], dict[str, Any]] | None
+    ) = None
     # (operationId, label) pairs for lists whose objects may reference this one by id; checked on update and delete.
     reference_ops: tuple[tuple[str, str], ...] = ()
     # Alternative ways to address an existing object besides id and name (for example "mac"); compared case-insensitively.
@@ -123,25 +129,36 @@ class EntitySpec:
     empty_values: Mapping[str, Any] = field(default_factory=dict)
     # A settings group rather than a list of objects: one row, no create or delete, no id in the update path.
     singleton: bool = False
-    list_path_params: Mapping[str, str] = field(default_factory=dict)    # path parameters of the list operation (e.g. the setting key)
-    fixed_path_params: Mapping[str, str] = field(default_factory=dict)   # path parameters always sent to update (e.g. the setting key)
-    body_keys: tuple[str, ...] = ()   # when set, the update body is exactly these keys of the new object (as the UI sends it)
+    list_path_params: Mapping[str, str] = field(
+        default_factory=dict
+    )  # path parameters of the list operation (e.g. the setting key)
+    fixed_path_params: Mapping[str, str] = field(
+        default_factory=dict
+    )  # path parameters always sent to update (e.g. the setting key)
+    body_keys: tuple[
+        str, ...
+    ] = ()  # when set, the update body is exactly these keys of the new object (as the UI sends it)
     guard: Guard | None = None
     # ---- entities whose actions use different endpoints (firewall policies)
-    action_ops: Mapping[str, ActionOp] = field(default_factory=dict)         # action -> other operation and body
-    body_drop: frozenset[str] = frozenset()                                  # read-only keys the list returns but a write must not send
-    move: Callable[["dict[str, Any]", "list[dict[str, Any]]", dict[str, Any]], MovePlan] | None = None
-    loose_verify: bool = False        # read-back may hold more nested keys than were sent (the console fills defaults)
-    verify: Callable[["Plan", "list[dict[str, Any]]", "dict[str, Any] | None"], "list[dict[str, Any]]"] | None = None
-    guard_when: Callable[["Plan"], bool] | None = None                       # default: update, enable and disable that change something
-    restore: Callable[["Plan", "str | None"], "list[RestoreStep]"] | None = None   # compensating requests for the automatic restore
-    restore_ok: Callable[["Plan", "list[dict[str, Any]]", "str | None"], bool] | None = None
-    rollback: Callable[["Plan", "str | None"], "dict[str, Any] | None"] | None = None   # the tool call that undoes this change
+    action_ops: Mapping[str, ActionOp] = field(default_factory=dict)  # action -> other operation and body
+    body_drop: frozenset[str] = frozenset()  # read-only keys the list returns but a write must not send
+    move: Callable[[dict[str, Any], list[dict[str, Any]], dict[str, Any]], MovePlan] | None = None
+    loose_verify: bool = False  # read-back may hold more nested keys than were sent (the console fills defaults)
+    verify: Callable[[Plan, list[dict[str, Any]], dict[str, Any] | None], list[dict[str, Any]]] | None = None
+    guard_when: Callable[[Plan], bool] | None = None  # default: update, enable and disable that change something
+    restore: Callable[[Plan, str | None], list[RestoreStep]] | None = (
+        None  # compensating requests for the automatic restore
+    )
+    restore_ok: Callable[[Plan, list[dict[str, Any]], str | None], bool] | None = None
+    rollback: Callable[[Plan, str | None], dict[str, Any] | None] | None = None  # the tool call that undoes this change
     # Shows only the part of a big object that changes (one port of a switch): (before, after) -> (before view, after view).
-    focus: Callable[["dict[str, Any] | None", "dict[str, Any] | None"], "tuple[dict[str, Any] | None, dict[str, Any] | None]"] | None = None
+    focus: (
+        Callable[[dict[str, Any] | None, dict[str, Any] | None], tuple[dict[str, Any] | None, dict[str, Any] | None]]
+        | None
+    ) = None
     # A list endpoint whose whole content is replaced on every write (App Block): the rows are folded into one pseudo-object
     # (a singleton) so the fingerprint covers every entry and the engine's gates, journal and read-back apply unchanged.
-    wrap_rows: Callable[["list[dict[str, Any]]"], "list[dict[str, Any]]"] | None = None
+    wrap_rows: Callable[[list[dict[str, Any]]], list[dict[str, Any]]] | None = None
     # Keys of the changes that the entity's own `verify` checks, so the generic read-back comparison skips them.
     verify_skip: frozenset[str] = frozenset()
 
@@ -173,7 +190,9 @@ def covers(stored: Any, wanted: Any) -> bool:
     return same(stored, wanted)
 
 
-def diff(before: dict[str, Any] | None, after: dict[str, Any] | None, ignore: frozenset[str] = VOLATILE) -> dict[str, Any]:
+def diff(
+    before: dict[str, Any] | None, after: dict[str, Any] | None, ignore: frozenset[str] = VOLATILE
+) -> dict[str, Any]:
     b = {k: v for k, v in (before or {}).items() if k not in ignore}
     a = {k: v for k, v in (after or {}).items() if k not in ignore}
     return {k: {"from": b.get(k), "to": a.get(k)} for k in sorted(set(b) | set(a)) if not same(b.get(k), a.get(k))}
@@ -234,7 +253,9 @@ class WriteEngine:
             try:
                 out[key] = await self._read_list(op_id)
             except UniFiError as exc:
-                raise UniFiError(f"Could not read {key} to check this {spec.label} ({op_id}): {exc} Nothing was changed.") from None
+                raise UniFiError(
+                    f"Could not read {key} to check this {spec.label} ({op_id}): {exc} Nothing was changed."
+                ) from None
         return out
 
     @staticmethod
@@ -252,12 +273,21 @@ class WriteEngine:
             return by_name[0]
         if len(by_name) > 1:
             ids = ", ".join(str(r.get(spec.id_field)) for r in by_name)
-            raise UniFiError(f"{len(by_name)} {spec.label}s are called '{target}'. Use one of these ids instead: {ids}.")
+            raise UniFiError(
+                f"{len(by_name)} {spec.label}s are called '{target}'. Use one of these ids instead: {ids}."
+            )
         raise UniFiError(f"No {spec.label} with id or exact name '{target}'. List them first to see what exists.")
 
     # ---- planning
-    def _plan(self, spec: EntitySpec, rows: list[dict[str, Any]], action: str, target: str | None,
-              changes: dict[str, Any], ctx: dict[str, list[dict[str, Any]]] | None = None) -> Plan:
+    def _plan(
+        self,
+        spec: EntitySpec,
+        rows: list[dict[str, Any]],
+        action: str,
+        target: str | None,
+        changes: dict[str, Any],
+        ctx: dict[str, list[dict[str, Any]]] | None = None,
+    ) -> Plan:
         if action not in ACTIONS:
             raise UniFiError(f"Unknown action '{action}'. Use one of: {', '.join(ACTIONS)}.")
         ao = spec.action_ops.get(action)
@@ -266,8 +296,17 @@ class WriteEngine:
                 raise UniFiError(f"The {spec.label} cannot be moved here.")
             wanted_op = None
         else:
-            wanted_op = ao.op if ao else {"create": spec.create_op, "update": spec.update_op, "enable": spec.update_op,
-                                          "disable": spec.update_op, "delete": spec.delete_op}[action]
+            wanted_op = (
+                ao.op
+                if ao
+                else {
+                    "create": spec.create_op,
+                    "update": spec.update_op,
+                    "enable": spec.update_op,
+                    "disable": spec.update_op,
+                    "delete": spec.delete_op,
+                }[action]
+            )
             if not wanted_op:
                 raise UniFiError(f"The {spec.label} cannot be {action}d here (the console has no such operation).")
         op = self.api.registry.get(wanted_op) if wanted_op else None
@@ -293,10 +332,14 @@ class WriteEngine:
         else:
             if spec.singleton:
                 if len(rows) != 1:
-                    raise UniFiError(f"Expected one {spec.label} but the console returned {len(rows)}. Nothing was changed.")
+                    raise UniFiError(
+                        f"Expected one {spec.label} but the console returned {len(rows)}. Nothing was changed."
+                    )
                 before = rows[0]
                 if target and target not in (str(before.get(spec.id_field)), spec.key):
-                    raise UniFiError(f"The {spec.label} is a single settings group, so target '{target}' does not match it. Leave target empty.")
+                    raise UniFiError(
+                        f"The {spec.label} is a single settings group, so target '{target}' does not match it. Leave target empty."
+                    )
             else:
                 if not target:
                     raise UniFiError(f"{action} needs a target: the {spec.label}'s id or exact name.")
@@ -304,12 +347,20 @@ class WriteEngine:
             ident = str(before[spec.id_field])
             if action != "move":
                 use_id = ao.with_id if ao else True
-                path = op.build_path(dict(spec.fixed_path_params) if spec.singleton else
-                                     ({"id": ident, **spec.fixed_path_params} if use_id else {}), site)
+                path = op.build_path(
+                    dict(spec.fixed_path_params)
+                    if spec.singleton
+                    else ({"id": ident, **spec.fixed_path_params} if use_id else {}),
+                    site,
+                )
             if action == "delete" and before.get("attr_no_delete"):
-                raise UniFiError(f"This {spec.label} is system-defined (the console marks it no-delete) and cannot be deleted.")
+                raise UniFiError(
+                    f"This {spec.label} is system-defined (the console marks it no-delete) and cannot be deleted."
+                )
             if action != "delete" and before.get("attr_no_edit"):
-                raise UniFiError(f"This {spec.label} is system-defined (the console marks it no-edit) and cannot be changed.")
+                raise UniFiError(
+                    f"This {spec.label} is system-defined (the console marks it no-edit) and cannot be changed."
+                )
             if action not in ("delete", "move") and spec.prepare:
                 changes = spec.prepare(action, before, changes)
             if action not in ("delete", "move", "enable", "disable") and spec.prepare_ctx:
@@ -332,25 +383,51 @@ class WriteEngine:
                     changes = {"enabled": action == "enable"}
                 effective = {k: v for k, v in changes.items() if not same(before.get(k), v)}
                 after = {**before, **effective}
-                body = ({k: v for k, v in after.items() if k not in spec.body_drop} if spec.whole_object else dict(effective))
+                body = (
+                    {k: v for k, v in after.items() if k not in spec.body_drop}
+                    if spec.whole_object
+                    else dict(effective)
+                )
                 if spec.body_keys:
                     body = {k: after[k] for k in spec.body_keys if k in after}
                 if ao and ao.body:
                     body = ao.body(before, after, effective)
 
         others = [r for r in rows if before is None or r.get(spec.id_field) != before.get(spec.id_field)]
-        if spec.validate_ctx:           # also runs for delete, so it can warn about what depends on the object
+        if spec.validate_ctx:  # also runs for delete, so it can warn about what depends on the object
             findings = spec.validate_ctx(action, before, after or {}, others, ctx or {})
         elif spec.validate and action != "delete":
             findings = spec.validate(action, before, after or {}, others)
 
         no_change = action in ("update", "enable", "disable", "move") and not effective
         stable_before = {k: v for k, v in (before or {}).items() if k not in spec.ignore}
-        fingerprint = hashlib.sha256(_canon({
-            "entity": spec.key, "action": action, "path": path, "before": stable_before, "body": body,
-        }).encode()).hexdigest()[:16]
-        return Plan(spec, action, op.method, path, op.needs_session, body, effective, before, after, ident,
-                    findings, fingerprint, no_change, undo=undo)
+        fingerprint = hashlib.sha256(
+            _canon(
+                {
+                    "entity": spec.key,
+                    "action": action,
+                    "path": path,
+                    "before": stable_before,
+                    "body": body,
+                }
+            ).encode()
+        ).hexdigest()[:16]
+        return Plan(
+            spec,
+            action,
+            op.method,
+            path,
+            op.needs_session,
+            body,
+            effective,
+            before,
+            after,
+            ident,
+            findings,
+            fingerprint,
+            no_change,
+            undo=undo,
+        )
 
     async def _check_references(self, plan: Plan) -> None:
         spec = plan.spec
@@ -361,23 +438,35 @@ class WriteEngine:
             path = op.build_path({}, self.api.settings.site)
             resp = await self.api.client.request("GET", path, needs_session=op.needs_session)
             if resp.status_code >= 400:
-                raise UniFiError(f"Could not check what uses this {spec.label} (reading {label}s failed: {op_id}, HTTP {resp.status_code}). "
-                                 "Nothing was changed.")
+                raise UniFiError(
+                    f"Could not check what uses this {spec.label} (reading {label}s failed: {op_id}, HTTP {resp.status_code}). "
+                    "Nothing was changed."
+                )
             data = unwrap(resp.json()) if resp.content else []
-            for row in ([data] if isinstance(data, dict) else data or []):
+            for row in [data] if isinstance(data, dict) else data or []:
                 if isinstance(row, dict) and plan.ident in _canon(row):
-                    who = row.get("name") or row.get("description") or row.get(spec.id_field) or row.get("id") or "(unnamed)"
+                    who = (
+                        row.get("name")
+                        or row.get("description")
+                        or row.get(spec.id_field)
+                        or row.get("id")
+                        or "(unnamed)"
+                    )
                     plan.used_by.append(f"{label}: {who}")
         if not plan.used_by:
             return
-        listing = "; ".join(plan.used_by[:10]) + (f" and {len(plan.used_by) - 10} more" if len(plan.used_by) > 10 else "")
+        listing = "; ".join(plan.used_by[:10]) + (
+            f" and {len(plan.used_by) - 10} more" if len(plan.used_by) > 10 else ""
+        )
         if plan.action == "delete":
             plan.findings.errors.append(
-                f"This {spec.label} is still used by {len(plan.used_by)} object(s): {listing}. Remove it from those first.")
+                f"This {spec.label} is still used by {len(plan.used_by)} object(s): {listing}. Remove it from those first."
+            )
         else:
             plan.findings.warnings.append(
                 f"This {spec.label} is used by {len(plan.used_by)} object(s): {listing}. The change takes effect for them "
-                "as soon as it is applied.")
+                "as soon as it is applied."
+            )
 
     @staticmethod
     def _guarded(plan: Plan) -> bool:
@@ -394,8 +483,10 @@ class WriteEngine:
         if not s.enable_writes:
             return "Writes are disabled: set UNIFI_CONSOLE_ENABLE_WRITES=true in the server environment."
         if spec.key not in s.write_entities:
-            return (f"'{spec.key}' is not enabled for writes: add it to UNIFI_CONSOLE_WRITE_ENTITIES "
-                    f"(currently: {', '.join(sorted(s.write_entities)) or 'none'}).")
+            return (
+                f"'{spec.key}' is not enabled for writes: add it to UNIFI_CONSOLE_WRITE_ENTITIES "
+                f"(currently: {', '.join(sorted(s.write_entities)) or 'none'})."
+            )
         if spec.tier == "C" and not (approval_note or "").strip():
             return "This is a tier C change (it can cut or expose the network): pass approval_note naming the plan that was approved."
         return None
@@ -405,7 +496,7 @@ class WriteEngine:
         directory: Path = self.api.settings.journal_dir
         try:
             directory.mkdir(parents=True, exist_ok=True, mode=0o700)
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             line = json.dumps(redact({"time": now.isoformat(timespec="seconds"), **entry}), default=str)
             with open(directory / f"{now:%Y-%m}.jsonl", "a", encoding="utf-8") as fh:
                 fh.write(line + "\n")
@@ -413,9 +504,17 @@ class WriteEngine:
             raise UniFiError(f"Cannot write the change journal ({directory}): {exc}. Nothing was changed.") from None
 
     # ---- public entry point
-    async def execute(self, spec: EntitySpec, *, action: str, target: str | None = None,
-                      changes: dict[str, Any] | None = None, confirm: bool = False,
-                      fingerprint: str | None = None, approval_note: str | None = None) -> dict[str, Any]:
+    async def execute(
+        self,
+        spec: EntitySpec,
+        *,
+        action: str,
+        target: str | None = None,
+        changes: dict[str, Any] | None = None,
+        confirm: bool = False,
+        fingerprint: str | None = None,
+        approval_note: str | None = None,
+    ) -> dict[str, Any]:
         async with self._lock:
             rows = await self._rows(spec)
             ctx = await self._context(spec) if spec.context_ops else None
@@ -438,29 +537,49 @@ class WriteEngine:
             if plan.findings.errors:
                 raise UniFiError("Refused: " + " ".join(plan.findings.errors))
             if not fingerprint:
-                raise UniFiError("confirm=true needs the fingerprint from a preview of exactly this change. Preview first.")
+                raise UniFiError(
+                    "confirm=true needs the fingerprint from a preview of exactly this change. Preview first."
+                )
             if fingerprint != plan.fingerprint:
                 raise UniFiError(
                     "The object, or the requested change, differs from the preview you confirmed "
-                    "(the console state may have changed). Run the preview again and review it.")
+                    "(the console state may have changed). Run the preview again and review it."
+                )
             if plan.no_change:
-                return {"ok": True, "applied": False, "entity": spec.key, "action": action, "id": plan.ident,
-                        "note": "Already in the requested state; nothing was sent."}
+                return {
+                    "ok": True,
+                    "applied": False,
+                    "entity": spec.key,
+                    "action": action,
+                    "id": plan.ident,
+                    "note": "Already in the requested state; nothing was sent.",
+                }
             return await self._apply(plan, approval_note)
 
     def _preview(self, plan: Plan, blocked: str | None) -> dict[str, Any]:
         spec = plan.spec
         bview, aview = spec.focus(plan.before, plan.after) if spec.focus else (plan.before, plan.after)
         out: dict[str, Any] = {
-            "ok": True, "applied": False, "preview": True, "entity": spec.key, "tier": spec.tier,
-            "action": plan.action, "id": plan.ident,
-            "request": {"method": plan.method, "path": plan.path,
-                        "body_fields": sorted(plan.body) if isinstance(plan.body, dict) else None,
-                        "body_style": "whole object" if spec.whole_object else "changed fields only"},
-            "before": redact(bview), "after": redact(aview),
+            "ok": True,
+            "applied": False,
+            "preview": True,
+            "entity": spec.key,
+            "tier": spec.tier,
+            "action": plan.action,
+            "id": plan.ident,
+            "request": {
+                "method": plan.method,
+                "path": plan.path,
+                "body_fields": sorted(plan.body) if isinstance(plan.body, dict) else None,
+                "body_style": "whole object" if spec.whole_object else "changed fields only",
+            },
+            "before": redact(bview),
+            "after": redact(aview),
             "diff": redact(diff(bview, aview, spec.ignore if not spec.focus else VOLATILE)),
-            "warnings": plan.findings.warnings, "errors": plan.findings.errors,
-            "used_by": plan.used_by, "fingerprint": plan.fingerprint,
+            "warnings": plan.findings.warnings,
+            "errors": plan.findings.errors,
+            "used_by": plan.used_by,
+            "fingerprint": plan.fingerprint,
             "apply_blocked_reason": blocked or ("; ".join(plan.findings.errors) or None),
         }
         if plan.guard_info:
@@ -468,32 +587,54 @@ class WriteEngine:
         if plan.no_change:
             out["note"] = "Already in the requested state; applying would send nothing."
         else:
-            out["next_step"] = ("Review the diff and warnings. To apply, call again with the same fields, "
-                                f"confirm=true and fingerprint='{plan.fingerprint}'.")
+            out["next_step"] = (
+                "Review the diff and warnings. To apply, call again with the same fields, "
+                f"confirm=true and fingerprint='{plan.fingerprint}'."
+            )
         return out
 
     # ---- applying
     async def _apply(self, plan: Plan, approval_note: str | None) -> dict[str, Any]:
         spec = plan.spec
         journal_id = uuid.uuid4().hex[:12]
-        base = {"journal_id": journal_id, "entity": spec.key, "tier": spec.tier, "action": plan.action,
-                "id": plan.ident, "method": plan.method, "path": plan.path, "approval_note": approval_note,
-                "before": plan.before, "body": plan.body}
-        self._journal({"event": "attempt", **base})     # no journal, no write
+        base = {
+            "journal_id": journal_id,
+            "entity": spec.key,
+            "tier": spec.tier,
+            "action": plan.action,
+            "id": plan.ident,
+            "method": plan.method,
+            "path": plan.path,
+            "approval_note": approval_note,
+            "before": plan.before,
+            "body": plan.body,
+        }
+        self._journal({"event": "attempt", **base})  # no journal, no write
 
         client = self.api.client
-        resp = await client.request(plan.method, plan.path, json_body=plan.body,
-                                    needs_session=plan.needs_session, send_body=plan.body is not None)
+        resp = await client.request(
+            plan.method,
+            plan.path,
+            json_body=plan.body,
+            needs_session=plan.needs_session,
+            send_body=plan.body is not None,
+        )
         data: Any = None
         if resp.content:
             try:
                 data = resp.json()
             except ValueError:
                 data = resp.text[:200]
-        problem = explain_status(resp.status_code, plan.path, resp.text) if resp.status_code >= 400 else _reply_error(data)
+        problem = (
+            explain_status(resp.status_code, plan.path, resp.text) if resp.status_code >= 400 else _reply_error(data)
+        )
         if problem:
-            self._journal({"event": "failed", "journal_id": journal_id, "http_status": resp.status_code, "error": problem})
-            raise UniFiError(f"The console rejected the {plan.action}: {problem} Re-run the preview to see the current state.")
+            self._journal(
+                {"event": "failed", "journal_id": journal_id, "http_status": resp.status_code, "error": problem}
+            )
+            raise UniFiError(
+                f"The console rejected the {plan.action}: {problem} Re-run the preview to see the current state."
+            )
 
         new_id = plan.ident
         if plan.action == "create":
@@ -507,7 +648,7 @@ class WriteEngine:
         if plan.action == "create" and not new_id:
             name = (plan.after or {}).get(spec.name_field)
             match = [r for r in rows if r.get(spec.name_field) == name]
-            if len(match) > 1:          # several objects may share a name (DNS records): narrow by what was sent
+            if len(match) > 1:  # several objects may share a name (DNS records): narrow by what was sent
                 match = [r for r in match if all(same(r.get(k), v) for k, v in plan.changes.items())]
             stored = match[0] if len(match) == 1 else None
             new_id = str(stored[spec.id_field]) if stored else None
@@ -538,35 +679,61 @@ class WriteEngine:
                 problem = await spec.guard.after(self, "change")
             except Exception as exc:  # noqa: BLE001 - a probe that cannot run counts as a failed probe
                 problem = f"the probe could not run: {exc}"
-            guard_result = ({"probe_after": "ok"} if not problem else await self._auto_restore(plan, journal_id, problem, new_id))
+            guard_result = (
+                {"probe_after": "ok"} if not problem else await self._auto_restore(plan, journal_id, problem, new_id)
+            )
 
         result: dict[str, Any] = {
-            "ok": True, "applied": True, "entity": spec.key, "tier": spec.tier, "action": plan.action,
-            "id": new_id, "http_status": resp.status_code, "verified": verified,
+            "ok": True,
+            "applied": True,
+            "entity": spec.key,
+            "tier": spec.tier,
+            "action": plan.action,
+            "id": new_id,
+            "http_status": resp.status_code,
+            "verified": verified,
             "diff": redact(self._result_diff(plan, stored)),
-            "rollback": self._rollback(plan, new_id), "journal_id": journal_id,
+            "rollback": self._rollback(plan, new_id),
+            "journal_id": journal_id,
         }
         if secrets_sent and plan.action != "delete":
-            result["secret_fields_not_verified"] = secrets_sent      # sent, but write-only: the console never returns them
+            result["secret_fields_not_verified"] = secrets_sent  # sent, but write-only: the console never returns them
         if guard_result is not None:
             result["guard"] = guard_result
             if guard_result.get("auto_restored"):
-                result.update(applied=False, verified=bool(guard_result.get("restore_verified")), rollback=None,
-                              diff=redact(guard_result.get("diff_after_restore", {})),
-                              attention=("The safety probe failed after the change, so the previous values were put back "
-                                         "automatically. Nothing is changed. See guard for the probe result and the restore check."))
+                result.update(
+                    applied=False,
+                    verified=bool(guard_result.get("restore_verified")),
+                    rollback=None,
+                    diff=redact(guard_result.get("diff_after_restore", {})),
+                    attention=(
+                        "The safety probe failed after the change, so the previous values were put back "
+                        "automatically. Nothing is changed. See guard for the probe result and the restore check."
+                    ),
+                )
             elif guard_result.get("restore_error"):
                 result["attention"] = (
                     "The safety probe failed after the change AND the automatic restore failed. Restore the previous values by hand now: "
                     "run scripts/doh_restore.py --run on the machine that runs this server, or use the UniFi UI. "
-                    f"Restore error: {guard_result['restore_error']}")
+                    f"Restore error: {guard_result['restore_error']}"
+                )
         if mismatches:
             result["mismatches"] = redact(mismatches)
-            result["attention"] = ("The console accepted the request but the stored object does not match it. "
-                                   "Nothing was retried. Review the mismatches before doing anything else.")
-        self._journal({"event": "result", "journal_id": journal_id, "http_status": resp.status_code,
-                       "verified": verified, "after": stored, "mismatches": mismatches,
-                       "auto_restored": bool(guard_result and guard_result.get("auto_restored"))})
+            result["attention"] = (
+                "The console accepted the request but the stored object does not match it. "
+                "Nothing was retried. Review the mismatches before doing anything else."
+            )
+        self._journal(
+            {
+                "event": "result",
+                "journal_id": journal_id,
+                "http_status": resp.status_code,
+                "verified": verified,
+                "after": stored,
+                "mismatches": mismatches,
+                "auto_restored": bool(guard_result and guard_result.get("auto_restored")),
+            }
+        )
         return result
 
     @staticmethod
@@ -578,7 +745,9 @@ class WriteEngine:
         return diff(plan.before, stored, spec.ignore)
 
     async def _send_json(self, method: str, path: str, body: Any, needs_session: bool) -> tuple[int, Any, str | None]:
-        resp = await self.api.client.request(method, path, json_body=body, needs_session=needs_session, send_body=body is not None)
+        resp = await self.api.client.request(
+            method, path, json_body=body, needs_session=needs_session, send_body=body is not None
+        )
         data: Any = None
         if resp.content:
             try:
@@ -588,11 +757,13 @@ class WriteEngine:
         err = explain_status(resp.status_code, path, resp.text) if resp.status_code >= 400 else _reply_error(data)
         return resp.status_code, data, err
 
-    async def _auto_restore(self, plan: Plan, journal_id: str, problem: str, new_id: str | None = None) -> dict[str, Any]:
+    async def _auto_restore(
+        self, plan: Plan, journal_id: str, problem: str, new_id: str | None = None
+    ) -> dict[str, Any]:
         """The guard's probe failed after a change: put the previous values back, once, and report it."""
         spec = plan.spec
         before = plan.before or {}
-        steps: list[tuple[str, str, Any, bool]] = []     # (method, path, body, needs_session)
+        steps: list[tuple[str, str, Any, bool]] = []  # (method, path, body, needs_session)
         keys: list[str] = []
         if spec.restore:
             site = self.api.settings.site
@@ -626,15 +797,28 @@ class WriteEngine:
         if spec.restore_ok:
             ok = spec.restore_ok(plan, rows, new_id)
         else:
-            ok = restored is not None and all(same(restored.get(k), before.get(k)) for k in keys if k not in spec.ignore and not is_secret_key(k))
+            ok = restored is not None and all(
+                same(restored.get(k), before.get(k)) for k in keys if k not in spec.ignore and not is_secret_key(k)
+            )
         try:
             after_restore = await spec.guard.after(self, "restore") if spec.guard else None
         except Exception as exc:  # noqa: BLE001
             after_restore = f"the probe could not run: {exc}"
-        info.update(auto_restored=True, restore_verified=ok, probe_after_restore=("ok" if not after_restore else f"failed: {after_restore}"),
-                    diff_after_restore=self._result_diff(plan, restored))
-        self._journal({"event": "auto_restore", "journal_id": journal_id, "http_status": status, "restore_verified": ok,
-                       "probe_after_restore": info["probe_after_restore"]})
+        info.update(
+            auto_restored=True,
+            restore_verified=ok,
+            probe_after_restore=("ok" if not after_restore else f"failed: {after_restore}"),
+            diff_after_restore=self._result_diff(plan, restored),
+        )
+        self._journal(
+            {
+                "event": "auto_restore",
+                "journal_id": journal_id,
+                "http_status": status,
+                "restore_verified": ok,
+                "probe_after_restore": info["probe_after_restore"],
+            }
+        )
         return info
 
     @staticmethod
@@ -652,11 +836,28 @@ class WriteEngine:
             keep.pop(spec.id_field, None)
             out: dict[str, Any] = {"action": "create", "changes": keep}
         else:
-            restore = {k: (keep[k] if k in keep else spec.empty_values[k]) for k in plan.changes if k in keep or k in spec.empty_values}
+            restore = {
+                k: (keep[k] if k in keep else spec.empty_values[k])
+                for k in plan.changes
+                if k in keep or k in spec.empty_values
+            }
             out = {"action": "update", "target": plan.ident, "changes": restore}
         if note:
             out["note"] = note
         return out
 
 
-__all__ = ["ACTIONS", "ActionOp", "EntitySpec", "Findings", "Guard", "MovePlan", "Plan", "RestoreStep", "WriteEngine", "covers", "diff", "same"]
+__all__ = [
+    "ACTIONS",
+    "ActionOp",
+    "EntitySpec",
+    "Findings",
+    "Guard",
+    "MovePlan",
+    "Plan",
+    "RestoreStep",
+    "WriteEngine",
+    "covers",
+    "diff",
+    "same",
+]

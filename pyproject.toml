@@ -35,6 +35,10 @@ dev = [
 asyncio_mode = "auto"
 testpaths = ["tests"]
 
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
 [project.urls]
 Homepage = "https://github.com/jaseonline/unifi-console-mcp"
 Issues = "https://github.com/jaseonline/unifi-console-mcp/issues"

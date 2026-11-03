@@ -1,4 +1,5 @@
 """Traffic (QoS) objects through the write framework: whole-object v2 updates, network resolution, narrow scope."""
+
 from __future__ import annotations
 
 import contextlib
@@ -9,10 +10,10 @@ import uuid
 
 import httpx
 import pytest
-from mcp.client import Client
-
 from conftest import make_jwt
+from mcp.client import Client
 from test_writes import Wrapped
+
 from unifi_console_mcp.entities.traffic_object import default_qos, default_route, default_secure
 from unifi_console_mcp.server import create_server
 
@@ -21,7 +22,11 @@ OBJECTS = BASE + "/object-oriented-network-configs"
 OBJECT = BASE + "/object-oriented-network-config"
 NETWORKS = "/proxy/network/api/s/default/rest/networkconf"
 TOOL = "unifi_console_traffic_object"
-SONOS_NET, IOT_NET, WAN_NET = "e4c2b208-d69f-48fc-b264-564f51e9cc1a", "98fba899-f53a-4e3d-b257-5b8e2e594189", "85425c54-aa12-44a8-998e-e00820f48ff9"
+SONOS_NET, IOT_NET, WAN_NET = (
+    "e4c2b208-d69f-48fc-b264-564f51e9cc1a",
+    "98fba899-f53a-4e3d-b257-5b8e2e594189",
+    "85425c54-aa12-44a8-998e-e00820f48ff9",
+)
 NETS = [
     {"_id": IOT_NET, "name": "LAN_IoT", "purpose": "corporate"},
     {"_id": SONOS_NET, "name": "LAN_Sonos", "purpose": "corporate"},
@@ -37,8 +42,16 @@ def make_obj(ident="obj-1", name="Existing", net=IOT_NET, *, enabled=False, qos_
         qos["download_limit"] = {"enabled": True, "limit": down, "burst": "DISABLED"}
     route = default_route()
     route["enabled"] = route_on
-    return {"id": ident, "enabled": enabled, "name": name, "target_type": "NETWORKS", "targets": [{"type": "NETWORK_ID", "value": net}],
-            "secure": default_secure(), "route": route, "qos": qos}
+    return {
+        "id": ident,
+        "enabled": enabled,
+        "name": name,
+        "target_type": "NETWORKS",
+        "targets": [{"type": "NETWORK_ID", "value": net}],
+        "secure": default_secure(),
+        "route": route,
+        "qos": qos,
+    }
 
 
 class FakeTraffic:
@@ -51,7 +64,9 @@ class FakeTraffic:
     def __call__(self, request: httpx.Request) -> httpx.Response:
         path, method = request.url.path, request.method
         if path == "/api/auth/login":
-            return httpx.Response(200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"})
+            return httpx.Response(
+                200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"}
+            )
         body = json.loads(request.content) if request.content else None
         self.log.append((method, path, body))
         if path == NETWORKS:
@@ -66,7 +81,7 @@ class FakeTraffic:
         if path.startswith(OBJECT + "/"):
             ident = path.rsplit("/", 1)[1]
             if method == "PUT":
-                if "id" not in body or "qos" not in body:                         # the real console wants the whole object
+                if "id" not in body or "qos" not in body:  # the real console wants the whole object
                     return httpx.Response(400, json={"message": "Validation failed"})
                 self.bodies.append(body)
                 if not self.ignore_put:
@@ -92,6 +107,7 @@ def make_session(settings, tmp_path):
                 yield Wrapped(client)
         finally:
             await api.client.aclose()
+
     return opener
 
 
@@ -137,7 +153,12 @@ async def test_a_limit_on_a_new_object_switches_qos_on_and_states_the_rate(make_
     assert qos["enabled"] is True and qos["download_limit"] == {"enabled": True, "limit": 5000, "burst": "DISABLED"}
     assert qos["upload_limit"] == {"enabled": True, "limit": 2000, "burst": "DISABLED"}
     text = " ".join(pre["warnings"])
-    assert "LAN_Sonos" in text and "download 5000 kbit/s (5 Mbit/s)" in text and "upload 2000 kbit/s (2 Mbit/s)" in text and out["verified"]
+    assert (
+        "LAN_Sonos" in text
+        and "download 5000 kbit/s (5 Mbit/s)" in text
+        and "upload 2000 kbit/s (2 Mbit/s)" in text
+        and out["verified"]
+    )
 
 
 async def test_update_sends_the_whole_object_and_changes_only_qos(make_session):
@@ -147,10 +168,15 @@ async def test_update_sends_the_whole_object_and_changes_only_qos(make_session):
         pre, out = await apply(c, {"action": "update", "target": "Existing", "download_limit": 8000})
     assert pre["request"]["body_style"] == "whole object"
     sent = net.bodies[0]
-    assert set(sent) == set(start) and sent["id"] == "obj-1" and sent["route"] == start["route"] and sent["secure"] == start["secure"]
+    assert (
+        set(sent) == set(start)
+        and sent["id"] == "obj-1"
+        and sent["route"] == start["route"]
+        and sent["secure"] == start["secure"]
+    )
     assert sent["qos"]["download_limit"] == {"enabled": True, "limit": 8000, "burst": "DISABLED"}
     assert list(out["diff"]) == ["qos"] and out["verified"] is True
-    assert any("has no effect" in w for w in pre["warnings"])             # qos is still off
+    assert any("has no effect" in w for w in pre["warnings"])  # qos is still off
 
 
 async def test_zero_switches_a_limit_off_and_keeps_its_value(make_session):
@@ -170,17 +196,24 @@ async def test_rename_changes_only_the_name_and_leaves_the_rest_alone(make_sessi
 
 
 async def test_enable_with_a_limit_warns_and_overlap_is_reported(make_session):
-    net = FakeTraffic([make_obj("a", "Other", SONOS_NET, enabled=True, qos_on=True, down=1000), make_obj("b", "Mine", SONOS_NET)])
+    net = FakeTraffic(
+        [make_obj("a", "Other", SONOS_NET, enabled=True, qos_on=True, down=1000), make_obj("b", "Mine", SONOS_NET)]
+    )
     async with make_session(net) as c:
-        pre = await call(c, {"action": "update", "target": "b", "enabled": True, "qos_enabled": True, "download_limit": 3000})
+        pre = await call(
+            c, {"action": "update", "target": "b", "enabled": True, "qos_enabled": True, "download_limit": 3000}
+        )
     text = " ".join(pre["warnings"])
     assert "as soon as it is applied" in text and "Other" in text and not pre["errors"]
 
 
-@pytest.mark.parametrize("args,needle", [
-    ({"networks": ["Nope"]}, "No network with id or name 'Nope'"),
-    ({"networks": ["WAN1"]}, "WAN network"),
-])
+@pytest.mark.parametrize(
+    "args,needle",
+    [
+        ({"networks": ["Nope"]}, "No network with id or name 'Nope'"),
+        ({"networks": ["WAN1"]}, "WAN network"),
+    ],
+)
 async def test_bad_networks_are_refused_before_anything_is_planned(make_session, args, needle):
     net = FakeTraffic()
     async with make_session(net) as c:
@@ -195,16 +228,19 @@ async def test_networks_may_be_given_by_id_or_case_insensitive_name(make_session
     assert [t["value"] for t in net.bodies[0]["targets"]] == [IOT_NET, SONOS_NET]
 
 
-@pytest.mark.parametrize("args,needle", [
-    ({"name": "existing"}, "already called"),
-    ({"networks": ["LAN_IoT", "LAN_IoT"]}, "Duplicate targets"),
-    ({"route_enabled": True}, "route.network_id must be"),
-    ({"block_internet": True, "enabled": True}, "acknowledge_blocking"),
-    ({"qos": {"mode": "PRIORITY"}}, "only LIMIT"),
-    ({"qos": {"download_limit": {"limit": 0}}}, "whole number"),
-    ({"qos": {"download_limit": {"burst": "AUTO"}}}, "burst"),
-    ({"qos": {"schedule": {"repeat_on_days": ["funday"]}}}, "repeat_on_days"),
-])
+@pytest.mark.parametrize(
+    "args,needle",
+    [
+        ({"name": "existing"}, "already called"),
+        ({"networks": ["LAN_IoT", "LAN_IoT"]}, "Duplicate targets"),
+        ({"route_enabled": True}, "route.network_id must be"),
+        ({"block_internet": True, "enabled": True}, "acknowledge_blocking"),
+        ({"qos": {"mode": "PRIORITY"}}, "only LIMIT"),
+        ({"qos": {"download_limit": {"limit": 0}}}, "whole number"),
+        ({"qos": {"download_limit": {"burst": "AUTO"}}}, "burst"),
+        ({"qos": {"schedule": {"repeat_on_days": ["funday"]}}}, "repeat_on_days"),
+    ],
+)
 async def test_bad_objects_are_refused(make_session, args, needle):
     net = FakeTraffic([make_obj()])
     async with make_session(net) as c:
@@ -243,7 +279,11 @@ async def test_another_target_type_can_be_renamed_but_not_retargeted(make_sessio
     async with make_session(net) as c:
         pre, out = await apply(c, {"action": "update", "target": "obj-1", "name": "Renamed"})
         bad = await raw(c, {"action": "update", "target": "obj-1", "networks": ["LAN_IoT"]})
-    assert out["verified"] and net.bodies[0]["targets"] == odd["targets"] and any("left untouched" in w for w in pre["warnings"])
+    assert (
+        out["verified"]
+        and net.bodies[0]["targets"] == odd["targets"]
+        and any("left untouched" in w for w in pre["warnings"])
+    )
     assert "cannot be changed here" in bad and len(net.bodies) == 1
 
 
@@ -283,7 +323,11 @@ async def test_entity_switch_and_previews_when_writes_are_off(make_session):
     async with make_session(net, entities=frozenset({"port_forward"})) as c:
         pre = await call(c, NEW)
         res = await raw(c, {**NEW, "confirm": True, "fingerprint": pre["fingerprint"]})
-    assert "not enabled for writes" in pre["apply_blocked_reason"] and "not enabled for writes" in res and net.writes() == []
+    assert (
+        "not enabled for writes" in pre["apply_blocked_reason"]
+        and "not enabled for writes" in res
+        and net.writes() == []
+    )
 
 
 async def test_a_stale_preview_is_refused(make_session):
@@ -291,22 +335,40 @@ async def test_a_stale_preview_is_refused(make_session):
     async with make_session(net) as c:
         pre = await call(c, {"action": "update", "target": "obj-1", "name": "Renamed"})
         net.items["obj-1"]["name"] = "Changed elsewhere"
-        res = await raw(c, {"action": "update", "target": "obj-1", "name": "Renamed", "confirm": True, "fingerprint": pre["fingerprint"]})
+        res = await raw(
+            c,
+            {
+                "action": "update",
+                "target": "obj-1",
+                "name": "Renamed",
+                "confirm": True,
+                "fingerprint": pre["fingerprint"],
+            },
+        )
     assert "differs from the preview" in res and net.writes() == []
 
 
-@pytest.mark.parametrize("op,args", [
-    ("createTrafficPolicyObject", {}),
-    ("updateTrafficPolicyObject", {"path_params": {"id": "obj-1"}}),
-    ("deleteTrafficPolicyObject", {"path_params": {"id": "obj-1"}}),
-])
+@pytest.mark.parametrize(
+    "op,args",
+    [
+        ("createTrafficPolicyObject", {}),
+        ("updateTrafficPolicyObject", {"path_params": {"id": "obj-1"}}),
+        ("deleteTrafficPolicyObject", {"path_params": {"id": "obj-1"}}),
+    ],
+)
 async def test_the_generic_tool_refuses_and_names_the_typed_one(settings, tmp_path, op, args):
     net = FakeTraffic([make_obj()])
-    mcp, api = create_server(dataclasses.replace(settings, enable_writes=True, write_entities=frozenset({"traffic_object"}),
-                                                 journal_dir=tmp_path / "journal"), transport=httpx.MockTransport(net))
+    mcp, api = create_server(
+        dataclasses.replace(
+            settings, enable_writes=True, write_entities=frozenset({"traffic_object"}), journal_dir=tmp_path / "journal"
+        ),
+        transport=httpx.MockTransport(net),
+    )
     try:
         async with Client(mcp) as c:
-            res = await c.call_tool("unifi_console_call_operation", {"params": {"operation_id": op, "confirm": True, **args}})
+            res = await c.call_tool(
+                "unifi_console_call_operation", {"params": {"operation_id": op, "confirm": True, **args}}
+            )
             text = json.loads(res.content[0].text)["error"]
     finally:
         await api.client.aclose()
@@ -319,8 +381,17 @@ WAN_ID = WAN_NET
 async def test_client_target_with_schedule_burst_and_priority(make_session):
     net = FakeTraffic()
     async with make_session(net) as c:
-        pre, out = await apply(c, {"action": "create", "name": "Kid laptop", "clients": ["AA-BB-CC-DD-EE-FF"], "download_limit": 20000,
-                                   "download_burst": "SHORT", "qos_schedule": {"mode": "EVERY_DAY", "start": "18:00", "end": "21:00"}})
+        pre, out = await apply(
+            c,
+            {
+                "action": "create",
+                "name": "Kid laptop",
+                "clients": ["AA-BB-CC-DD-EE-FF"],
+                "download_limit": 20000,
+                "download_burst": "SHORT",
+                "qos_schedule": {"mode": "EVERY_DAY", "start": "18:00", "end": "21:00"},
+            },
+        )
     body = net.bodies[0]
     assert body["target_type"] == "CLIENTS" and body["targets"] == [{"type": "MAC", "value": "aa:bb:cc:dd:ee:ff"}]
     assert body["enabled"] is False and body["qos"]["enabled"] is True
@@ -332,37 +403,98 @@ async def test_client_target_with_schedule_burst_and_priority(make_session):
 async def test_prioritize_and_weekly_schedule(make_session):
     net = FakeTraffic([make_obj()])
     async with make_session(net) as c:
-        _, out = await apply(c, {"action": "update", "target": "obj-1", "qos_enabled": True, "qos_mode": "PRIORITIZE",
-                                 "qos_schedule": {"mode": "EVERY_WEEK", "days": ["sat", "sun"]}})
+        _, out = await apply(
+            c,
+            {
+                "action": "update",
+                "target": "obj-1",
+                "qos_enabled": True,
+                "qos_mode": "PRIORITIZE",
+                "qos_schedule": {"mode": "EVERY_WEEK", "days": ["sat", "sun"]},
+            },
+        )
     q = net.bodies[0]["qos"]
-    assert q["mode"] == "PRIORITIZE" and q["schedule"] == {"mode": "EVERY_WEEK", "repeat_on_days": ["sat", "sun"], "time_all_day": True}
+    assert q["mode"] == "PRIORITIZE" and q["schedule"] == {
+        "mode": "EVERY_WEEK",
+        "repeat_on_days": ["sat", "sun"],
+        "time_all_day": True,
+    }
     assert out["verified"]
 
 
 async def test_block_internet_needs_acknowledgement_only_when_enabled(make_session):
     net = FakeTraffic()
     async with make_session(net) as c:
-        _, out = await apply(c, {"action": "create", "name": "Blocker", "networks": ["LAN_IoT"], "block_internet": True,
-                                 "block_schedule": {"mode": "EVERY_DAY", "start": "23:00", "end": "06:00"}})
+        _, out = await apply(
+            c,
+            {
+                "action": "create",
+                "name": "Blocker",
+                "networks": ["LAN_IoT"],
+                "block_internet": True,
+                "block_schedule": {"mode": "EVERY_DAY", "start": "23:00", "end": "06:00"},
+            },
+        )
         sec = net.bodies[0]["secure"]
-        assert sec["enabled"] is True and sec["internet"]["schedule"]["time_range_start"] == "23:00" and net.bodies[0]["enabled"] is False
+        assert (
+            sec["enabled"] is True
+            and sec["internet"]["schedule"]["time_range_start"] == "23:00"
+            and net.bodies[0]["enabled"] is False
+        )
         pre = await call(c, {"action": "update", "target": "Blocker", "enabled": True})
         assert not pre["errors"] and any("untouched" in w for w in pre["warnings"])
-        again = await call(c, {"action": "create", "name": "Blocker2", "networks": ["LAN_Sonos"], "block_internet": True, "enabled": True})
+        again = await call(
+            c,
+            {
+                "action": "create",
+                "name": "Blocker2",
+                "networks": ["LAN_Sonos"],
+                "block_internet": True,
+                "enabled": True,
+            },
+        )
         assert any("acknowledge_blocking" in e for e in again["errors"])
-        ok = await call(c, {"action": "create", "name": "Blocker2", "networks": ["LAN_Sonos"], "block_internet": True, "enabled": True,
-                            "acknowledge_blocking": True})
+        ok = await call(
+            c,
+            {
+                "action": "create",
+                "name": "Blocker2",
+                "networks": ["LAN_Sonos"],
+                "block_internet": True,
+                "enabled": True,
+                "acknowledge_blocking": True,
+            },
+        )
     assert not ok["errors"] and any("blocks all internet" in w for w in ok["warnings"])
 
 
 async def test_route_through_wan_with_ip_matcher_and_kill_switch(make_session):
     net = FakeTraffic()
     async with make_session(net) as c:
-        bad = await raw(c, {"action": "create", "name": "Route", "networks": ["LAN_IoT"], "route_enabled": True, "route_network": "LAN_Sonos",
-                            "route_all_traffic": True})
+        bad = await raw(
+            c,
+            {
+                "action": "create",
+                "name": "Route",
+                "networks": ["LAN_IoT"],
+                "route_enabled": True,
+                "route_network": "LAN_Sonos",
+                "route_all_traffic": True,
+            },
+        )
         assert "not a WAN or VPN" in bad
-        _, out = await apply(c, {"action": "create", "name": "Route", "networks": ["LAN_IoT"], "route_enabled": True,
-                                 "route_network": "WAN1", "route_ip_addresses": ["203.0.113.0/24"], "route_kill_switch": True})
+        _, out = await apply(
+            c,
+            {
+                "action": "create",
+                "name": "Route",
+                "networks": ["LAN_IoT"],
+                "route_enabled": True,
+                "route_network": "WAN1",
+                "route_ip_addresses": ["203.0.113.0/24"],
+                "route_kill_switch": True,
+            },
+        )
     r = net.bodies[0]["route"]
     assert r["enabled"] and r["network_id"] == WAN_ID and r["kill_switch"] is True and r["all_traffic"] is False
     assert r["ip_addresses"] == {"enabled": True, "values": ["203.0.113.0/24"]} and out["verified"]
@@ -380,5 +512,10 @@ async def test_prioritize_switches_limits_off_and_refuses_limits(make_session):
         _, out = await apply(c, {"action": "update", "target": "obj-1", "qos_mode": "PRIORITIZE"})
         bad = await call(c, {"action": "update", "target": "obj-1", "download_limit": 5000})
     q = net.bodies[0]["qos"]
-    assert q["mode"] == "PRIORITIZE" and q["download_limit"]["enabled"] is False and q["download_limit"]["limit"] == 4000 and out["verified"]
+    assert (
+        q["mode"] == "PRIORITIZE"
+        and q["download_limit"]["enabled"] is False
+        and q["download_limit"]["limit"] == 4000
+        and out["verified"]
+    )
     assert any("Prioritize mode cannot" in e for e in bad["errors"])

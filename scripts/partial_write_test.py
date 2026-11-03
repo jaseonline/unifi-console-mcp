@@ -14,6 +14,7 @@ SAFETY
   * Uses the same account and settings as the MCP server (UNIFI_LOCAL_HOST, UNIFI_MCP_USERNAME, UNIFI_MCP_PASSWORD).
   * Prints field names and short values only. No secrets are involved.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -25,7 +26,7 @@ from unifi_console_mcp.client import UniFiClient
 from unifi_console_mcp.config import Settings
 
 PREFIX = "zz-partial-"
-L = "/proxy/network/api/s/default"       # legacy API
+L = "/proxy/network/api/s/default"  # legacy API
 V2 = "/proxy/network/v2/api/site/default"
 VOLATILE = {"site_id", "attr_hidden_id", "attr_no_delete", "attr_no_edit"}
 
@@ -40,7 +41,7 @@ For each partial update the report says: HTTP status, fields that changed, field
 class Runner:
     def __init__(self, client: UniFiClient) -> None:
         self.c = client
-        self.cleanup: list[tuple[str, str]] = []   # (label, delete path)
+        self.cleanup: list[tuple[str, str]] = []  # (label, delete path)
 
     async def call(self, method: str, path: str, body: Any = None) -> tuple[int, Any]:
         resp = await self.c.request(method, path, json_body=body, send_body=body is not None)
@@ -77,8 +78,9 @@ class Runner:
         new = sorted(k for k in a if k not in b)
         return json.dumps({"changed": changed, "disappeared": gone, "new": new}, default=str)
 
-    async def step(self, label: str, method: str, path: str, body: Any, list_path: str, ident: str,
-                   before: dict, key: str = "_id") -> dict | None:
+    async def step(
+        self, label: str, method: str, path: str, body: Any, list_path: str, ident: str, before: dict, key: str = "_id"
+    ) -> dict | None:
         status, data = await self.call(method, path, body)
         note = "" if status < 300 else f"  reply: {str(data)[:200]}"
         after = await self.find(list_path, ident, key)
@@ -115,25 +117,39 @@ async def test_static_dns(r: Runner) -> None:
     print(f"  create -> HTTP {status}")
     rec = (r.rows(data) or [None])[0]
     if not rec or "_id" not in rec:
-        rec = next((x for x in r.rows((await r.call("GET", f"{V2}/static-dns"))[1]) if x.get("key") == body["key"]), None)
+        rec = next(
+            (x for x in r.rows((await r.call("GET", f"{V2}/static-dns"))[1]) if x.get("key") == body["key"]), None
+        )
     if not rec:
         print("  could not find the created record; stopping this test")
         return
     ident = rec["_id"]
     r.cleanup.append(("static DNS", f"{V2}/static-dns/{ident}"))
     cur = await r.find(f"{V2}/static-dns", ident)
-    cur = await r.step("partial: value only", "PUT", f"{V2}/static-dns/{ident}", {"value": "192.0.2.2"},
-                       f"{V2}/static-dns", ident, cur)
-    cur = await r.step("partial: enabled only", "PUT", f"{V2}/static-dns/{ident}", {"enabled": False},
-                       f"{V2}/static-dns", ident, cur)
+    cur = await r.step(
+        "partial: value only", "PUT", f"{V2}/static-dns/{ident}", {"value": "192.0.2.2"}, f"{V2}/static-dns", ident, cur
+    )
+    cur = await r.step(
+        "partial: enabled only", "PUT", f"{V2}/static-dns/{ident}", {"enabled": False}, f"{V2}/static-dns", ident, cur
+    )
     await r.delete_all()
 
 
 async def test_port_forward(r: Runner) -> None:
     print("\n[2] port forward (created disabled)")
-    body = {"enabled": False, "name": f"{PREFIX}pf", "pfwd_interface": "wan", "destination_ip": "any",
-            "destination_ips": [], "dst_port": "58699", "fwd": "10.88.1.15", "fwd_port": "58699",
-            "proto": "tcp_udp", "src_limiting_enabled": False, "log": True}
+    body = {
+        "enabled": False,
+        "name": f"{PREFIX}pf",
+        "pfwd_interface": "wan",
+        "destination_ip": "any",
+        "destination_ips": [],
+        "dst_port": "58699",
+        "fwd": "10.88.1.15",
+        "fwd_port": "58699",
+        "proto": "tcp_udp",
+        "src_limiting_enabled": False,
+        "log": True,
+    }
     status, data = await r.call("POST", f"{L}/rest/portforward", body)
     print(f"  create -> HTTP {status}")
     rec = (r.rows(data) or [None])[0]
@@ -143,8 +159,15 @@ async def test_port_forward(r: Runner) -> None:
     ident = rec["_id"]
     r.cleanup.append(("port forward", f"{L}/rest/portforward/{ident}"))
     cur = await r.find(f"{L}/rest/portforward", ident)
-    await r.step("partial: name only", "PUT", f"{L}/rest/portforward/{ident}", {"name": f"{PREFIX}pf-renamed"},
-                 f"{L}/rest/portforward", ident, cur or rec)
+    await r.step(
+        "partial: name only",
+        "PUT",
+        f"{L}/rest/portforward/{ident}",
+        {"name": f"{PREFIX}pf-renamed"},
+        f"{L}/rest/portforward",
+        ident,
+        cur or rec,
+    )
     await r.delete_all()
 
 
@@ -160,15 +183,29 @@ async def test_client_group(r: Runner) -> None:
     ident = rec["id"]
     r.cleanup.append(("client group", f"{V2}/network-members-group/{ident}"))
     cur = await r.find(f"{V2}/network-members-group", ident, key="id") or rec
-    await r.step("partial: id + name, members omitted", "PUT", f"{V2}/network-members-group/{ident}",
-                 {"id": ident, "name": f"{PREFIX}grp-renamed"}, f"{V2}/network-members-group", ident, cur, key="id")
+    await r.step(
+        "partial: id + name, members omitted",
+        "PUT",
+        f"{V2}/network-members-group/{ident}",
+        {"id": ident, "name": f"{PREFIX}grp-renamed"},
+        f"{V2}/network-members-group",
+        ident,
+        cur,
+        key="id",
+    )
     await r.delete_all()
 
 
 async def test_network_list(r: Runner) -> None:
     print("\n[4] network (port) list")
-    body = {"_id": None, "name": f"{PREFIX}list", "group_type": "port-group",
-            "group_members": ["58690-58699", "58700"], "source": "static", "description": "zz test"}
+    body = {
+        "_id": None,
+        "name": f"{PREFIX}list",
+        "group_type": "port-group",
+        "group_members": ["58690-58699", "58700"],
+        "source": "static",
+        "description": "zz test",
+    }
     status, data = await r.call("POST", f"{L}/rest/firewallgroup", body)
     print(f"  create -> HTTP {status}")
     rec = (r.rows(data) or [None])[0]
@@ -178,8 +215,15 @@ async def test_network_list(r: Runner) -> None:
     ident = rec["_id"]
     r.cleanup.append(("network list", f"{L}/rest/firewallgroup/{ident}"))
     cur = await r.find(f"{L}/rest/firewallgroup", ident) or rec
-    await r.step("partial: description only", "PUT", f"{L}/rest/firewallgroup/{ident}",
-                 {"description": "zz changed"}, f"{L}/rest/firewallgroup", ident, cur)
+    await r.step(
+        "partial: description only",
+        "PUT",
+        f"{L}/rest/firewallgroup/{ident}",
+        {"description": "zz changed"},
+        f"{L}/rest/firewallgroup",
+        ident,
+        cur,
+    )
     await r.delete_all()
 
 

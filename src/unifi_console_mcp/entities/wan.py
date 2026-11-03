@@ -43,23 +43,40 @@ TOOL = "unifi_console_wan"
 GATEWAY_TYPES = frozenset({"ugw", "uxg", "udm", "udmp"})
 INTERNET_PROBE = ("1.1.1.1:443", "9.9.9.9:443")
 NO_SEND = VOLATILE | {"attr_no_delete"}
-GUARD_TEXT = ("Safety net: after a WAN change the gateway must finish re-provisioning and be connected, every device that is connected "
-              "now must still be connected, the WAN must report ok, an internet probe and DNS through the gateway must work; if not, "
-              "the previous state is put back automatically, once, and the same checks run again.")
+GUARD_TEXT = (
+    "Safety net: after a WAN change the gateway must finish re-provisioning and be connected, every device that is connected "
+    "now must still be connected, the WAN must report ok, an internet probe and DNS through the gateway must work; if not, "
+    "the previous state is put back automatically, once, and the same checks run again."
+)
 
 # friendly name -> real field, for the settings that can be changed freely
 SIMPLE: dict[str, str] = {
-    "dns_preference": "wan_dns_preference", "dns1": "wan_dns1", "dns2": "wan_dns2",
-    "ipv6_dns_preference": "wan_ipv6_dns_preference", "ipv6_dns1": "wan_ipv6_dns1", "ipv6_dns2": "wan_ipv6_dns2",
-    "smart_queues": "wan_smartq_enabled", "egress_qos": "wan_egress_qos_enabled", "pd_size": "wan_dhcpv6_pd_size",
-    "pd_size_auto": "wan_dhcpv6_pd_size_auto", "failover_priority": "wan_failover_priority",
-    "load_balance_type": "wan_load_balance_type", "load_balance_weight": "wan_load_balance_weight",
-    "report_wan_event": "report_wan_event", "dhcp_cos": "wan_dhcp_cos", "dhcpv6_cos": "wan_dhcpv6_cos",
+    "dns_preference": "wan_dns_preference",
+    "dns1": "wan_dns1",
+    "dns2": "wan_dns2",
+    "ipv6_dns_preference": "wan_ipv6_dns_preference",
+    "ipv6_dns1": "wan_ipv6_dns1",
+    "ipv6_dns2": "wan_ipv6_dns2",
+    "smart_queues": "wan_smartq_enabled",
+    "egress_qos": "wan_egress_qos_enabled",
+    "pd_size": "wan_dhcpv6_pd_size",
+    "pd_size_auto": "wan_dhcpv6_pd_size_auto",
+    "failover_priority": "wan_failover_priority",
+    "load_balance_type": "wan_load_balance_type",
+    "load_balance_weight": "wan_load_balance_weight",
+    "report_wan_event": "report_wan_event",
+    "dhcp_cos": "wan_dhcp_cos",
+    "dhcpv6_cos": "wan_dhcpv6_cos",
 }
 SPEEDS = {"download_kbps": "download_kilobits_per_second", "upload_kbps": "upload_kilobits_per_second"}
 IDENTITY: dict[str, str] = {
-    "mac_override": "mac_override", "mac_override_enabled": "mac_override_enabled", "vlan": "wan_vlan", "vlan_enabled": "wan_vlan_enabled",
-    "type": "wan_type", "type_v6": "wan_type_v6", "uplink_identity": "uplink_identity",
+    "mac_override": "mac_override",
+    "mac_override_enabled": "mac_override_enabled",
+    "vlan": "wan_vlan",
+    "vlan_enabled": "wan_vlan_enabled",
+    "type": "wan_type",
+    "type_v6": "wan_type_v6",
+    "uplink_identity": "uplink_identity",
 }
 FIELDS = tuple(SIMPLE) + tuple(SPEEDS) + tuple(IDENTITY)
 MAC = re.compile(r"^[0-9a-f]{2}(:[0-9a-f]{2}){5}$")
@@ -73,15 +90,21 @@ def _ip(text: Any, version: int) -> bool:
         return False
 
 
-def prepare_ctx(action: str, before: dict[str, Any] | None, changes: dict[str, Any], ctx: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+def prepare_ctx(
+    action: str, before: dict[str, Any] | None, changes: dict[str, Any], ctx: dict[str, list[dict[str, Any]]]
+) -> dict[str, Any]:
     if action != "update":
-        raise UniFiError("Only update exists for the WAN. A WAN is never created, deleted or disabled here; use the UI for that.")
+        raise UniFiError(
+            "Only update exists for the WAN. A WAN is never created, deleted or disabled here; use the UI for that."
+        )
     bad = set(changes) - set(FIELDS)
     if bad:
         raise UniFiError(f"Unknown field(s): {', '.join(sorted(bad))}. Use: {', '.join(FIELDS)}.")
     if before is None or before.get("purpose") != "wan":
-        raise UniFiError(f"'{(before or {}).get('name')}' is a {(before or {}).get('purpose')} network, not a WAN. "
-                         "Use unifi_console_network for LAN and VLAN networks.")
+        raise UniFiError(
+            f"'{(before or {}).get('name')}' is a {(before or {}).get('purpose')} network, not a WAN. "
+            "Use unifi_console_network for LAN and VLAN networks."
+        )
     if not changes:
         raise UniFiError("Nothing to change.")
     out: dict[str, Any] = {}
@@ -100,8 +123,13 @@ def prepare_ctx(action: str, before: dict[str, Any] | None, changes: dict[str, A
 
 
 def make_validate(ack_identity: bool):
-    def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], others: list[dict[str, Any]],
-                 ctx: dict[str, list[dict[str, Any]]]) -> Findings:
+    def validate(
+        action: str,
+        before: dict[str, Any] | None,
+        after: dict[str, Any],
+        others: list[dict[str, Any]],
+        ctx: dict[str, list[dict[str, Any]]],
+    ) -> Findings:
         f = Findings()
         b = before or {}
         name = str(b.get("name") or "")
@@ -112,8 +140,10 @@ def make_validate(ack_identity: bool):
             if key in changed and (not isinstance(v, int) or isinstance(v, bool) or not lo <= v <= hi):
                 f.errors.append(f"{label} must be a whole number from {lo} to {hi}.")
 
-        for pref, keys, ver, label in (("wan_dns_preference", ("wan_dns1", "wan_dns2"), 4, "DNS"),
-                                       ("wan_ipv6_dns_preference", ("wan_ipv6_dns1", "wan_ipv6_dns2"), 6, "IPv6 DNS")):
+        for pref, keys, ver, label in (
+            ("wan_dns_preference", ("wan_dns1", "wan_dns2"), 4, "DNS"),
+            ("wan_ipv6_dns_preference", ("wan_ipv6_dns1", "wan_ipv6_dns2"), 6, "IPv6 DNS"),
+        ):
             if pref in changed and after.get(pref) not in ("auto", "manual"):
                 f.errors.append(f"{label} preference must be auto or manual.")
             for k in keys:
@@ -129,27 +159,44 @@ def make_validate(ack_identity: bool):
                 v = caps.get(real)
                 if not isinstance(v, int) or isinstance(v, bool) or not 1 <= v <= 100_000_000:
                     f.errors.append(f"{real} must be a whole number of kilobits per second from 1 to 100,000,000.")
-            f.warnings.append("The provider speeds feed Smart Queues and the speed-based features; set them to what the line really delivers.")
+            f.warnings.append(
+                "The provider speeds feed Smart Queues and the speed-based features; set them to what the line really delivers."
+            )
         whole("wan_dhcpv6_pd_size", 48, 64, "pd_size")
         whole("wan_failover_priority", 1, 99, "failover_priority")
         whole("wan_load_balance_weight", 1, 100, "load_balance_weight")
         whole("wan_dhcp_cos", 0, 7, "dhcp_cos")
         whole("wan_dhcpv6_cos", 0, 7, "dhcpv6_cos")
-        if "wan_load_balance_type" in changed and after.get("wan_load_balance_type") not in ("weighted", "failover-only"):
+        if "wan_load_balance_type" in changed and after.get("wan_load_balance_type") not in (
+            "weighted",
+            "failover-only",
+        ):
             f.errors.append("load_balance_type must be weighted or failover-only.")
-        for k in ("wan_smartq_enabled", "wan_egress_qos_enabled", "wan_dhcpv6_pd_size_auto", "report_wan_event", "mac_override_enabled",
-                  "wan_vlan_enabled"):
+        for k in (
+            "wan_smartq_enabled",
+            "wan_egress_qos_enabled",
+            "wan_dhcpv6_pd_size_auto",
+            "report_wan_event",
+            "mac_override_enabled",
+            "wan_vlan_enabled",
+        ):
             if k in changed and not isinstance(after.get(k), bool):
                 f.errors.append(f"{k} must be true or false.")
         if "wan_smartq_enabled" in changed and after.get("wan_smartq_enabled"):
-            f.warnings.append("Smart Queues shape traffic to the provider speeds; a wrong speed throttles the whole line.")
+            f.warnings.append(
+                "Smart Queues shape traffic to the provider speeds; a wrong speed throttles the whole line."
+            )
 
         ident = sorted(k for k in changed if k in IDENTITY.values())
         if ident:
-            f.warnings.append(f"Connection identity on '{name}' is changing ({', '.join(ident)}). The ISP session may not come back if the "
-                              "value is wrong, and this tool cannot repair that remotely.")
+            f.warnings.append(
+                f"Connection identity on '{name}' is changing ({', '.join(ident)}). The ISP session may not come back if the "
+                "value is wrong, and this tool cannot repair that remotely."
+            )
             if not ack_identity:
-                f.errors.append("Identity stop: MAC override, WAN VLAN, connection type and uplink identity need acknowledge_identity=true.")
+                f.errors.append(
+                    "Identity stop: MAC override, WAN VLAN, connection type and uplink identity need acknowledge_identity=true."
+                )
             if "mac_override" in changed and not MAC.match(str(after.get("mac_override") or "")):
                 f.errors.append("mac_override must be a MAC address such as 02:00:00:00:00:41.")
             if "wan_vlan" in changed:
@@ -157,12 +204,15 @@ def make_validate(ack_identity: bool):
                 if not isinstance(v, int) or isinstance(v, bool) or not 1 <= v <= 4094:
                     f.errors.append("vlan must be a whole number from 1 to 4094.")
             if "wan_type" in changed and after.get("wan_type") != "dhcp":
-                f.errors.append("Only type=dhcp is offered here; static and PPPoE need settings this tool does not handle.")
+                f.errors.append(
+                    "Only type=dhcp is offered here; static and PPPoE need settings this tool does not handle."
+                )
             if "wan_type_v6" in changed and after.get("wan_type_v6") not in ("dhcpv6", "disabled"):
                 f.errors.append("type_v6 must be dhcpv6 or disabled.")
         if changed:
             f.warnings.append("Applying re-provisions the gateway (about 20 seconds); the internet may drop briefly.")
         return f
+
     return validate
 
 
@@ -226,7 +276,9 @@ def make_guard() -> Guard:
 
     async def status(engine: Any, base: dict[str, Any], elapsed: float, settle: float) -> str | None:
         rows = {str(r.get("mac")).lower(): r for r in await devices(engine)}
-        down = [str(rows.get(m, {}).get("name") or m) for m in sorted(st["connected"]) if rows.get(m, {}).get("state") != 1]
+        down = [
+            str(rows.get(m, {}).get("name") or m) for m in sorted(st["connected"]) if rows.get(m, {}).get("state") != 1
+        ]
         if down:
             return f"device(s) not connected: {', '.join(down)}"
         now = await provisioned(engine)
@@ -293,16 +345,31 @@ def rollback(plan: Plan, new_id: str | None) -> dict[str, Any]:
 
 
 SPEC = EntitySpec(
-    key=KEY, label="WAN", tier="C", list_op="listNetworkConfig", update_op="updateNetworkConfig", whole_object=True, id_field="_id",
-    name_field="name", body_drop=NO_SEND, prepare_ctx=prepare_ctx, ignore=VOLATILE | {"external_id"},
-    guard=make_guard(), guard_when=lambda plan: not plan.no_change, restore=restore, restore_ok=restore_ok, rollback=rollback,
+    key=KEY,
+    label="WAN",
+    tier="C",
+    list_op="listNetworkConfig",
+    update_op="updateNetworkConfig",
+    whole_object=True,
+    id_field="_id",
+    name_field="name",
+    body_drop=NO_SEND,
+    prepare_ctx=prepare_ctx,
+    ignore=VOLATILE | {"external_id"},
+    guard=make_guard(),
+    guard_when=lambda plan: not plan.no_change,
+    restore=restore,
+    restore_ok=restore_ok,
+    rollback=rollback,
 )
 
 
 class WanInput(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    action: Literal["update"] = Field(default="update", description="Only update exists; a WAN is never created, deleted or disabled here.")
+    action: Literal["update"] = Field(
+        default="update", description="Only update exists; a WAN is never created, deleted or disabled here."
+    )
     target: str = Field(..., description="The WAN network: its _id or exact name (for example WAN1).")
     dns_preference: Literal["auto", "manual"] | None = None
     dns1: str | None = Field(default=None, description="IPv4 DNS server; only with dns_preference=manual.")
@@ -330,10 +397,18 @@ class WanInput(BaseModel):
     type: Literal["dhcp"] | None = Field(default=None, description="Identity. Only dhcp is offered.")
     type_v6: Literal["dhcpv6", "disabled"] | None = Field(default=None, description="Identity. IPv6 connection type.")
     uplink_identity: str | None = Field(default=None, description="Identity.")
-    acknowledge_identity: bool = Field(default=False, description="Accept a change to the connection identity (MAC, VLAN, type, uplink).")
-    approval_note: str | None = Field(default=None, description="Required with confirm=true: where the approval for this tier C change was given.")
-    confirm: bool = Field(default=False, description="false (default) returns a read-only preview. true applies and needs fingerprint.")
-    fingerprint: str | None = Field(default=None, description="From the preview of exactly this change; required with confirm=true.")
+    acknowledge_identity: bool = Field(
+        default=False, description="Accept a change to the connection identity (MAC, VLAN, type, uplink)."
+    )
+    approval_note: str | None = Field(
+        default=None, description="Required with confirm=true: where the approval for this tier C change was given."
+    )
+    confirm: bool = Field(
+        default=False, description="false (default) returns a read-only preview. true applies and needs fingerprint."
+    )
+    fingerprint: str | None = Field(
+        default=None, description="From the preview of exactly this change; required with confirm=true."
+    )
 
     def changes(self) -> dict[str, Any]:
         return {k: getattr(self, k) for k in FIELDS if getattr(self, k) is not None}
@@ -342,8 +417,13 @@ class WanInput(BaseModel):
 def register(mcp: MCPServer, engine: WriteEngine) -> None:
     @mcp.tool(
         name=TOOL,
-        annotations={"title": "Change WAN settings", "readOnlyHint": False, "destructiveHint": True,
-                     "idempotentHint": False, "openWorldHint": False},
+        annotations={
+            "title": "Change WAN settings",
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": False,
+            "openWorldHint": False,
+        },
     )
     async def unifi_console_wan(params: WanInput) -> str:
         """Preview, then apply, a change to the WAN network settings. Tier C: a wrong change can cut the internet.
@@ -359,8 +439,13 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
         try:
             snap_spec = replace(SPEC, validate_ctx=make_validate(params.acknowledge_identity))
             result = await engine.execute(
-                snap_spec, action=params.action, target=params.target, changes=params.changes(),
-                confirm=params.confirm, fingerprint=params.fingerprint, approval_note=params.approval_note,
+                snap_spec,
+                action=params.action,
+                target=params.target,
+                changes=params.changes(),
+                confirm=params.confirm,
+                fingerprint=params.fingerprint,
+                approval_note=params.approval_note,
             )
             return json.dumps(result, separators=(",", ":"), default=str)
         except Exception as exc:  # noqa: BLE001 - converted to an actionable message

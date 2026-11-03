@@ -19,6 +19,7 @@ SAFETY
   * DoH Auto (tier C, only with --include-doh): runs through the tool's DNS safety net, then restores the original state.
   * Dynamic DNS update is not run live: the real Cloudflare entry has never been touched. Prints names and short values only.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -81,8 +82,16 @@ async def lists_section(client: Client, engine: WriteEngine) -> int:
         if str(r.get("name", "")).startswith(PREFIX):
             show(f"removed leftover {r['name']}", await apply(client, tool, {"action": "delete", "target": r["_id"]}))
     try:
-        out = await apply(client, tool, {"action": "create", "name": f"{PREFIX}-v6", "group_type": "ipv6-address-group",
-                                         "group_members": ["2001:db8::1", "2001:db8:1::/48"]})
+        out = await apply(
+            client,
+            tool,
+            {
+                "action": "create",
+                "name": f"{PREFIX}-v6",
+                "group_type": "ipv6-address-group",
+                "group_members": ["2001:db8::1", "2001:db8:1::/48"],
+            },
+        )
         new_id = out["id"]
         fails += not show("create", out)
         out = await apply(client, tool, {"action": "update", "target": new_id, "add_members": ["2001:db8::2"]})
@@ -109,16 +118,34 @@ async def portfwd_section(client: Client, engine: WriteEngine) -> int:
         if str(r.get("name", "")).startswith(PREFIX):
             show(f"removed leftover {r['name']}", await apply(client, tool, {"action": "delete", "target": r["_id"]}))
     try:
-        out = await apply(client, tool, {"action": "create", "name": f"{PREFIX}-pf", "dst_port": "58699", "fwd": "10.88.1.15",
-                                         "fwd_port": "58699", "proto": "tcp", "src_limiting_enabled": True, "src": "142.250.0.0/15",
-                                         "log": False})
+        out = await apply(
+            client,
+            tool,
+            {
+                "action": "create",
+                "name": f"{PREFIX}-pf",
+                "dst_port": "58699",
+                "fwd": "10.88.1.15",
+                "fwd_port": "58699",
+                "proto": "tcp",
+                "src_limiting_enabled": True,
+                "src": "142.250.0.0/15",
+                "log": False,
+            },
+        )
         new_id = out["id"]
         fails += not show("create", out)
         stored = next(r for r in await engine._rows(port_forward.SPEC) if r["_id"] == new_id)
-        good = (stored.get("enabled") is False and stored.get("src") == "142.250.0.0/15"
-                and stored.get("src_limiting_enabled") is True and stored.get("src_limiting_type") == "ip")
-        print(f"  stored: enabled={stored.get('enabled')} src={stored.get('src')} limiting={stored.get('src_limiting_enabled')} "
-              f"type={stored.get('src_limiting_type')}")
+        good = (
+            stored.get("enabled") is False
+            and stored.get("src") == "142.250.0.0/15"
+            and stored.get("src_limiting_enabled") is True
+            and stored.get("src_limiting_type") == "ip"
+        )
+        print(
+            f"  stored: enabled={stored.get('enabled')} src={stored.get('src')} limiting={stored.get('src_limiting_enabled')} "
+            f"type={stored.get('src_limiting_type')}"
+        )
         fails += not good
         out = await apply(client, tool, {"action": "delete", "target": new_id})
         new_id = None
@@ -234,8 +261,14 @@ def arg(name: str) -> str | None:
     return sys.argv[sys.argv.index(name) + 1] if name in sys.argv and sys.argv.index(name) + 1 < len(sys.argv) else None
 
 
-async def main(run: bool, transport: Any = None, *, client_mac: str | None = None, reconnect_mac: str | None = None,
-               include_doh: bool = False) -> int:
+async def main(
+    run: bool,
+    transport: Any = None,
+    *,
+    client_mac: str | None = None,
+    reconnect_mac: str | None = None,
+    include_doh: bool = False,
+) -> int:
     print("Plan:\n" + PLAN)
     if not run:
         print("\nDry run only. Add --run to perform it.")
@@ -246,8 +279,13 @@ async def main(run: bool, transport: Any = None, *, client_mac: str | None = Non
     failures = 0
     try:
         async with Client(mcp) as client:
-            steps = [lists_section(client, engine), portfwd_section(client, engine), syslog_section(client, engine),
-                     retention_section(client, engine), logging_section(client, engine)]
+            steps = [
+                lists_section(client, engine),
+                portfwd_section(client, engine),
+                syslog_section(client, engine),
+                retention_section(client, engine),
+                logging_section(client, engine),
+            ]
             if client_mac:
                 steps.append(client_section(client, client_mac))
             if reconnect_mac:
@@ -267,5 +305,13 @@ async def main(run: bool, transport: Any = None, *, client_mac: str | None = Non
 
 
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main("--run" in sys.argv, client_mac=arg("--client-mac"), reconnect_mac=arg("--reconnect-mac"),
-                              include_doh="--include-doh" in sys.argv)))
+    sys.exit(
+        asyncio.run(
+            main(
+                "--run" in sys.argv,
+                client_mac=arg("--client-mac"),
+                reconnect_mac=arg("--reconnect-mac"),
+                include_doh="--include-doh" in sys.argv,
+            )
+        )
+    )

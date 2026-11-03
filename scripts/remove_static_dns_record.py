@@ -5,6 +5,7 @@
 
 Refuses unless the record with that _id still has exactly that key. Writes are enabled for this process only.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -36,7 +37,9 @@ async def main(ident: str, key: str, run: bool, transport: Any = None) -> int:
             rows = await WriteEngine(api)._rows(SPEC)
             row = next((r for r in rows if r.get("_id") == ident), None)
             if row is None or row.get("key") != key:
-                print(f"STOP: no record {ident} with key '{key}' (found: {row and row.get('key')!r}). Nothing was changed.")
+                print(
+                    f"STOP: no record {ident} with key '{key}' (found: {row and row.get('key')!r}). Nothing was changed."
+                )
                 return 1
             pre = await tool(client, {"action": "delete", "target": ident})
             if not pre.get("ok") or pre["errors"] or pre["apply_blocked_reason"]:
@@ -47,7 +50,9 @@ async def main(ident: str, key: str, run: bool, transport: Any = None) -> int:
             if not run:
                 print("Dry run only. Add --run to delete it.")
                 return 0
-            out = await tool(client, {"action": "delete", "target": ident, "confirm": True, "fingerprint": pre["fingerprint"]})
+            out = await tool(
+                client, {"action": "delete", "target": ident, "confirm": True, "fingerprint": pre["fingerprint"]}
+            )
             print("Result:", json.dumps({k: out.get(k) for k in ("ok", "applied", "verified", "journal_id", "error")}))
             print("Rollback:", json.dumps(out.get("rollback")))
             return 0 if out.get("ok") and out.get("verified") else 1

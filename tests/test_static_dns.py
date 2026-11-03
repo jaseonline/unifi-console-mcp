@@ -1,4 +1,5 @@
 """Static DNS records through the write framework: whole-object v2 updates, duplicates, the CNAME rule, client clashes."""
+
 from __future__ import annotations
 
 import contextlib
@@ -8,10 +9,10 @@ import uuid
 
 import httpx
 import pytest
-from mcp.client import Client
-
 from conftest import make_jwt
+from mcp.client import Client
 from test_writes import Wrapped
+
 from unifi_console_mcp.server import create_server
 
 SDNS = "/proxy/network/v2/api/site/default/static-dns"
@@ -22,8 +23,18 @@ REQUIRED = {"record_type", "key", "value", "enabled"}
 
 
 def rec(ident, key, rtype, value, enabled=True, **extra):
-    return {"_id": ident, "enabled": enabled, "key": key, "record_type": rtype, "value": value, "ttl": 0, "port": 0,
-            "priority": 0, "weight": 0, **extra}
+    return {
+        "_id": ident,
+        "enabled": enabled,
+        "key": key,
+        "record_type": rtype,
+        "value": value,
+        "ttl": 0,
+        "port": 0,
+        "priority": 0,
+        "weight": 0,
+        **extra,
+    }
 
 
 NAS = rec("nas-id", "nas.example.home", "A", "192.168.1.10")
@@ -35,8 +46,14 @@ OFF = rec("off-id", "old.example.home", "A", "192.0.2.100", enabled=False)
 class FakeDns:
     def __init__(self, items=(NAS, ALIAS, V6, OFF)) -> None:
         self.items = {r["_id"]: dict(r) for r in items}
-        self.clients = [{"mac": "aa:aa:aa:aa:aa:01", "name": "Home Assistant", "local_dns_record": "ha.example.home",
-                         "local_dns_record_enabled": True}]
+        self.clients = [
+            {
+                "mac": "aa:aa:aa:aa:aa:01",
+                "name": "Home Assistant",
+                "local_dns_record": "ha.example.home",
+                "local_dns_record_enabled": True,
+            }
+        ]
         self.networks = [{"_id": "n1", "name": "LAN_Private", "purpose": "corporate", "ip_subnet": "192.168.1.1/24"}]
         self.ignore_put = False
         self.no_id_in_reply = False
@@ -46,10 +63,12 @@ class FakeDns:
     def __call__(self, request: httpx.Request) -> httpx.Response:
         path, method = request.url.path, request.method
         if path == "/api/auth/login":
-            return httpx.Response(200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"})
+            return httpx.Response(
+                200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"}
+            )
         body = json.loads(request.content) if request.content else None
         self.log.append((method, path, body))
-        wrap = lambda x: {"meta": {"rc": "ok"}, "data": x}  # noqa: E731
+        wrap = lambda x: {"meta": {"rc": "ok"}, "data": x}
         if path == USER:
             return httpx.Response(200, json=wrap(self.clients))
         if path == NETS:
@@ -64,7 +83,7 @@ class FakeDns:
         if path.startswith(SDNS + "/"):
             ident = path.rsplit("/", 1)[1]
             if method == "PUT":
-                if not REQUIRED <= set(body):                       # the real console rejects a partial body
+                if not REQUIRED <= set(body):  # the real console rejects a partial body
                     return httpx.Response(400, json={"errorCode": 400, "message": "Validation failed"})
                 self.bodies.append(body)
                 if not self.ignore_put:
@@ -90,6 +109,7 @@ def make_session(settings, tmp_path):
                 yield Wrapped(client)
         finally:
             await api.client.aclose()
+
     return opener
 
 
@@ -121,7 +141,7 @@ async def test_create_finds_the_record_when_the_reply_has_no_id(make_session):
     net.no_id_in_reply = True
     async with make_session(net) as c:
         pre, out = await apply(c, {**NEW, "key": "nas.example.home", "record_type": "AAAA", "value": "fd00::1"})
-    assert out["verified"] and out["id"]            # two records share the name; the sent values pick the right one
+    assert out["verified"] and out["id"]  # two records share the name; the sent values pick the right one
 
 
 async def test_update_sends_the_whole_record(make_session):
@@ -130,7 +150,9 @@ async def test_update_sends_the_whole_record(make_session):
         pre, out = await apply(c, {"action": "update", "target": "nas-id", "value": "192.168.1.11"})
     assert pre["request"]["body_style"] == "whole object"
     assert net.bodies == [{**NAS, "value": "192.168.1.11"}]
-    assert out["verified"] and list(out["diff"]) == ["value"] and out["rollback"]["changes"] == {"value": "192.168.1.10"}
+    assert (
+        out["verified"] and list(out["diff"]) == ["value"] and out["rollback"]["changes"] == {"value": "192.168.1.10"}
+    )
 
 
 async def test_enable_and_disable_use_the_whole_record(make_session):
@@ -157,19 +179,25 @@ async def test_a_name_shared_by_two_records_needs_the_id(make_session):
     assert "2 static DNS records are called" in res.content[0].text and ok["id"] == "nas-id"
 
 
-@pytest.mark.parametrize("args,needle", [
-    ({"key": "nas.example.home", "value": "192.168.1.10"}, "identical A record"),
-    ({"record_type": "CNAME", "key": "nas.example.home", "value": "x.example.home"}, "already has a A record"),
-    ({"key": "files.example.home"}, "already has a CNAME record"),
-    ({"key": "ha.example.home"}, "already publishes"),
-    ({"key": "*.example.home"}, "Wildcard"),
-    ({"key": "bad name.example.home"}, "not a valid DNS name"),
-    ({"value": "999.1.1.1"}, "needs an IPv4 address"),
-    ({"record_type": "AAAA", "value": "192.168.1.1"}, "needs an IPv6 address"),
-    ({"record_type": "SRV", "key": "_sip._tcp.example.home", "value": "pbx.example.home"}, "needs a port"),
-    ({"priority": 5}, "only applies to MX and SRV"),
-    ({"ttl": -1}, "ttl must be"),
-])
+@pytest.mark.parametrize(
+    "args,needle",
+    [
+        ({"key": "nas.example.home", "value": "192.168.1.10"}, "identical A record"),
+        (
+            {"record_type": "CNAME", "key": "nas.example.home", "value": "x.example.home"},
+            "already has a A record",
+        ),
+        ({"key": "files.example.home"}, "already has a CNAME record"),
+        ({"key": "ha.example.home"}, "already publishes"),
+        ({"key": "*.example.home"}, "Wildcard"),
+        ({"key": "bad name.example.home"}, "not a valid DNS name"),
+        ({"value": "999.1.1.1"}, "needs an IPv4 address"),
+        ({"record_type": "AAAA", "value": "192.168.1.1"}, "needs an IPv6 address"),
+        ({"record_type": "SRV", "key": "_sip._tcp.example.home", "value": "pbx.example.home"}, "needs a port"),
+        ({"priority": 5}, "only applies to MX and SRV"),
+        ({"ttl": -1}, "ttl must be"),
+    ],
+)
 async def test_bad_records_are_refused(make_session, args, needle):
     net = FakeDns()
     base = {"action": "create", "record_type": "A", "key": "new.example.home", "value": "192.168.1.50", **args}
@@ -215,8 +243,15 @@ async def test_existing_odd_records_can_still_be_toggled(make_session):
 async def test_aaaa_values_are_written_in_compressed_form(make_session):
     net = FakeDns()
     async with make_session(net) as c:
-        pre, out = await apply(c, {"action": "create", "record_type": "AAAA", "key": "v6.example.home",
-                                   "value": "FD00:0000:0000:0000:0000:0000:0000:0001"})
+        pre, out = await apply(
+            c,
+            {
+                "action": "create",
+                "record_type": "AAAA",
+                "key": "v6.example.home",
+                "value": "FD00:0000:0000:0000:0000:0000:0000:0001",
+            },
+        )
     assert net.bodies[0]["value"] == "fd00::1" and out["verified"]
 
 
@@ -231,8 +266,16 @@ async def test_silent_failure_is_reported(make_session):
 async def test_entity_must_be_listed_and_generic_tool_redirects(make_session):
     async with make_session(FakeDns(), entities=frozenset({"client"})) as c:
         pre = await call(c, NEW)
-        res = await c.client.call_tool("unifi_console_call_operation", {"params": {
-            "operation_id": "updateStaticDns", "path_params": {"id": "nas-id"}, "body": {"value": "1.1.1.1"}}})
+        res = await c.client.call_tool(
+            "unifi_console_call_operation",
+            {
+                "params": {
+                    "operation_id": "updateStaticDns",
+                    "path_params": {"id": "nas-id"},
+                    "body": {"value": "1.1.1.1"},
+                }
+            },
+        )
     assert "UNIFI_CONSOLE_WRITE_ENTITIES" in pre["apply_blocked_reason"]
     assert "unifi_console_static_dns" in res.content[0].text
 

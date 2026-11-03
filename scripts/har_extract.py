@@ -22,8 +22,10 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
-SECRET = re.compile(r'("(?:x_[A-Za-z_]*|password|passphrase|secret|token|api_?key|key|psk)"\s*:\s*)"(?:[^"\\]|\\.)*"', re.I)
-SECRET_KEY = re.compile(r"^(?:x_.*|password|passphrase|secret|token|api_?key|key|psk)$", re.I)
+SECRET = re.compile(
+    r'("(?:x_[A-Za-z_]*|password|passphrase|secret|token|api_?key|key|psk)"\s*:\s*)"(?:[^"\\]|\\.)*"', re.IGNORECASE
+)
+SECRET_KEY = re.compile(r"^(?:x_.*|password|passphrase|secret|token|api_?key|key|psk)$", re.IGNORECASE)
 CACHE_LIMIT = 3_000_000  # characters of one GET body kept for the before-lookup
 BEFORE_LIMIT = 6000
 
@@ -67,13 +69,17 @@ def find_before(cache: dict[str, str], raw_path: str, body_text: str | None) -> 
         return None, None
     collection, last = parts
     ids: list[str] = []
-    if "/group/" in raw_path or collection.endswith("/group"):          # group/<name> with {"id": [...]} in the body
+    if "/group/" in raw_path or collection.endswith("/group"):  # group/<name> with {"id": [...]} in the body
         collection = raw_path.replace("/group/", "/rest/", 1)
         try:
             ids = [str(i) for i in (json.loads(body_text or "{}").get("id") or [])]
         except (ValueError, AttributeError):
             ids = []
-    elif re.fullmatch(r"[0-9a-f]{24}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|(?:[0-9a-f]{2}:){5}[0-9a-f]{2}", last, re.I):
+    elif re.fullmatch(
+        r"[0-9a-f]{24}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|(?:[0-9a-f]{2}:){5}[0-9a-f]{2}",
+        last,
+        re.IGNORECASE,
+    ):
         ids = [last]
     if not ids:
         return None, None
@@ -100,8 +106,10 @@ def changed_keys(before: dict[str, Any], body_text: str | None) -> dict[str, Any
             out[key] = {"before": "<absent>", "after": "<redacted>"}
         elif before.get(key) != new:
             secret = bool(SECRET_KEY.match(key))
-            out[key] = {"before": "<redacted>" if secret else _mask(before.get(key, "<absent>")),
-                        "after": "<redacted>" if secret else _mask(new)}
+            out[key] = {
+                "before": "<redacted>" if secret else _mask(before.get(key, "<absent>")),
+                "after": "<redacted>" if secret else _mask(new),
+            }
     return out
 
 
@@ -109,7 +117,11 @@ def main() -> None:
     import ijson  # imported here so the pure helpers can be tested without it
 
     src = Path(sys.argv[1])
-    out = Path(sys.argv[2]) if len(sys.argv) > 2 else Path(__file__).resolve().parent.parent / "har-files" / (src.stem + "_extract.json")
+    out = (
+        Path(sys.argv[2])
+        if len(sys.argv) > 2
+        else Path(__file__).resolve().parent.parent / "har-files" / (src.stem + "_extract.json")
+    )
     out.parent.mkdir(exist_ok=True)
     total = 0
     gets: Counter[str] = Counter()
@@ -135,16 +147,25 @@ def main() -> None:
             body = (req.get("postData") or {}).get("text")
             ids, before = find_before(cache, url.path, body)
             item = {
-                "method": method, "path": norm(url.path), "query_keys": sorted(parse_qs(url.query)),
-                "status": status, "request_body": redact(body, 8000), "response_excerpt": redact(text, 3000),
-                "before": None, "changed": None,
+                "method": method,
+                "path": norm(url.path),
+                "query_keys": sorted(parse_qs(url.query)),
+                "status": status,
+                "request_body": redact(body, 8000),
+                "response_excerpt": redact(text, 3000),
+                "before": None,
+                "changed": None,
             }
             if before is not None:
                 item["before"] = redact(json.dumps(before, default=str), BEFORE_LIMIT)
                 item["changed"] = changed_keys(before, body) if method in {"PUT", "POST", "PATCH"} else None
             others.append(item)
-    out.write_text(json.dumps({"entries_total": total, "non_get": others, "get_paths": dict(sorted(gets.items()))},
-                              indent=1, default=str), encoding="utf-8")
+    out.write_text(
+        json.dumps(
+            {"entries_total": total, "non_get": others, "get_paths": dict(sorted(gets.items()))}, indent=1, default=str
+        ),
+        encoding="utf-8",
+    )
     print(f"{total} entries; {len(others)} non-GET API calls; {len(gets)} distinct GET paths -> {out}")
     for o in others:
         changed = "" if o["changed"] is None else f"  changed={list(o['changed'])}"

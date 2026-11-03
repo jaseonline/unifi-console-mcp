@@ -28,10 +28,24 @@ MAX_MEMBER_BYTES = 20_000_000
 
 # Services worth reading. Anything not listed (unifiNetwork holds the inform token and certificate, sshServer,
 # snmpAgent, ddns, wifiman, ...) is skipped, so a service added by new firmware stays out until reviewed.
-SAFE_SERVICES = ("dhcpServers", "dnsForwarder", "dohProxy", "mdns", "wanFailover", "idsIps", "ntpClient",
-                 "systemLog", "dpi", "arpInspection", "lldp")
-_SECRET_KEY = re.compile(r"password|passphrase|secret|token|psk|preshared|privatekey|private_key|apikey|api_key|"
-                         r"community|certificate|^key$|^crt$|^cert$|^users$", re.IGNORECASE)
+SAFE_SERVICES = (
+    "dhcpServers",
+    "dnsForwarder",
+    "dohProxy",
+    "mdns",
+    "wanFailover",
+    "idsIps",
+    "ntpClient",
+    "systemLog",
+    "dpi",
+    "arpInspection",
+    "lldp",
+)
+_SECRET_KEY = re.compile(
+    r"password|passphrase|secret|token|psk|preshared|privatekey|private_key|apikey|api_key|"
+    r"community|certificate|^key$|^crt$|^cert$|^users$",
+    re.IGNORECASE,
+)
 INFORM_KEYS = ("model", "model_display", "version", "cfgversion", "state", "uptime", "required_version")
 ACTION_TARGET = {"ALLOW": "ACCEPT", "BLOCK": "DROP", "REJECT": "REJECT"}
 IP_VERSION = {"IPV4": {"v4only"}, "IPV6": {"v6only"}}
@@ -60,9 +74,9 @@ def repair_json(text: str) -> str:
         if m and m.group(2) not in _OPENERS:
             value = m.group(2)
             try:
-                json.loads(value[:-1] if value.endswith(",") else value)
+                json.loads(value.removesuffix(","))
             except json.JSONDecodeError:
-                following = next((x.strip() for x in lines[i + 1:] if x.strip()), "")
+                following = next((x.strip() for x in lines[i + 1 :] if x.strip()), "")
                 inner = value.rstrip(",").strip().strip('"').replace("\\", "\\\\").replace('"', '\\"')
                 line = f'{m.group(1)}"{inner}"' + ("," if following.startswith('"') else "")
         out.append(line)
@@ -102,18 +116,24 @@ def load_gateways(archive: Path) -> list[GatewayFiles]:
         cfg = files.get("system.cfg")
         if isinstance(cfg, dict) and isinstance(cfg.get("udapi"), dict):
             inform = files.get("last.inform")
-            gateways.append(GatewayFiles(mac.replace("-", ":"), device_type, cfg["udapi"],
-                                         inform if isinstance(inform, dict) else None))
+            gateways.append(
+                GatewayFiles(
+                    mac.replace("-", ":"), device_type, cfg["udapi"], inform if isinstance(inform, dict) else None
+                )
+            )
     return gateways
 
 
 # ---------------------------------------------------------------- shaping
 def scrub(value: Any) -> Any:
     """Drop credential-looking keys, DNS stamps and PEM blocks, then apply the server-wide redaction."""
+
     def walk(v: Any) -> Any:
         if isinstance(v, dict):
-            return {k: (REDACTED if _SECRET_KEY.search(str(k)) and v2 not in (None, "", [], {}) else walk(v2))
-                    for k, v2 in v.items()}
+            return {
+                k: (REDACTED if _SECRET_KEY.search(str(k)) and v2 not in (None, "", [], {}) else walk(v2))
+                for k, v2 in v.items()
+            }
         if isinstance(v, list):
             return [walk(x) for x in v]
         if isinstance(v, str):
@@ -122,17 +142,26 @@ def scrub(value: Any) -> Any:
             if "-----BEGIN" in v:
                 return REDACTED
         return v
+
     return redact(walk(value))
 
 
 def summary_view(gw: GatewayFiles) -> dict[str, Any]:
     u = gw.udapi
     return {
-        "mac": gw.mac, "device_type": gw.device_type,
+        "mac": gw.mac,
+        "device_type": gw.device_type,
         "inform": {k: (gw.inform or {}).get(k) for k in INFORM_KEYS} if gw.inform else None,
-        "config_version": u.get("version"), "version_format": u.get("versionFormat"),
+        "config_version": u.get("version"),
+        "version_format": u.get("versionFormat"),
         "section_versions": u.get("versionDetail"),
-        "system": scrub({k: v for k, v in (u.get("system") or {}).items() if k in ("hostname", "timezone", "fwReleaseChannel", "dnsServers")}),
+        "system": scrub(
+            {
+                k: v
+                for k, v in (u.get("system") or {}).items()
+                if k in ("hostname", "timezone", "fwReleaseChannel", "dnsServers")
+            }
+        ),
     }
 
 
@@ -147,9 +176,13 @@ def services_view(udapi: dict[str, Any]) -> dict[str, Any]:
 
 
 def _filter_rules(udapi: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
-    return [(str((c.get("config") or {}).get("name")), r)
-            for c in udapi.get("firewall/filter") or [] if isinstance(c, dict)
-            for r in c.get("rules") or [] if isinstance(r, dict)]
+    return [
+        (str((c.get("config") or {}).get("name")), r)
+        for c in udapi.get("firewall/filter") or []
+        if isinstance(c, dict)
+        for r in c.get("rules") or []
+        if isinstance(r, dict)
+    ]
 
 
 def _type_name(v: Any) -> str:
@@ -177,16 +210,28 @@ def firewall_view(udapi: dict[str, Any], chain: str | None = None) -> dict[str, 
         if isinstance(c, dict):
             cfg = c.get("config") or {}
             body = [r for r in c.get("rules") or [] if isinstance(r, dict)]
-            per_chain[str(cfg.get("name"))] = {"policy": cfg.get("policy"), "rules": len(body),
-                                               "from_policies": sum(1 for r in body if r.get("originId"))}
-    all_sets = [{"name": str((s.get("identification") or {}).get("name")), "description": s.get("description"),
-                 "entries": len(s.get("entries") or [])} for s in udapi.get("firewall/sets") or [] if isinstance(s, dict)]
+            per_chain[str(cfg.get("name"))] = {
+                "policy": cfg.get("policy"),
+                "rules": len(body),
+                "from_policies": sum(1 for r in body if r.get("originId")),
+            }
+    all_sets = [
+        {
+            "name": str((s.get("identification") or {}).get("name")),
+            "description": s.get("description"),
+            "entries": len(s.get("entries") or []),
+        }
+        for s in udapi.get("firewall/sets") or []
+        if isinstance(s, dict)
+    ]
     # One generated set per policy match (policy_src_net_12, ...): count them, list the rest.
     sets = [s for s in all_sets if not s["name"].startswith("policy_")]
     data: dict[str, Any] = {
         "chains": {k: v for k, v in per_chain.items() if v["rules"]},
         "empty_chains": sorted(k for k, v in per_chain.items() if not v["rules"]),
-        "rule_count": len(rules), "sets": sets, "policy_sets": len(all_sets) - len(sets),
+        "rule_count": len(rules),
+        "sets": sets,
+        "policy_sets": len(all_sets) - len(sets),
         "nat_rules": len(udapi.get("firewall/nat") or []),
         **field_types([r for _, r in rules]),
     }
@@ -236,25 +281,42 @@ def compare_policies(policies: list[dict[str, Any]], udapi: dict[str, Any]) -> d
         targets = {r.get("target") for r in rules}
         want = ACTION_TARGET.get(str(p.get("action")))
         if want and want not in targets:
-            mismatches.append({**ref, "field": "action", "controller": p.get("action"), "gateway": sorted(map(str, targets))})
+            mismatches.append(
+                {**ref, "field": "action", "controller": p.get("action"), "gateway": sorted(map(str, targets))}
+            )
         versions = {r.get("ipVersion") for r in rules}
         allowed = IP_VERSION.get(str(p.get("ip_version")))
         if allowed and not versions & allowed:
-            mismatches.append({**ref, "field": "ip_version", "controller": p.get("ip_version"), "gateway": sorted(map(str, versions))})
+            mismatches.append(
+                {**ref, "field": "ip_version", "controller": p.get("ip_version"), "gateway": sorted(map(str, versions))}
+            )
         if p.get("ip_version") == "BOTH" and not ("both" in versions or {"v4only", "v6only"} <= versions):
-            mismatches.append({**ref, "field": "ip_version", "controller": "BOTH", "gateway": sorted(map(str, versions))})
+            mismatches.append(
+                {**ref, "field": "ip_version", "controller": "BOTH", "gateway": sorted(map(str, versions))}
+            )
         logged = any(r.get("log") is True for r in rules)
         if bool(p.get("logging")) != logged:
             mismatches.append({**ref, "field": "logging", "controller": bool(p.get("logging")), "gateway": logged})
 
-    orphans = [_rule_ref(chain, r) for origin, hits in by_origin.items() if origin not in known
-               for chain, r in hits if (r.get("triggerTag") or {}).get("type") == "FIREWALL_POLICY"]
+    orphans = [
+        _rule_ref(chain, r)
+        for origin, hits in by_origin.items()
+        if origin not in known
+        for chain, r in hits
+        if (r.get("triggerTag") or {}).get("type") == "FIREWALL_POLICY"
+    ]
     return {
-        "policies_checked": len(policies), "custom_enabled": custom_enabled, "custom_matched": matched,
-        "missing_on_gateway": missing[:LIST_CAP], "disabled_but_on_gateway": disabled_present[:LIST_CAP],
-        "mismatches": mismatches[:LIST_CAP], "orphan_rules": orphans[:LIST_CAP],
+        "policies_checked": len(policies),
+        "custom_enabled": custom_enabled,
+        "custom_matched": matched,
+        "missing_on_gateway": missing[:LIST_CAP],
+        "disabled_but_on_gateway": disabled_present[:LIST_CAP],
+        "mismatches": mismatches[:LIST_CAP],
+        "orphan_rules": orphans[:LIST_CAP],
         "predefined_missing_on_gateway": predefined_missing[:LIST_CAP],
         "in_sync": not (missing or predefined_missing or disabled_present or mismatches or orphans),
-        "note": ("Compares the controller's policies with the config it sent the gateway (support file), not the "
-                 "rules the gateway loaded. Custom policies are checked field by field; predefined ones for presence."),
+        "note": (
+            "Compares the controller's policies with the config it sent the gateway (support file), not the "
+            "rules the gateway loaded. Custom policies are checked field by field; predefined ones for presence."
+        ),
     }

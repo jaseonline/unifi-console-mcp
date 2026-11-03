@@ -18,8 +18,13 @@ har-files/
 *.err
 journal/
 .env*
+!.env.example
 .claude/
 .vscode/
 *.har
 *.jsonl
 _pub/
+
+# MCPB build output
+dist/
+*.mcpb

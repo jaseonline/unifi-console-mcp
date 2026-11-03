@@ -5,6 +5,7 @@
 Prints each tool's result length and the first part of its output, so you can see exactly what a model
 would receive. Nothing here writes to the console.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -32,7 +33,10 @@ async def main() -> None:
         ("unifi_console_firewall_policy_hits", {"params": {"unused_only": True, "enabled_only": True, "limit": 4}}),
         ("unifi_console_access_review", {}),
         ("unifi_console_backup", {"params": {"action": "list"}}),
-        ("unifi_console_call_operation", {"params": {"operation_id": "listKnownClients", "fields": ["mac", "name", "fixed_ip"], "limit": 3}}),
+        (
+            "unifi_console_call_operation",
+            {"params": {"operation_id": "listKnownClients", "fields": ["mac", "name", "fixed_ip"], "limit": 3}},
+        ),
         ("unifi_console_list_operations", {"params": {"search": "stp", "access": "all", "limit": 5}}),
     ]
     if mac:
@@ -44,8 +48,10 @@ async def main() -> None:
         for name, args in plan:
             res = await client.call_tool(name, args)
             text = res.content[0].text
-            print(f"\n=== {name} {json.dumps(args.get('params', {}))[:90]} -> {len(text)} chars"
-                  f"{' (isError)' if res.is_error else ''}")
+            print(
+                f"\n=== {name} {json.dumps(args.get('params', {}))[:90]} -> {len(text)} chars"
+                f"{' (isError)' if res.is_error else ''}"
+            )
             print(text[:LIMIT] + (" ...[cut for display]" if len(text) > LIMIT else ""))
     await api.client.aclose()
 

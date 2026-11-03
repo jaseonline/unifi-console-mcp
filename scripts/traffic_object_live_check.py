@@ -14,6 +14,7 @@ SAFETY
     block, also when a step fails.
   * Journal lines go to the normal journal folder. Prints field names and short values only.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -78,7 +79,9 @@ async def main(run: bool, transport: Any = None) -> int:
     if not run:
         print("\nDry run only. Add --run to perform it.")
         return 0
-    settings = dataclasses.replace(Settings.from_env(), enable_writes=True, write_entities=frozenset({"traffic_object"}))
+    settings = dataclasses.replace(
+        Settings.from_env(), enable_writes=True, write_entities=frozenset({"traffic_object"})
+    )
     mcp, api = create_server(settings, transport=transport)
     engine = WriteEngine(api)
     failures = 0
@@ -99,18 +102,26 @@ async def main(run: bool, transport: Any = None) -> int:
                 out = await apply(client, {"action": "create", "name": PREFIX, "networks": [NET_A]})
                 created_id = out["id"]
                 stored = next((r for r in await engine._rows(SPEC) if r["id"] == created_id), {})
-                print(f"  verified={out['verified']} id={created_id} http={out['http_status']} rollback={out['rollback']}")
-                print(f"  stored keys={sorted(stored)} enabled={stored.get('enabled')} qos.enabled={(stored.get('qos') or {}).get('enabled')}")
+                print(
+                    f"  verified={out['verified']} id={created_id} http={out['http_status']} rollback={out['rollback']}"
+                )
+                print(
+                    f"  stored keys={sorted(stored)} enabled={stored.get('enabled')} qos.enabled={(stored.get('qos') or {}).get('enabled')}"
+                )
                 failures += not out["verified"] or stored.get("enabled") is not False or out["http_status"] != 201
 
                 print("\n[3] limits while the object stays off")
-                out = await apply(client, {"action": "update", "target": created_id, "download_limit": 5000, "upload_limit": 2000})
+                out = await apply(
+                    client, {"action": "update", "target": created_id, "download_limit": 5000, "upload_limit": 2000}
+                )
                 print(f"  verified={out['verified']} diff keys={list(out['diff'])}")
                 failures += not out["verified"] or list(out["diff"]) != ["qos"]
 
                 print("\n[4] QoS block on (object still off)")
                 out = await apply(client, {"action": "update", "target": created_id, "qos_enabled": True})
-                print(f"  verified={out['verified']} diff keys={list(out['diff'])} warnings={out['_preview']['warnings']}")
+                print(
+                    f"  verified={out['verified']} diff keys={list(out['diff'])} warnings={out['_preview']['warnings']}"
+                )
                 failures += not out["verified"] or list(out["diff"]) != ["qos"]
 
                 print("\n[5] rename")
@@ -125,7 +136,9 @@ async def main(run: bool, transport: Any = None) -> int:
                 rollback = out["rollback"]
 
                 print("\n[7] replay the rollback")
-                out = await apply(client, {"action": rollback["action"], "target": rollback["target"], **rollback["changes"]})
+                out = await apply(
+                    client, {"action": rollback["action"], "target": rollback["target"], **rollback["changes"]}
+                )
                 stored = next((r for r in await engine._rows(SPEC) if r["id"] == created_id), {})
                 print(f"  verified={out['verified']} targets={len(stored.get('targets') or [])}")
                 failures += not out["verified"] or len(stored.get("targets") or []) != 1
@@ -134,18 +147,45 @@ async def main(run: bool, transport: Any = None) -> int:
                 hub = os.environ.get("UNIFI_LIVE_CHECK_CLIENT_MAC", "02:00:00:00:00:23").lower()
                 steps = [
                     ("client target", {"clients": [hub]}, ["target_type", "targets"]),
-                    ("burst + schedule", {"download_burst": "SHORT", "qos_schedule": {"mode": "EVERY_DAY", "start": "18:00", "end": "21:00"}}, ["qos"]),
+                    (
+                        "burst + schedule",
+                        {
+                            "download_burst": "SHORT",
+                            "qos_schedule": {"mode": "EVERY_DAY", "start": "18:00", "end": "21:00"},
+                        },
+                        ["qos"],
+                    ),
                     ("prioritize", {"qos_mode": "PRIORITIZE"}, ["qos"]),
-                    ("internet block + schedule", {"block_internet": True, "block_schedule": {"mode": "EVERY_DAY", "start": "23:00", "end": "06:00"}}, ["secure"]),
-                    ("route via WAN", {"route_enabled": True, "route_network": "WAN1", "route_ip_addresses": ["203.0.113.0/24"], "route_kill_switch": True}, ["route"]),
+                    (
+                        "internet block + schedule",
+                        {
+                            "block_internet": True,
+                            "block_schedule": {"mode": "EVERY_DAY", "start": "23:00", "end": "06:00"},
+                        },
+                        ["secure"],
+                    ),
+                    (
+                        "route via WAN",
+                        {
+                            "route_enabled": True,
+                            "route_network": "WAN1",
+                            "route_ip_addresses": ["203.0.113.0/24"],
+                            "route_kill_switch": True,
+                        },
+                        ["route"],
+                    ),
                 ]
                 for label, change, expect in steps:
                     out = await apply(client, {"action": "update", "target": created_id, **change})
                     stored = next((r for r in await engine._rows(SPEC) if r["id"] == created_id), {})
                     ok = out["verified"] and sorted(out["diff"]) == sorted(expect) and stored.get("enabled") is False
-                    print(f"  {label}: verified={out['verified']} diff keys={sorted(out['diff'])} enabled={stored.get('enabled')} -> {'ok' if ok else 'FAIL'}")
+                    print(
+                        f"  {label}: verified={out['verified']} diff keys={sorted(out['diff'])} enabled={stored.get('enabled')} -> {'ok' if ok else 'FAIL'}"
+                    )
                     failures += not ok
-                print(f"  stored qos.schedule={stored.get('qos', {}).get('schedule')} secure={stored.get('secure')} route={ {k: v for k, v in (stored.get('route') or {}).items() if v not in (None, False, {}, [])} }")
+                print(
+                    f"  stored qos.schedule={stored.get('qos', {}).get('schedule')} secure={stored.get('secure')} route={ {k: v for k, v in (stored.get('route') or {}).items() if v not in (None, False, {}, [])} }"
+                )
 
                 print("\n[9] delete")
                 out = await apply(client, {"action": "delete", "target": created_id})
@@ -166,7 +206,9 @@ async def main(run: bool, transport: Any = None) -> int:
 
             after = await engine._rows(SPEC)
             leftovers = [r.get("name") for r in after if str(r.get("name", "")).startswith(PREFIX)]
-            print(f"\n[10] other objects unchanged: {snapshot(after) == others_before}; leftovers: {leftovers or 'none'}")
+            print(
+                f"\n[10] other objects unchanged: {snapshot(after) == others_before}; leftovers: {leftovers or 'none'}"
+            )
             failures += snapshot(after) != others_before or bool(leftovers)
     finally:
         await api.client.aclose()

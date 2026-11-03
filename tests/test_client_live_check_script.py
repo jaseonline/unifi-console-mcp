@@ -1,11 +1,11 @@
 """The client live check must only touch the Harmony Hub and put it back exactly, also when a step fails."""
+
 from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
 
 import httpx
-
 from test_client import HUB, FakeClients
 from test_network_list_live_check_script import patch_settings
 
@@ -35,11 +35,16 @@ async def test_run_changes_and_restores_the_hub_and_leaves_others_alone(monkeypa
     code = await load().main(True, transport=httpx.MockTransport(net))
     out = capsys.readouterr().out
     assert code == 0 and "all checks passed" in out, out
-    assert {k: hub(net)[k] for k in ("name", "note", "noted", "use_fixedip", "fixed_ip", "local_dns_record", "local_dns_record_enabled")} == {
-        k: HUB[k] for k in ("name", "note", "noted", "use_fixedip", "fixed_ip", "local_dns_record", "local_dns_record_enabled")}
+    assert {
+        k: hub(net)[k]
+        for k in ("name", "note", "noted", "use_fixedip", "fixed_ip", "local_dns_record", "local_dns_record_enabled")
+    } == {
+        k: HUB[k]
+        for k in ("name", "note", "noted", "use_fixedip", "fixed_ip", "local_dns_record", "local_dns_record_enabled")
+    }
     assert {k: v for k, v in net.items.items() if k != HUB["_id"]} == others
     assert all(p.endswith(HUB["_id"]) for m, p, _ in net.writes())
-    assert "fixed IP: skipped" in out and len(net.writes()) == 4          # note, name, dns, one restore
+    assert "fixed IP: skipped" in out and len(net.writes()) == 4  # note, name, dns, one restore
 
 
 async def test_fixed_ip_step_uses_a_spare_address_and_restores(monkeypatch, tmp_path, capsys):
@@ -54,7 +59,7 @@ async def test_fixed_ip_step_uses_a_spare_address_and_restores(monkeypatch, tmp_
 async def test_a_step_failing_midway_still_restores_the_hub(monkeypatch, tmp_path, capsys):
     patch_settings(monkeypatch, tmp_path)
     net = FakeClients()
-    net.fail_put_at = 3                                                     # the Local DNS step is refused by the console
+    net.fail_put_at = 3  # the Local DNS step is refused by the console
     code = await load().main(True, transport=httpx.MockTransport(net))
     out = capsys.readouterr().out
     assert code == 1 and "FAILED" in out

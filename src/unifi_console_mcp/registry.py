@@ -21,17 +21,32 @@ from urllib.parse import quote
 import yaml
 
 # POST operations that only read (the controller uses POST for query bodies).
-READ_ONLY_POSTS = frozenset({
-    "querySystemLogAll", "querySystemLog", "getSystemLogFilterData",
-    "queryTrafficFlows", "getAppTrafficRate", "listDevicesDetailedFiltered",
-    "listRogueAps", "getSystemLogCount", "getPortMacTables", "queryPortSystemLogs",
-})
+READ_ONLY_POSTS = frozenset(
+    {
+        "querySystemLogAll",
+        "querySystemLog",
+        "getSystemLogFilterData",
+        "queryTrafficFlows",
+        "getAppTrafficRate",
+        "listDevicesDetailedFiltered",
+        "listRogueAps",
+        "getSystemLogCount",
+        "getPortMacTables",
+        "queryPortSystemLogs",
+        "queryWifiConnectivityEvents",
+    }
+)
 
 # Writes that create a file or entry but change no configuration. Enabled only with
 # UNIFI_CONSOLE_ENABLE_WRITES=true and confirm=true.
-SAFE_WRITES = frozenset({
-    "generateSupportFile", "generateDeviceSupportFile", "createConsoleBackup", "checkApplicationUpdates",
-})
+SAFE_WRITES = frozenset(
+    {
+        "generateSupportFile",
+        "generateDeviceSupportFile",
+        "createConsoleBackup",
+        "checkApplicationUpdates",
+    }
+)
 
 # GET operations that return a file. They are streamed to disk. The files contain secrets, so the
 # caller must pass confirm=true.
@@ -204,11 +219,17 @@ class Registry:
                 security = op.get("security", spec.get("security", []))
                 needs_session = any("ControllerSession" in s for s in security)
                 self._ops[op_id] = Operation(
-                    operation_id=op_id, method=method.upper(), path=path, tag=tag,
-                    summary=op.get("summary", ""), description=(op.get("description") or "").strip(),
-                    params=params, body_schema=body_schema,
+                    operation_id=op_id,
+                    method=method.upper(),
+                    path=path,
+                    tag=tag,
+                    summary=op.get("summary", ""),
+                    description=(op.get("description") or "").strip(),
+                    params=params,
+                    body_schema=body_schema,
                     body_required=bool(body and body.get("required")),
-                    destructive=bool(op.get("x-destructive")), needs_session=needs_session,
+                    destructive=bool(op.get("x-destructive")),
+                    needs_session=needs_session,
                 )
 
     @staticmethod
@@ -235,5 +256,9 @@ class Registry:
             out = [o for o in out if o.access == access]
         if text:
             words = text.lower().split()
-            out = [o for o in out if all(w in f"{o.operation_id} {o.summary} {o.path} {o.description}".lower() for w in words)]
+            out = [
+                o
+                for o in out
+                if all(w in f"{o.operation_id} {o.summary} {o.path} {o.description}".lower() for w in words)
+            ]
         return out

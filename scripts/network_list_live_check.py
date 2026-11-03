@@ -13,6 +13,7 @@ SAFETY
     leftovers named zz-listcheck* are removed first.
   * Journal lines go to the normal journal folder. Prints field names and short values only.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -59,8 +60,11 @@ async def apply(client: Client, args: dict[str, Any]) -> dict[str, Any]:
 
 
 def snapshot(rows: list[dict[str, Any]]) -> list[tuple]:
-    return sorted((r["_id"], r.get("name"), r.get("group_type"), tuple(r.get("group_members") or []), r.get("description"))
-                  for r in rows if not str(r.get("name", "")).startswith(PREFIX))
+    return sorted(
+        (r["_id"], r.get("name"), r.get("group_type"), tuple(r.get("group_members") or []), r.get("description"))
+        for r in rows
+        if not str(r.get("name", "")).startswith(PREFIX)
+    )
 
 
 async def main(run: bool, transport: Any = None) -> int:
@@ -85,8 +89,16 @@ async def main(run: bool, transport: Any = None) -> int:
             created_id: str | None = None
             try:
                 print("\n[2] create")
-                out = await apply(client, {"action": "create", "name": PREFIX, "group_type": "port-group",
-                                           "group_members": ["58690-58699", "58700"], "description": "zz test"})
+                out = await apply(
+                    client,
+                    {
+                        "action": "create",
+                        "name": PREFIX,
+                        "group_type": "port-group",
+                        "group_members": ["58690-58699", "58700"],
+                        "description": "zz test",
+                    },
+                )
                 created_id = out["id"]
                 print(f"  verified={out['verified']} id={created_id} rollback={out['rollback']}")
                 failures += not out["verified"]
@@ -97,9 +109,15 @@ async def main(run: bool, transport: Any = None) -> int:
                 failures += not out["verified"] or list(out["diff"]) != ["description"]
 
                 print("\n[4] add 58701, remove 58700")
-                out = await apply(client, {"action": "update", "target": created_id, "add_members": ["58701"], "remove_members": ["58700"]})
+                out = await apply(
+                    client,
+                    {"action": "update", "target": created_id, "add_members": ["58701"], "remove_members": ["58700"]},
+                )
                 print(f"  verified={out['verified']} diff={json.dumps(out['diff'])}")
-                failures += not out["verified"] or out["diff"].get("group_members", {}).get("to") != ["58690-58699", "58701"]
+                failures += not out["verified"] or out["diff"].get("group_members", {}).get("to") != [
+                    "58690-58699",
+                    "58701",
+                ]
 
                 print("\n[5] delete (reference check reads the live policies and traffic objects)")
                 out = await apply(client, {"action": "delete", "target": created_id})

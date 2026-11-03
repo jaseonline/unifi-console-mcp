@@ -1,4 +1,5 @@
 """QoS rules (dashboard widget, v2 `qos-rules`): create/update with the whole rule, batch delete, narrow scope."""
+
 from __future__ import annotations
 
 import contextlib
@@ -9,10 +10,10 @@ import uuid
 
 import httpx
 import pytest
-from mcp.client import Client
-
 from conftest import make_jwt
+from mcp.client import Client
 from test_writes import Wrapped
+
 from unifi_console_mcp.server import create_server
 
 BASE = "/proxy/network/v2/api/site/default"
@@ -29,10 +30,19 @@ APPS = [393220, 393245]
 
 
 def make_rule(ident="r1", name="Existing", *, enabled=False, objective="PRIORITIZE", mac=MAC):
-    rule = {"_id": ident, "index": 10001, "enabled": enabled, "name": name, "wan_or_vpn_network": WAN_ID,
-            "source": {"matching_target": "CLIENT", "client_macs": [mac]},
-            "destination": {"matching_target": "APP", "port_matching_type": "ANY", "app_ids": list(APPS)},
-            "schedule": {"mode": "ALWAYS"}, "objective": objective, "download_burst": "OFF", "upload_burst": "OFF"}
+    rule = {
+        "_id": ident,
+        "index": 10001,
+        "enabled": enabled,
+        "name": name,
+        "wan_or_vpn_network": WAN_ID,
+        "source": {"matching_target": "CLIENT", "client_macs": [mac]},
+        "destination": {"matching_target": "APP", "port_matching_type": "ANY", "app_ids": list(APPS)},
+        "schedule": {"mode": "ALWAYS"},
+        "objective": objective,
+        "download_burst": "OFF",
+        "upload_burst": "OFF",
+    }
     if objective == "LIMIT":
         rule.update(download_limit_kbps=10000, upload_limit_kbps=10000)
     return rule
@@ -48,7 +58,9 @@ class FakeQos:
     def __call__(self, request: httpx.Request) -> httpx.Response:
         path, method = request.url.path, request.method
         if path == "/api/auth/login":
-            return httpx.Response(200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"})
+            return httpx.Response(
+                200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"}
+            )
         body = json.loads(request.content) if request.content else None
         self.log.append((method, path, body))
         if path == NETWORKS:
@@ -68,7 +80,7 @@ class FakeQos:
             return httpx.Response(204)
         if path.startswith(RULES + "/") and method == "PUT":
             ident = path.rsplit("/", 1)[1]
-            if "_id" not in body or "index" not in body:                     # the real console wants the whole rule
+            if "_id" not in body or "index" not in body:  # the real console wants the whole rule
                 return httpx.Response(400, json={"message": "Validation failed"})
             self.bodies.append(body)
             self.items[ident] = body
@@ -90,6 +102,7 @@ def make_session(settings, tmp_path):
                 yield Wrapped(client)
         finally:
             await api.client.aclose()
+
     return opener
 
 
@@ -109,7 +122,13 @@ async def apply(c, args):
     return pre, await call(c, {**args, "confirm": True, "fingerprint": pre["fingerprint"]})
 
 
-NEW = {"action": "create", "name": "zz-rule", "wan_network": "WAN1", "source_clients": [MAC], "destination_apps": APPS}
+NEW = {
+    "action": "create",
+    "name": "zz-rule",
+    "wan_network": "WAN1",
+    "source_clients": [MAC],
+    "destination_apps": APPS,
+}
 
 
 async def test_create_prioritize_matches_the_capture_and_starts_off(make_session):
@@ -117,10 +136,17 @@ async def test_create_prioritize_matches_the_capture_and_starts_off(make_session
     async with make_session(net) as c:
         pre, out = await apply(c, {**NEW, "objective": "PRIORITIZE"})
     body = net.bodies[0]
-    assert body == {"enabled": False, "name": "zz-rule", "wan_or_vpn_network": WAN_ID,
-                    "source": {"matching_target": "CLIENT", "client_macs": [MAC]},
-                    "destination": {"matching_target": "APP", "port_matching_type": "ANY", "app_ids": APPS},
-                    "schedule": {"mode": "ALWAYS"}, "objective": "PRIORITIZE", "download_burst": "OFF", "upload_burst": "OFF"}
+    assert body == {
+        "enabled": False,
+        "name": "zz-rule",
+        "wan_or_vpn_network": WAN_ID,
+        "source": {"matching_target": "CLIENT", "client_macs": [MAC]},
+        "destination": {"matching_target": "APP", "port_matching_type": "ANY", "app_ids": APPS},
+        "schedule": {"mode": "ALWAYS"},
+        "objective": "PRIORITIZE",
+        "download_burst": "OFF",
+        "upload_burst": "OFF",
+    }
     assert pre["request"]["method"] == "POST" and out["http_status"] == 201 and out["verified"] is True
     assert out["rollback"] == {"action": "delete", "target": out["id"]}
 
@@ -137,7 +163,16 @@ async def test_create_limit_sends_flat_kbps_fields(make_session):
 async def test_update_sends_the_whole_rule_with_id_and_index_and_switches_objective(make_session):
     net = FakeQos([make_rule()])
     async with make_session(net) as c:
-        _, out = await apply(c, {"action": "update", "target": "Existing", "objective": "LIMIT", "download_burst": "LONG", "upload_burst": "LONG"})
+        _, out = await apply(
+            c,
+            {
+                "action": "update",
+                "target": "Existing",
+                "objective": "LIMIT",
+                "download_burst": "LONG",
+                "upload_burst": "LONG",
+            },
+        )
     b = net.bodies[0]
     assert b["_id"] == "r1" and b["index"] == 10001 and b["objective"] == "LIMIT"
     assert b["download_limit_kbps"] == 10000 and b["upload_limit_kbps"] == 10000 and b["download_burst"] == "LONG"
@@ -145,14 +180,18 @@ async def test_update_sends_the_whole_rule_with_id_and_index_and_switches_object
     # and back to PRIORITIZE drops the limits (the capture carries none)
     async with make_session(net) as c:
         _, back = await apply(c, {"action": "update", "target": "r1", "objective": "PRIORITIZE"})
-    assert "download_limit_kbps" not in net.bodies[-1] and net.bodies[-1]["download_burst"] == "OFF" and back["verified"]
+    assert (
+        "download_limit_kbps" not in net.bodies[-1] and net.bodies[-1]["download_burst"] == "OFF" and back["verified"]
+    )
 
 
 async def test_enable_and_disable(make_session):
     net = FakeQos([make_rule()])
     async with make_session(net) as c:
         pre, out = await apply(c, {"action": "enable", "target": "r1"})
-        assert net.items["r1"]["enabled"] is True and any("prioritises" in w for w in pre["warnings"]) and out["verified"]
+        assert (
+            net.items["r1"]["enabled"] is True and any("prioritises" in w for w in pre["warnings"]) and out["verified"]
+        )
         await apply(c, {"action": "disable", "target": "r1"})
     assert net.items["r1"]["enabled"] is False
 
@@ -172,21 +211,24 @@ async def test_delete_uses_batch_delete_and_the_rollback_recreates_it(make_sessi
     assert {k: v for k, v in created.items()} == {k: v for k, v in start.items() if k not in ("_id", "index")}
 
 
-@pytest.mark.parametrize("args,needle", [
-    ({"source_clients": ["nope"]}, "not a MAC"),
-    ({"destination_apps": [-5]}, "positive application ids"),
-    ({"objective": "LIMIT"}, None),
-    ({"name": "existing"}, "already called"),
-    ({"schedule": {"mode": "EVERY_DAY"}}, "ALWAYS"),
-    ({"objective": "PRIORITIZE", "download_limit": 100}, "no limits"),
-    ({"objective": "LIMIT", "download_limit": 0, "upload_limit": 0}, "needs download_limit"),
-    ({"source_clients": None, "source": {"matching_target": "NETWORK"}}, "has not been captured"),
-])
+@pytest.mark.parametrize(
+    "args,needle",
+    [
+        ({"source_clients": ["nope"]}, "not a MAC"),
+        ({"destination_apps": [-5]}, "positive application ids"),
+        ({"objective": "LIMIT"}, None),
+        ({"name": "existing"}, "already called"),
+        ({"schedule": {"mode": "EVERY_DAY"}}, "ALWAYS"),
+        ({"objective": "PRIORITIZE", "download_limit": 100}, "no limits"),
+        ({"objective": "LIMIT", "download_limit": 0, "upload_limit": 0}, "needs download_limit"),
+        ({"source_clients": None, "source": {"matching_target": "NETWORK"}}, "has not been captured"),
+    ],
+)
 async def test_bad_rules_are_refused(make_session, args, needle):
     net = FakeQos([make_rule(name="Existing")])
     async with make_session(net) as c:
         text = await raw(c, {k: v for k, v in {**NEW, **args}.items() if v is not None})
-    if needle is None:           # LIMIT with default limits is fine
+    if needle is None:  # LIMIT with default limits is fine
         assert '"errors":[]' in text
         return
     assert needle in text and net.writes() == []
@@ -205,7 +247,11 @@ async def test_rule_with_unsupported_source_can_be_renamed_but_not_edited(make_s
     net = FakeQos([odd])
     async with make_session(net) as c:
         pre, out = await apply(c, {"action": "update", "target": "r1", "name": "Renamed"})
-    assert net.bodies[0]["source"] == odd["source"] and out["verified"] and any("left untouched" in w for w in pre["warnings"])
+    assert (
+        net.bodies[0]["source"] == odd["source"]
+        and out["verified"]
+        and any("left untouched" in w for w in pre["warnings"])
+    )
 
 
 async def test_stale_preview_and_entity_switch(make_session):
@@ -213,7 +259,10 @@ async def test_stale_preview_and_entity_switch(make_session):
     async with make_session(net) as c:
         pre = await call(c, {"action": "update", "target": "r1", "name": "Renamed"})
         net.items["r1"]["name"] = "Changed elsewhere"
-        res = await raw(c, {"action": "update", "target": "r1", "name": "Renamed", "confirm": True, "fingerprint": pre["fingerprint"]})
+        res = await raw(
+            c,
+            {"action": "update", "target": "r1", "name": "Renamed", "confirm": True, "fingerprint": pre["fingerprint"]},
+        )
     assert "differs from the preview" in res and net.writes() == []
     async with make_session(FakeQos(), entities=frozenset({"port_forward"})) as c:
         pre = await call(c, NEW)
@@ -221,18 +270,27 @@ async def test_stale_preview_and_entity_switch(make_session):
     assert "not enabled for writes" in res
 
 
-@pytest.mark.parametrize("op,args", [
-    ("createQosRule", {}),
-    ("updateQosRule", {"path_params": {"id": "r1"}}),
-    ("batchDeleteQosRules", {}),
-])
+@pytest.mark.parametrize(
+    "op,args",
+    [
+        ("createQosRule", {}),
+        ("updateQosRule", {"path_params": {"id": "r1"}}),
+        ("batchDeleteQosRules", {}),
+    ],
+)
 async def test_the_generic_tool_refuses_and_names_the_typed_one(settings, tmp_path, op, args):
     net = FakeQos([make_rule()])
-    mcp, api = create_server(dataclasses.replace(settings, enable_writes=True, write_entities=frozenset({"qos_rule"}),
-                                                 journal_dir=tmp_path / "journal"), transport=httpx.MockTransport(net))
+    mcp, api = create_server(
+        dataclasses.replace(
+            settings, enable_writes=True, write_entities=frozenset({"qos_rule"}), journal_dir=tmp_path / "journal"
+        ),
+        transport=httpx.MockTransport(net),
+    )
     try:
         async with Client(mcp) as c:
-            res = await c.call_tool("unifi_console_call_operation", {"params": {"operation_id": op, "confirm": True, **args}})
+            res = await c.call_tool(
+                "unifi_console_call_operation", {"params": {"operation_id": op, "confirm": True, **args}}
+            )
             text = json.loads(res.content[0].text)["error"]
     finally:
         await api.client.aclose()

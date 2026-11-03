@@ -50,10 +50,39 @@ QOS_MODES = ("LIMIT", "PRIORITIZE")
 MAX_LIMIT = 10_000_000
 _HHMM = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
 _MAC = re.compile(r"^[0-9a-f]{2}(:[0-9a-f]{2}){5}$")
-FIELDS = ("name", "enabled", "qos_enabled", "qos_mode", "download_limit", "upload_limit", "download_burst", "upload_burst",
-          "qos_schedule", "block_internet", "block_schedule", "route_enabled", "route_all_traffic", "route_ip_addresses",
-          "route_kill_switch", "route_network_id", "clients", "target_type", "targets", "qos", "route", "secure")
-FRIENDLY_QOS = ("qos_enabled", "qos_mode", "download_limit", "upload_limit", "download_burst", "upload_burst", "qos_schedule")
+FIELDS = (
+    "name",
+    "enabled",
+    "qos_enabled",
+    "qos_mode",
+    "download_limit",
+    "upload_limit",
+    "download_burst",
+    "upload_burst",
+    "qos_schedule",
+    "block_internet",
+    "block_schedule",
+    "route_enabled",
+    "route_all_traffic",
+    "route_ip_addresses",
+    "route_kill_switch",
+    "route_network_id",
+    "clients",
+    "target_type",
+    "targets",
+    "qos",
+    "route",
+    "secure",
+)
+FRIENDLY_QOS = (
+    "qos_enabled",
+    "qos_mode",
+    "download_limit",
+    "upload_limit",
+    "download_burst",
+    "upload_burst",
+    "qos_schedule",
+)
 FRIENDLY_SECURE = ("block_internet", "block_schedule")
 FRIENDLY_ROUTE = ("route_enabled", "route_all_traffic", "route_ip_addresses", "route_kill_switch", "route_network_id")
 
@@ -67,13 +96,28 @@ def _matcher() -> dict[str, Any]:
 
 
 def default_qos() -> dict[str, Any]:
-    return {"enabled": False, "all_traffic": True, "apps": _matcher(), "domains": _matcher(), "ip_addresses": _matcher(),
-            "regions": _matcher(), "mode": "LIMIT", "download_limit": _limit(), "upload_limit": _limit(),
-            "schedule": {"mode": "EVERY_WEEK", "repeat_on_days": list(DAYS), "time_all_day": True}}
+    return {
+        "enabled": False,
+        "all_traffic": True,
+        "apps": _matcher(),
+        "domains": _matcher(),
+        "ip_addresses": _matcher(),
+        "regions": _matcher(),
+        "mode": "LIMIT",
+        "download_limit": _limit(),
+        "upload_limit": _limit(),
+        "schedule": {"mode": "EVERY_WEEK", "repeat_on_days": list(DAYS), "time_all_day": True},
+    }
 
 
 def default_route() -> dict[str, Any]:
-    return {"enabled": False, "apps": _matcher(), "domains": _matcher(), "ip_addresses": _matcher(), "regions": _matcher()}
+    return {
+        "enabled": False,
+        "apps": _matcher(),
+        "domains": _matcher(),
+        "ip_addresses": _matcher(),
+        "regions": _matcher(),
+    }
 
 
 def default_secure() -> dict[str, Any]:
@@ -81,8 +125,15 @@ def default_secure() -> dict[str, Any]:
 
 
 def _internet_block() -> dict[str, Any]:
-    return {"mode": "BLOCKLIST", "everything": True, "apps": _matcher(), "ip_addresses": _matcher(), "domains": _matcher(),
-            "regions": _matcher(), "schedule": {"mode": "ALWAYS"}}
+    return {
+        "mode": "BLOCKLIST",
+        "everything": True,
+        "apps": _matcher(),
+        "ip_addresses": _matcher(),
+        "domains": _matcher(),
+        "regions": _matcher(),
+        "schedule": {"mode": "ALWAYS"},
+    }
 
 
 def build_schedule(raw: dict[str, Any], *, for_qos: bool) -> dict[str, Any]:
@@ -90,7 +141,7 @@ def build_schedule(raw: dict[str, Any], *, for_qos: bool) -> dict[str, Any]:
     mode = str(raw.get("mode") or "").upper()
     start, end, days = raw.get("start"), raw.get("end"), raw.get("days")
     if mode == "ALWAYS":
-        if for_qos:   # the QoS block has no ALWAYS form; every day, all day is the same thing
+        if for_qos:  # the QoS block has no ALWAYS form; every day, all day is the same thing
             return {"mode": "EVERY_WEEK", "repeat_on_days": list(DAYS), "time_all_day": True}
         return {"mode": "ALWAYS"}
     if mode == "EVERY_DAY":
@@ -117,7 +168,7 @@ def _merge(base: dict[str, Any], given: dict[str, Any]) -> dict[str, Any]:
 def _mac(value: str) -> str:
     v = str(value).strip().lower().replace("-", ":")
     if re.fullmatch(r"[0-9a-f]{12}", v):
-        v = ":".join(v[i:i + 2] for i in range(0, 12, 2))
+        v = ":".join(v[i : i + 2] for i in range(0, 12, 2))
     if not _MAC.match(v):
         raise UniFiError(f"'{value}' is not a MAC address.")
     return v
@@ -149,10 +200,12 @@ def prepare(action: str, before: dict[str, Any] | None, changes: dict[str, Any])
     elif out.get("targets") and creating and "target_type" not in out:
         out["target_type"] = TARGET_TYPE
     if not creating and before.get("target_type") not in ITEM_FOR and ("targets" in out or "target_type" in out):
-        raise UniFiError(f"This object targets '{before.get('target_type')}', which this tool does not manage, so its "
-                         "targets cannot be changed here. Other fields can still be edited.")
+        raise UniFiError(
+            f"This object targets '{before.get('target_type')}', which this tool does not manage, so its "
+            "targets cannot be changed here. Other fields can still be edited."
+        )
     if creating:
-        out.setdefault("enabled", False)               # a new object starts switched off unless asked for
+        out.setdefault("enabled", False)  # a new object starts switched off unless asked for
         out.setdefault("target_type", TARGET_TYPE)
 
     # ---- qos
@@ -168,11 +221,14 @@ def prepare(action: str, before: dict[str, Any] | None, changes: dict[str, Any])
         if qos_on is not None:
             base["enabled"] = bool(qos_on)
         elif creating and (down or up):
-            base["enabled"] = True                      # asking for a limit on a new object means it should apply
+            base["enabled"] = True  # asking for a limit on a new object means it should apply
         if "qos_mode" in q_in:
             base["mode"] = str(q_in["qos_mode"]).upper()
             if base["mode"] == "PRIORITIZE" and down is None and up is None:
-                for key in ("download_limit", "upload_limit"):   # the console rejects PRIORITIZE with a limit on ("Invalid QoS rule objective")
+                for key in (
+                    "download_limit",
+                    "upload_limit",
+                ):  # the console rejects PRIORITIZE with a limit on ("Invalid QoS rule objective")
                     base.setdefault(key, _limit())["enabled"] = False
         for key, value in (("download_limit", down), ("upload_limit", up)):
             if value is None:
@@ -188,9 +244,7 @@ def prepare(action: str, before: dict[str, Any] | None, changes: dict[str, Any])
         if "qos_schedule" in q_in:
             base["schedule"] = build_schedule(q_in["qos_schedule"], for_qos=True)
         out["qos"] = base
-    elif creating and "qos" not in out:
-        out["qos"] = base
-    elif creating:
+    elif creating and "qos" not in out or creating:
         out["qos"] = base
 
     # ---- secure (internet block only)
@@ -202,10 +256,14 @@ def prepare(action: str, before: dict[str, Any] | None, changes: dict[str, Any])
         if "block_internet" in s_in:
             sec["enabled"] = bool(s_in["block_internet"])
             if sec["enabled"] and "schedule" not in (sec.get("internet") or {}):
-                sec["internet"] = _internet_block() | {k: v for k, v in (sec.get("internet") or {}).items() if k in ("mode", "everything")}
+                sec["internet"] = _internet_block() | {
+                    k: v for k, v in (sec.get("internet") or {}).items() if k in ("mode", "everything")
+                }
         if "block_schedule" in s_in:
             if not (sec.get("internet") or {}).get("apps"):
-                sec["internet"] = _internet_block() | {k: v for k, v in (sec.get("internet") or {}).items() if k in ("mode", "everything")}
+                sec["internet"] = _internet_block() | {
+                    k: v for k, v in (sec.get("internet") or {}).items() if k in ("mode", "everything")
+                }
             sec["internet"]["schedule"] = build_schedule(s_in["block_schedule"], for_qos=False)
         out["secure"] = sec
     elif creating:
@@ -261,7 +319,9 @@ def _check_schedule(f: Findings, label: str, s: Any) -> None:
         elif start == end:
             f.errors.append(f"{label}.schedule start and end are the same time, so it would never (or always) apply.")
         elif _time_minutes(end) < _time_minutes(start):
-            f.warnings.append(f"{label}.schedule ends ({end}) before it starts ({start}): it runs overnight, whether the console reads it that way is unverified.")
+            f.warnings.append(
+                f"{label}.schedule ends ({end}) before it starts ({start}): it runs overnight, whether the console reads it that way is unverified."
+            )
     if mode == "EVERY_WEEK":
         days = s.get("repeat_on_days")
         if not isinstance(days, list) or any(d not in DAYS for d in days):
@@ -278,7 +338,8 @@ def _check_qos(f: Findings, q: Any, before_q: Any) -> None:
         f.errors.append("qos.enabled must be true or false.")
     if q.get("mode") not in QOS_MODES:
         (f.warnings if (before_q or {}).get("mode") == q.get("mode") else f.errors).append(
-            f"qos.mode is '{q.get('mode')}'; only {' and '.join(QOS_MODES)} have been captured.")
+            f"qos.mode is '{q.get('mode')}'; only {' and '.join(QOS_MODES)} have been captured."
+        )
     for key in ("download_limit", "upload_limit"):
         b = q.get(key)
         if not isinstance(b, dict) or not isinstance(b.get("enabled"), bool):
@@ -306,11 +367,21 @@ def _when(s: Any) -> str:
     if s["mode"] == "EVERY_DAY":
         return f"every day {s.get('time_range_start')}-{s.get('time_range_end')}"
     days = ",".join(s.get("repeat_on_days") or [])
-    return f"on {days}" + ("" if s.get("time_all_day", True) else f" {s.get('time_range_start')}-{s.get('time_range_end')}")
+    return f"on {days}" + (
+        "" if s.get("time_all_day", True) else f" {s.get('time_range_start')}-{s.get('time_range_end')}"
+    )
 
 
-def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], others: list[dict[str, Any]],
-             ctx: dict[str, list[dict[str, Any]]], *, ack_block: bool = False, ack_reroute: bool = False) -> Findings:
+def validate(
+    action: str,
+    before: dict[str, Any] | None,
+    after: dict[str, Any],
+    others: list[dict[str, Any]],
+    ctx: dict[str, list[dict[str, Any]]],
+    *,
+    ack_block: bool = False,
+    ack_reroute: bool = False,
+) -> Findings:
     f = Findings()
     before = before or {}
     nets = {str(n.get("_id")): n for n in ctx.get("networks", [])}
@@ -332,7 +403,9 @@ def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], 
     elif len(name) > 128:
         f.errors.append("The name is longer than 128 characters.")
     elif name != before.get("name") and any(str(r.get("name") or "").lower() == name.lower() for r in others):
-        f.errors.append(f"Another traffic object is already called '{name}'. Names must be unique so one can be addressed by name.")
+        f.errors.append(
+            f"Another traffic object is already called '{name}'. Names must be unique so one can be addressed by name."
+        )
     if not isinstance(after.get("enabled"), bool):
         f.errors.append("enabled must be true or false.")
 
@@ -344,13 +417,16 @@ def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], 
     if ttype not in ITEM_FOR:
         (f.errors if changed else f.warnings).append(
             f"Target type '{ttype}' is not supported here (only {', '.join(ITEM_FOR)}); "
-            + ("its targets cannot be changed." if changed else "its targets are left untouched."))
+            + ("its targets cannot be changed." if changed else "its targets are left untouched.")
+        )
     else:
         item = ITEM_FOR[ttype]
         items = targets if isinstance(targets, list) else []
         target_ids = [str(t.get("value")) for t in items if isinstance(t, dict) and t.get("type") == item]
         if not items or len(target_ids) != len(items):
-            f.errors.append(f"targets must be a non-empty list of {{type: {item}, value: <{'network id' if ttype == 'NETWORKS' else 'MAC'}>}}.")
+            f.errors.append(
+                f"targets must be a non-empty list of {{type: {item}, value: <{'network id' if ttype == 'NETWORKS' else 'MAC'}>}}."
+            )
         dupes = sorted({i for i in target_ids if target_ids.count(i) > 1})
         if dupes:
             f.errors.append(f"Duplicate targets: {_names(dupes, nets)}.")
@@ -379,16 +455,22 @@ def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], 
     elif sec.get("enabled"):
         net_ = sec.get("internet") or {}
         if net_.get("mode") not in (None, "BLOCKLIST"):
-            f.errors.append(f"secure.internet.mode '{net_.get('mode')}' has not been captured; only BLOCKLIST is supported.")
+            f.errors.append(
+                f"secure.internet.mode '{net_.get('mode')}' has not been captured; only BLOCKLIST is supported."
+            )
         _check_schedule(f, "secure.internet", net_.get("schedule"))
         if net_.get("everything", True):
             msg = f"This blocks all internet access for {what} ({_when(net_.get('schedule'))})."
         else:
             msg = f"This blocks part of the internet for {what} ({_when(net_.get('schedule'))}); its matchers are not edited here."
         if after.get("enabled") is True and not ack_block:
-            f.errors.append(msg + " Pass acknowledge_blocking=true if that is intended, or create the object switched off first.")
+            f.errors.append(
+                msg + " Pass acknowledge_blocking=true if that is intended, or create the object switched off first."
+            )
         else:
-            f.warnings.append(msg + ("" if after.get("enabled") else " The object is switched off, so it has no effect yet."))
+            f.warnings.append(
+                msg + ("" if after.get("enabled") else " The object is switched off, so it has no effect yet.")
+            )
         if isinstance(sec.get("local"), dict) and not same(sec.get("local"), (before.get("secure") or {}).get("local")):
             f.errors.append("secure.local cannot be edited here (its behaviour on its own has not been isolated).")
 
@@ -404,9 +486,13 @@ def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], 
         if net is None:
             f.errors.append("route.network_id must be an existing WAN or VPN client network.")
         elif net.get("purpose") not in ("wan", "vpn-client", "vpn_client"):
-            f.errors.append(f"'{net.get('name')}' is not a WAN or VPN client network, so traffic cannot be routed through it.")
+            f.errors.append(
+                f"'{net.get('name')}' is not a WAN or VPN client network, so traffic cannot be routed through it."
+            )
         ips = route.get("ip_addresses") or {}
-        if not route.get("all_traffic") and not any((route.get(k) or {}).get("enabled") for k in ("apps", "domains", "ip_addresses", "regions")):
+        if not route.get("all_traffic") and not any(
+            (route.get(k) or {}).get("enabled") for k in ("apps", "domains", "ip_addresses", "regions")
+        ):
             f.errors.append("route sends nothing: all_traffic is off and no matcher is on.")
         for v in (ips.get("values") or []) if ips.get("enabled") else []:
             try:
@@ -414,12 +500,22 @@ def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], 
             except ValueError:
                 f.errors.append(f"route IP address '{v}' is not an IP address or CIDR.")
         link = (net or {}).get("name") or nid
-        msg = (f"This sends {'all traffic' if route.get('all_traffic') else 'the matching traffic'} from {what} out through {link}"
-               + (" with the kill switch on (traffic stops if that link is down)." if route.get("kill_switch") else " (no kill switch: traffic falls back to the normal route if it is down)."))
+        msg = (
+            f"This sends {'all traffic' if route.get('all_traffic') else 'the matching traffic'} from {what} out through {link}"
+            + (
+                " with the kill switch on (traffic stops if that link is down)."
+                if route.get("kill_switch")
+                else " (no kill switch: traffic falls back to the normal route if it is down)."
+            )
+        )
         if after.get("enabled") is True and not ack_reroute:
-            f.errors.append(msg + " Pass acknowledge_reroute=true if that is intended, or create the object switched off first.")
+            f.errors.append(
+                msg + " Pass acknowledge_reroute=true if that is intended, or create the object switched off first."
+            )
         else:
-            f.warnings.append(msg + ("" if after.get("enabled") else " The object is switched off, so it has no effect yet."))
+            f.warnings.append(
+                msg + ("" if after.get("enabled") else " The object is switched off, so it has no effect yet.")
+            )
 
     # ---- qos
     q = after.get("qos")
@@ -427,38 +523,67 @@ def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], 
         _check_qos(f, q, before.get("qos"))
     if isinstance(q, dict) and not f.errors:
         down, up = q.get("download_limit") or {}, q.get("upload_limit") or {}
-        limits = [f"{label} {_rate(b.get('limit'))}" + (f" burst {b.get('burst').lower()}" if b.get("burst") not in (None, "DISABLED") else "")
-                  for label, b in (("download", down), ("upload", up)) if b.get("enabled")]
+        limits = [
+            f"{label} {_rate(b.get('limit'))}"
+            + (f" burst {b.get('burst').lower()}" if b.get("burst") not in (None, "DISABLED") else "")
+            for label, b in (("download", down), ("upload", up))
+            if b.get("enabled")
+        ]
         if q.get("mode") == "PRIORITIZE":
             if limits:
-                f.errors.append("Prioritize mode cannot have a download or upload limit switched on (the console rejects it as an invalid QoS rule objective). "
-                                "Set download_limit=0 and upload_limit=0, or use LIMIT mode.")
+                f.errors.append(
+                    "Prioritize mode cannot have a download or upload limit switched on (the console rejects it as an invalid QoS rule objective). "
+                    "Set download_limit=0 and upload_limit=0, or use LIMIT mode."
+                )
             if q.get("enabled"):
                 f.warnings.append(f"This prioritises traffic for {what} ({_when(q.get('schedule'))}).")
         else:
             if q.get("enabled") and not limits:
-                f.warnings.append("QoS is on but neither the download nor the upload limit is, so this object limits nothing.")
+                f.warnings.append(
+                    "QoS is on but neither the download nor the upload limit is, so this object limits nothing."
+                )
             if not q.get("enabled") and limits:
                 f.warnings.append("A limit is set but QoS is off, so it has no effect until qos_enabled is true.")
             if q.get("enabled") and limits and after.get("enabled"):
-                f.warnings.append(f"This limits {what} as soon as it is applied ({', '.join(limits)}; {_when(q.get('schedule'))}).")
+                f.warnings.append(
+                    f"This limits {what} as soon as it is applied ({', '.join(limits)}; {_when(q.get('schedule'))})."
+                )
         if q.get("enabled") and after.get("enabled"):
-            clash = [str(r.get("name")) for r in others if r.get("enabled") and (r.get("qos") or {}).get("enabled")
-                     and {str(t.get("value")) for t in r.get("targets") or [] if isinstance(t, dict)} & set(target_ids)]
+            clash = [
+                str(r.get("name"))
+                for r in others
+                if r.get("enabled")
+                and (r.get("qos") or {}).get("enabled")
+                and {str(t.get("value")) for t in r.get("targets") or [] if isinstance(t, dict)} & set(target_ids)
+            ]
             if clash:
-                f.warnings.append(f"Other enabled QoS object(s) already cover some of these targets ({', '.join(clash)}); "
-                                  "how the console combines them is unverified.")
+                f.warnings.append(
+                    f"Other enabled QoS object(s) already cover some of these targets ({', '.join(clash)}); "
+                    "how the console combines them is unverified."
+                )
         if q.get("enabled") and not q.get("all_traffic"):
             hits = [k for k in ("apps", "domains", "ip_addresses", "regions") if (q.get(k) or {}).get("enabled")]
             if not hits:
-                f.warnings.append("qos.all_traffic is off and no app, domain, address or region matcher is on, so nothing matches.")
+                f.warnings.append(
+                    "qos.all_traffic is off and no app, domain, address or region matcher is on, so nothing matches."
+                )
     return f
 
 
 SPEC = EntitySpec(
-    key=KEY, label="traffic object", tier="B", list_op="listTrafficPolicyObjects", create_op="createTrafficPolicyObject",
-    update_op="updateTrafficPolicyObject", delete_op="deleteTrafficPolicyObject", whole_object=True, id_field="id",
-    name_field="name", prepare=prepare, validate_ctx=validate, context_ops=(("networks", "listNetworkConfig"),),
+    key=KEY,
+    label="traffic object",
+    tier="B",
+    list_op="listTrafficPolicyObjects",
+    create_op="createTrafficPolicyObject",
+    update_op="updateTrafficPolicyObject",
+    delete_op="deleteTrafficPolicyObject",
+    whole_object=True,
+    id_field="id",
+    name_field="name",
+    prepare=prepare,
+    validate_ctx=validate,
+    context_ops=(("networks", "listNetworkConfig"),),
 )
 
 
@@ -472,8 +597,12 @@ class TargetItem(BaseModel):
 class ScheduleInput(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    mode: Literal["ALWAYS", "EVERY_DAY", "EVERY_WEEK"] = Field(..., description="ALWAYS, EVERY_DAY (needs start and end) or EVERY_WEEK (days, optionally start and end).")
-    days: list[Literal["mon", "tue", "wed", "thu", "fri", "sat", "sun"]] | None = Field(default=None, description="EVERY_WEEK only; defaults to every day.")
+    mode: Literal["ALWAYS", "EVERY_DAY", "EVERY_WEEK"] = Field(
+        ..., description="ALWAYS, EVERY_DAY (needs start and end) or EVERY_WEEK (days, optionally start and end)."
+    )
+    days: list[Literal["mon", "tue", "wed", "thu", "fri", "sat", "sun"]] | None = Field(
+        default=None, description="EVERY_WEEK only; defaults to every day."
+    )
     start: str | None = Field(default=None, pattern=r"^([01][0-9]|2[0-3]):[0-5][0-9]$", description="HH:MM, 24 hour.")
     end: str | None = Field(default=None, pattern=r"^([01][0-9]|2[0-3]):[0-5][0-9]$", description="HH:MM, 24 hour.")
 
@@ -484,32 +613,91 @@ class TrafficObjectInput(BaseModel):
     action: Literal["create", "update", "delete"] = Field(..., description="create an object, change it, or delete it.")
     target: str | None = Field(default=None, description="Existing object: its id or exact name. Not used by create.")
     name: str | None = Field(default=None, description="Object name (unique).")
-    enabled: bool | None = Field(default=None, description="Whether the object applies. A new object is created switched off unless this is true.")
-    networks: list[str] | None = Field(default=None, description="Networks to target, by name or id (LAN networks only). Replaces the targets.")
-    clients: list[str] | None = Field(default=None, description="Clients to target, by MAC address. Replaces the targets (and makes the object client-based).")
+    enabled: bool | None = Field(
+        default=None,
+        description="Whether the object applies. A new object is created switched off unless this is true.",
+    )
+    networks: list[str] | None = Field(
+        default=None, description="Networks to target, by name or id (LAN networks only). Replaces the targets."
+    )
+    clients: list[str] | None = Field(
+        default=None,
+        description="Clients to target, by MAC address. Replaces the targets (and makes the object client-based).",
+    )
     qos_enabled: bool | None = Field(default=None, description="Switch the QoS block on or off.")
-    qos_mode: Literal["LIMIT", "PRIORITIZE"] | None = Field(default=None, description="LIMIT caps bandwidth; PRIORITIZE favours the targets' traffic.")
-    download_limit: int | None = Field(default=None, ge=0, le=10_000_000, description="Download limit in kbit/s (10000 = 10 Mbit/s, the UI default). 0 switches the download limit off.")
-    upload_limit: int | None = Field(default=None, ge=0, le=10_000_000, description="Upload limit in kbit/s. 0 switches the upload limit off.")
-    download_burst: Literal["DISABLED", "SHORT", "LONG"] | None = Field(default=None, description="Burst allowance for the download limit.")
-    upload_burst: Literal["DISABLED", "SHORT", "LONG"] | None = Field(default=None, description="Burst allowance for the upload limit.")
-    qos_schedule: ScheduleInput | None = Field(default=None, description="When the QoS block applies. ALWAYS is stored as every day, all day.")
-    block_internet: bool | None = Field(default=None, description="Block all internet access for the targets (the UI's Secure > Internet > Block list with Everything). Needs acknowledge_blocking=true when the object is switched on.")
-    block_schedule: ScheduleInput | None = Field(default=None, description="When the internet block applies (ALWAYS or EVERY_DAY captured; EVERY_WEEK unverified).")
+    qos_mode: Literal["LIMIT", "PRIORITIZE"] | None = Field(
+        default=None, description="LIMIT caps bandwidth; PRIORITIZE favours the targets' traffic."
+    )
+    download_limit: int | None = Field(
+        default=None,
+        ge=0,
+        le=10_000_000,
+        description="Download limit in kbit/s (10000 = 10 Mbit/s, the UI default). 0 switches the download limit off.",
+    )
+    upload_limit: int | None = Field(
+        default=None, ge=0, le=10_000_000, description="Upload limit in kbit/s. 0 switches the upload limit off."
+    )
+    download_burst: Literal["DISABLED", "SHORT", "LONG"] | None = Field(
+        default=None, description="Burst allowance for the download limit."
+    )
+    upload_burst: Literal["DISABLED", "SHORT", "LONG"] | None = Field(
+        default=None, description="Burst allowance for the upload limit."
+    )
+    qos_schedule: ScheduleInput | None = Field(
+        default=None, description="When the QoS block applies. ALWAYS is stored as every day, all day."
+    )
+    block_internet: bool | None = Field(
+        default=None,
+        description="Block all internet access for the targets (the UI's Secure > Internet > Block list with Everything). Needs acknowledge_blocking=true when the object is switched on.",
+    )
+    block_schedule: ScheduleInput | None = Field(
+        default=None,
+        description="When the internet block applies (ALWAYS or EVERY_DAY captured; EVERY_WEEK unverified).",
+    )
     route_enabled: bool | None = Field(default=None, description="Switch the route block on or off.")
-    route_network: str | None = Field(default=None, description="WAN or VPN client network to send the matching traffic through, by name or id.")
-    route_ip_addresses: list[str] | None = Field(default=None, description="Destination IP addresses or CIDRs to route through route_network (empty list clears them).")
-    route_all_traffic: bool | None = Field(default=None, description="Route all of the targets' traffic through route_network.")
-    route_kill_switch: bool | None = Field(default=None, description="Stop the routed traffic if the chosen link is down.")
-    acknowledge_blocking: bool = Field(default=False, description="Accept an internet block on an object that is switched on.")
-    acknowledge_reroute: bool = Field(default=False, description="Accept a route change on an object that is switched on.")
-    target_type: Literal["NETWORKS", "CLIENTS"] | None = Field(default=None, description="Accepted so a recorded rollback can be replayed.")
-    targets: list[TargetItem] | None = Field(default=None, description="Raw targets, as the console stores them; accepted so a recorded rollback can be replayed.")
-    qos: dict[str, Any] | None = Field(default=None, description="Whole qos block, as the console stores it; accepted so a recorded rollback can be replayed. Prefer the friendly fields.")
-    route: dict[str, Any] | None = Field(default=None, description="Whole route block; replay only. Prefer the route_* fields.")
-    secure: dict[str, Any] | None = Field(default=None, description="Whole secure block; replay only. Prefer block_internet.")
-    confirm: bool = Field(default=False, description="false (default) returns a read-only preview. true applies the change and needs fingerprint.")
-    fingerprint: str | None = Field(default=None, description="From the preview of exactly this change; required with confirm=true.")
+    route_network: str | None = Field(
+        default=None, description="WAN or VPN client network to send the matching traffic through, by name or id."
+    )
+    route_ip_addresses: list[str] | None = Field(
+        default=None,
+        description="Destination IP addresses or CIDRs to route through route_network (empty list clears them).",
+    )
+    route_all_traffic: bool | None = Field(
+        default=None, description="Route all of the targets' traffic through route_network."
+    )
+    route_kill_switch: bool | None = Field(
+        default=None, description="Stop the routed traffic if the chosen link is down."
+    )
+    acknowledge_blocking: bool = Field(
+        default=False, description="Accept an internet block on an object that is switched on."
+    )
+    acknowledge_reroute: bool = Field(
+        default=False, description="Accept a route change on an object that is switched on."
+    )
+    target_type: Literal["NETWORKS", "CLIENTS"] | None = Field(
+        default=None, description="Accepted so a recorded rollback can be replayed."
+    )
+    targets: list[TargetItem] | None = Field(
+        default=None,
+        description="Raw targets, as the console stores them; accepted so a recorded rollback can be replayed.",
+    )
+    qos: dict[str, Any] | None = Field(
+        default=None,
+        description="Whole qos block, as the console stores it; accepted so a recorded rollback can be replayed. Prefer the friendly fields.",
+    )
+    route: dict[str, Any] | None = Field(
+        default=None, description="Whole route block; replay only. Prefer the route_* fields."
+    )
+    secure: dict[str, Any] | None = Field(
+        default=None, description="Whole secure block; replay only. Prefer block_internet."
+    )
+    confirm: bool = Field(
+        default=False,
+        description="false (default) returns a read-only preview. true applies the change and needs fingerprint.",
+    )
+    fingerprint: str | None = Field(
+        default=None, description="From the preview of exactly this change; required with confirm=true."
+    )
 
     def changes(self) -> dict[str, Any]:
         out: dict[str, Any] = {}
@@ -533,10 +721,15 @@ async def _rows(engine: WriteEngine) -> list[dict[str, Any]]:
 
 
 def _pick(rows: list[dict[str, Any]], ref: str) -> dict[str, Any]:
-    hits = ([r for r in rows if str(r.get("_id")) == ref] or [r for r in rows if r.get("name") == ref]
-            or [r for r in rows if str(r.get("name") or "").lower() == ref.lower()])
+    hits = (
+        [r for r in rows if str(r.get("_id")) == ref]
+        or [r for r in rows if r.get("name") == ref]
+        or [r for r in rows if str(r.get("name") or "").lower() == ref.lower()]
+    )
     if not hits:
-        raise UniFiError(f"No network with id or name '{ref}'. Known networks: {', '.join(str(r.get('name')) for r in rows)}.")
+        raise UniFiError(
+            f"No network with id or name '{ref}'. Known networks: {', '.join(str(r.get('name')) for r in rows)}."
+        )
     if len(hits) > 1:
         raise UniFiError(f"{len(hits)} networks match '{ref}'; use its id instead.")
     return hits[0]
@@ -556,15 +749,22 @@ async def resolve_networks(engine: WriteEngine, refs: list[str]) -> list[dict[st
 async def resolve_route_network(engine: WriteEngine, ref: str) -> str:
     net = _pick(await _rows(engine), ref)
     if net.get("purpose") not in ("wan", "vpn-client", "vpn_client"):
-        raise UniFiError(f"'{net.get('name')}' is not a WAN or VPN client network, so traffic cannot be routed through it.")
+        raise UniFiError(
+            f"'{net.get('name')}' is not a WAN or VPN client network, so traffic cannot be routed through it."
+        )
     return str(net["_id"])
 
 
 def register(mcp: MCPServer, engine: WriteEngine) -> None:
     @mcp.tool(
         name=TOOL,
-        annotations={"title": "Create, change or delete a traffic object (limits, schedules, internet block, routing)", "readOnlyHint": False,
-                     "destructiveHint": True, "idempotentHint": False, "openWorldHint": False},
+        annotations={
+            "title": "Create, change or delete a traffic object (limits, schedules, internet block, routing)",
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": False,
+            "openWorldHint": False,
+        },
     )
     async def unifi_console_traffic_object(params: TrafficObjectInput) -> str:
         """Preview, then apply, a change to the console's traffic objects (Traffic Management: bandwidth limits and priority,
@@ -598,11 +798,19 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
             changes.pop("route_network", None)
             if params.action == "create" and not (params.name and (changes.get("targets") or params.clients)):
                 return json.dumps({"ok": False, "error": "create needs name and networks (or clients)."})
-            spec = dataclasses.replace(SPEC, validate_ctx=partial(
-                validate, ack_block=params.acknowledge_blocking, ack_reroute=params.acknowledge_reroute))
+            spec = dataclasses.replace(
+                SPEC,
+                validate_ctx=partial(
+                    validate, ack_block=params.acknowledge_blocking, ack_reroute=params.acknowledge_reroute
+                ),
+            )
             result = await engine.execute(
-                spec, action=params.action, target=params.target, changes=changes,
-                confirm=params.confirm, fingerprint=params.fingerprint,
+                spec,
+                action=params.action,
+                target=params.target,
+                changes=changes,
+                confirm=params.confirm,
+                fingerprint=params.fingerprint,
             )
             return json.dumps(result, separators=(",", ":"), default=str)
         except Exception as exc:  # noqa: BLE001 - converted to an actionable message

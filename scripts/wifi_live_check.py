@@ -12,6 +12,7 @@ SAFETY
   * Stops before changing anything if an SSID called zz-wificheck already exists or LAN_Private cannot be found.
   * A finally block deletes the throwaway SSID if anything left it behind.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -67,8 +68,13 @@ async def apply(client: Client, args: dict[str, Any]) -> dict[str, Any]:
 
 def snapshot(rows: list[dict[str, Any]]) -> dict[str, str]:
     """A hash per SSID (secrets included in the hash only), so nothing sensitive is printed."""
-    return {str(r["_id"]): hashlib.sha256(json.dumps({k: v for k, v in r.items() if k not in VOLATILE}, sort_keys=True).encode()).hexdigest()[:12]
-            for r in rows if r.get("name") != NAME}
+    return {
+        str(r["_id"]): hashlib.sha256(
+            json.dumps({k: v for k, v in r.items() if k not in VOLATILE}, sort_keys=True).encode()
+        ).hexdigest()[:12]
+        for r in rows
+        if r.get("name") != NAME
+    }
 
 
 async def with_client(settings: Settings, transport: Any, fn: Any) -> Any:
@@ -115,10 +121,22 @@ async def main(run: bool, transport: Any = None, pause: float = LIVE_SECONDS) ->
         bad = 0
         print("\n[2] refusals (previews only)")
         cases: list[tuple[str, dict[str, Any], str]] = [
-            ("open without acknowledgement", {"action": "create", "name": NAME, "network": NETWORK, "security": "open"}, "Open security stop"),
-            ("unknown network", {"action": "create", "name": NAME, **{**good, "network": "No Such Network"}}, "not a network"),
+            (
+                "open without acknowledgement",
+                {"action": "create", "name": NAME, "network": NETWORK, "security": "open"},
+                "Open security stop",
+            ),
+            (
+                "unknown network",
+                {"action": "create", "name": NAME, **good, "network": "No Such Network"},
+                "not a network",
+            ),
             ("duplicate name", {"action": "create", "name": "ExampleNet", **good}, "already called"),
-            ("missing variable", {"action": "create", "name": NAME, **{**good, "passphrase_env": "UNIFI_WIFI_NOT_SET_ANYWHERE"}}, "is not set"),
+            (
+                "missing variable",
+                {"action": "create", "name": NAME, **good, "passphrase_env": "UNIFI_WIFI_NOT_SET_ANYWHERE"},
+                "is not set",
+            ),
             ("wpa to open", {"action": "update", "target": "ExampleNet", "security": "open"}, "not offered"),
         ]
         for label, args, needle in cases:
@@ -131,9 +149,17 @@ async def main(run: bool, transport: Any = None, pause: float = LIVE_SECONDS) ->
         print(f"\n[3] create {NAME} (must be stored disabled)")
         out = await apply(client, {"action": "create", "name": NAME, **good})
         row = find(await engine._rows(SPEC))
-        print(f"  applied={out['applied']} verified={out['verified']} enabled={row and row.get('enabled')} "
-              f"network_ok={bool(row) and row.get('networkconf_id') is not None} secrets_not_verified={out.get('secret_fields_not_verified')}")
-        bad += not (out["applied"] and out["verified"] and row and row.get("enabled") is False and row.get("security") == "wpapsk")
+        print(
+            f"  applied={out['applied']} verified={out['verified']} enabled={row and row.get('enabled')} "
+            f"network_ok={bool(row) and row.get('networkconf_id') is not None} secrets_not_verified={out.get('secret_fields_not_verified')}"
+        )
+        bad += not (
+            out["applied"]
+            and out["verified"]
+            and row
+            and row.get("enabled") is False
+            and row.get("security") == "wpapsk"
+        )
         if not row:
             return bad + 1
 
@@ -143,7 +169,9 @@ async def main(run: bool, transport: Any = None, pause: float = LIVE_SECONDS) ->
             print(f"  hide_ssid={want}: verified={out['verified']} diff={json.dumps(out['diff'])}")
             bad += not (out["verified"] and set(out["diff"]) == {"hide_ssid"})
         out = await apply(client, {"action": "update", "target": NAME, "passphrase_env": ENV_B})
-        print(f"  passphrase: applied={out['applied']} secret_fields_not_verified={out.get('secret_fields_not_verified')}")
+        print(
+            f"  passphrase: applied={out['applied']} secret_fields_not_verified={out.get('secret_fields_not_verified')}"
+        )
         bad += not (out["applied"] and "x_passphrase" in (out.get("secret_fields_not_verified") or []))
 
         print(f"\n[5] enable for {pause:g} seconds, then disable")

@@ -1,11 +1,11 @@
 """The device live check only ever touches the chosen access point (and an explicit spare) and always puts it back."""
+
 from __future__ import annotations
 
 import copy
 
 import httpx
 import pytest
-
 from test_device import AP, GW, NEW, SW, FakeDevices, no_sleep  # noqa: F401  (no_sleep: autouse fixture)
 from test_doh import load_script
 
@@ -13,12 +13,16 @@ from test_doh import load_script
 def prepare(monkeypatch, tmp_path):
     from unifi_console_mcp.config import Settings
 
-    monkeypatch.setattr(Settings, "from_env", classmethod(lambda cls: cls(
-        host="console.test", username="u", password="p", journal_dir=tmp_path / "journal")))
+    monkeypatch.setattr(
+        Settings,
+        "from_env",
+        classmethod(lambda cls: cls(host="console.test", username="u", password="p", journal_dir=tmp_path / "journal")),
+    )
     mod = load_script("device_live_check")
 
     async def fast(_seconds: float) -> None:
         return None
+
     monkeypatch.setattr(mod, "_pause", fast)
     return mod
 
@@ -43,9 +47,11 @@ async def test_unknown_stage_is_refused(monkeypatch, tmp_path):
 async def test_a_leaf_switch_is_accepted_and_put_back(monkeypatch, tmp_path, capsys):
     mod = prepare(monkeypatch, tmp_path)
     net = FakeDevices()
-    net.rows = [r for r in net.rows if r["type"] != "uap"]        # nothing behind the switch now
-    assert await mod.main(True, httpx.MockTransport(net), ap=SW,
-                          stages=("locate", "rename", "led", "disable", "restart")) == 0, capsys.readouterr().out
+    net.rows = [r for r in net.rows if r["type"] != "uap"]  # nothing behind the switch now
+    assert (
+        await mod.main(True, httpx.MockTransport(net), ap=SW, stages=("locate", "rename", "led", "disable", "restart"))
+        == 0
+    ), capsys.readouterr().out
     sw = next(r for r in net.rows if r["mac"] == SW)
     assert sw["name"] == "Switch-Core" and not sw.get("disabled") and not sw.get("locating")
     assert {b.get("mac") for _m, p, b in net.writes() if p.endswith("devmgr")} == {SW}
@@ -69,14 +75,19 @@ async def test_default_stages_leave_the_ap_as_it_was(monkeypatch, tmp_path, caps
     methods = {(m, p.rsplit("/", 1)[-1]) for m, p, _b in net.writes()}
     assert ("PUT", "id-ap") in methods
     assert not any(p.endswith("sitemgr") for _m, p, _b in net.writes())
-    assert {b.get("name") for _m, _p, b in net.writes() if isinstance(b, dict) and "name" in b} <= {"AP-Lounge", "AP-Lounge-check"}
+    assert {b.get("name") for _m, _p, b in net.writes() if isinstance(b, dict) and "name" in b} <= {
+        "AP-Lounge",
+        "AP-Lounge-check",
+    }
 
 
 async def test_full_stages_disable_and_restart_the_ap_only(monkeypatch, tmp_path, capsys):
     mod = prepare(monkeypatch, tmp_path)
     net = FakeDevices()
-    assert await mod.main(True, httpx.MockTransport(net), ap=AP,
-                          stages=("locate", "rename", "led", "disable", "restart")) == 0, capsys.readouterr().out
+    assert (
+        await mod.main(True, httpx.MockTransport(net), ap=AP, stages=("locate", "rename", "led", "disable", "restart"))
+        == 0
+    ), capsys.readouterr().out
     assert not net.rows[0].get("disabled")
     touched = {b.get("mac") for _m, p, b in net.writes() if p.endswith("devmgr")}
     assert touched == {AP}
@@ -95,7 +106,7 @@ async def test_remove_adopt_needs_a_device_and_never_the_ap(monkeypatch, tmp_pat
 def leaf_switch_net():
     net = FakeDevices()
     net.pending = []
-    net.rows = [r for r in net.rows if r["type"] != "uap"]         # nothing behind the switch
+    net.rows = [r for r in net.rows if r["type"] != "uap"]  # nothing behind the switch
     net.rows[0]["name"] = "Switch-Leaf"
     net.rows[0]["stp_priority"] = "8192"
     return net
@@ -123,13 +134,15 @@ async def test_remove_then_adopt_as_two_separate_runs_restores_what_it_can(monke
 async def test_remove_adopt_in_one_run(monkeypatch, tmp_path, capsys):
     mod = prepare(monkeypatch, tmp_path)
     net = leaf_switch_net()
-    assert await mod.main(True, httpx.MockTransport(net), stages=("remove-adopt",), spare=SW) == 0, capsys.readouterr().out
+    assert await mod.main(True, httpx.MockTransport(net), stages=("remove-adopt",), spare=SW) == 0, (
+        capsys.readouterr().out
+    )
     assert next(r for r in net.rows if r["mac"] == SW)["name"] == "Switch-Leaf"
 
 
 async def test_remove_refuses_a_device_with_something_behind_it(monkeypatch, tmp_path, capsys):
     mod = prepare(monkeypatch, tmp_path)
-    net = FakeDevices()                                            # the AP hangs off the switch
+    net = FakeDevices()  # the AP hangs off the switch
     assert await mod.main(True, httpx.MockTransport(net), stages=("remove",), spare=SW) == 1
     assert net.writes() == [] and not list((tmp_path / "journal").rglob("*.json"))
 

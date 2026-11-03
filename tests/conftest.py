@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import time
 
 import httpx
@@ -36,8 +37,11 @@ class FakeConsole:
             self.logins += 1
             if self.login_status != 200:
                 return httpx.Response(self.login_status, json={"message": "no"})
-            return httpx.Response(200, json={"ok": True}, headers={
-                "set-cookie": f"TOKEN={make_jwt()}; Path=/; HttpOnly", "x-csrf-token": self.csrf})
+            return httpx.Response(
+                200,
+                json={"ok": True},
+                headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/; HttpOnly", "x-csrf-token": self.csrf},
+            )
         if "TOKEN" not in (request.headers.get("cookie") or "") and not request.headers.get("x-api-key"):
             return httpx.Response(401, json={"message": "unauthorized"})
         if self.expire_next:
@@ -48,7 +52,9 @@ class FakeConsole:
             return httpx.Response(404, json={"message": "nope"})
         if callable(handler):
             return handler(request)
-        return httpx.Response(200, json=handler, headers={"x-updated-csrf-token": "csrf-2"} if request.method == "POST" else {})
+        return httpx.Response(
+            200, json=handler, headers={"x-updated-csrf-token": "csrf-2"} if request.method == "POST" else {}
+        )
 
 
 @pytest.fixture
@@ -58,5 +64,22 @@ def console() -> FakeConsole:
 
 @pytest.fixture
 def settings(tmp_path) -> Settings:
-    return Settings(host="console.test", username="mcp", password="pw", api_key="key123",
-                    download_dir=tmp_path / "dl", enable_writes=False)
+    return Settings(
+        host="console.test",
+        username="mcp",
+        password="pw",
+        api_key="key123",
+        download_dir=tmp_path / "dl",
+        enable_writes=False,
+    )
+
+
+@pytest.fixture(autouse=True)
+def no_machine_environment(monkeypatch):
+    """Tests must not see the developer's own persistent Windows variables (UNIFI_LOCAL_HOST and friends)."""
+    from unifi_console_mcp import config
+
+    monkeypatch.setattr(config, "_registry_lookup", lambda name: None)
+    # Persistent user variables are also inherited by the process that runs pytest, so clear them here too
+    for name in [n for n in os.environ if n.upper().startswith("UNIFI_")]:
+        monkeypatch.delenv(name)

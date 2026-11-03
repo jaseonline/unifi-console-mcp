@@ -5,7 +5,27 @@ from __future__ import annotations
 from mcp.server.mcpserver import MCPServer
 
 from .api import Api
-from .entities import app_block, client, client_command, client_group, device, doh, dynamic_dns, firewall_policy, logging_levels, network, network_list, port_forward, qos_rule, site_settings, static_dns, switch_port, traffic_object, wan, wifi
+from .entities import (
+    app_block,
+    client,
+    client_command,
+    client_group,
+    device,
+    doh,
+    dynamic_dns,
+    firewall_policy,
+    logging_levels,
+    network,
+    network_list,
+    port_forward,
+    qos_rule,
+    site_settings,
+    static_dns,
+    switch_port,
+    traffic_object,
+    wan,
+    wifi,
+)
 from .writes import WriteEngine
 
 

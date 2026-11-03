@@ -1,4 +1,5 @@
 """Wi-Fi networks through the write framework: create disabled, whole-object edits, disconnect and open-security stops, secrets."""
+
 from __future__ import annotations
 
 import contextlib
@@ -9,10 +10,10 @@ import uuid
 
 import httpx
 import pytest
-from mcp.client import Client
-
 from conftest import make_jwt
+from mcp.client import Client
 from test_writes import Wrapped
+
 from unifi_console_mcp.server import create_server
 
 API = "/proxy/network/api/s/default"
@@ -22,42 +23,77 @@ TOOL = "unifi_console_wifi"
 NOTE = "plan claude/unifi-console-wifi-plan-2026-10-18.md, approved in chat"
 N_PRIV, N_IOT, N_SON, N_WAN = "n-priv", "n-iot", "n-son", "n-wan"
 GROUP = "grp-all"
-SECRET = "correct-horse-battery"
+FAKE_SECRET = "correct-horse-battery"
 OLD_PW = "old-passphrase-1"
 
 
 def wlan(_id, name, net, **kw):
-    base = {"_id": _id, "site_id": "s", "name": name, "enabled": True, "security": "wpapsk", "wpa_mode": "wpa2", "wpa3_support": False,
-            "wpa3_transition": False, "x_passphrase": OLD_PW, "x_iapp_key": "iapp-secret", "networkconf_id": net, "usergroup_id": "ug1",
-            "is_guest": False, "hide_ssid": False, "l2_isolation": False, "wlan_bands": ["2g", "5g"], "pmf_mode": "disabled",
-            "ap_group_mode": "all", "ap_group_ids": [GROUP], "minrate_ng_enabled": False}
+    base = {
+        "_id": _id,
+        "site_id": "s",
+        "name": name,
+        "enabled": True,
+        "security": "wpapsk",
+        "wpa_mode": "wpa2",
+        "wpa3_support": False,
+        "wpa3_transition": False,
+        "x_passphrase": OLD_PW,
+        "x_iapp_key": "iapp-secret",
+        "networkconf_id": net,
+        "usergroup_id": "ug1",
+        "is_guest": False,
+        "hide_ssid": False,
+        "l2_isolation": False,
+        "wlan_bands": ["2g", "5g"],
+        "pmf_mode": "disabled",
+        "ap_group_mode": "all",
+        "ap_group_ids": [GROUP],
+        "minrate_ng_enabled": False,
+    }
     return {**base, **kw}
 
 
 def rows():
-    return [wlan("w-main", "ExampleNet", N_PRIV), wlan("w-iot", "ExampleNet_IoT", N_IOT), wlan("w-son", "ExampleNet_Sonos", N_SON),
-            wlan("w-apple", "apple", N_PRIV, security="open", x_passphrase="", is_guest=True, wlan_bands=["5g"])]
+    return [
+        wlan("w-main", "ExampleNet", N_PRIV),
+        wlan("w-iot", "ExampleNet_IoT", N_IOT),
+        wlan("w-son", "ExampleNet_Sonos", N_SON),
+        wlan("w-apple", "apple", N_PRIV, security="open", x_passphrase="", is_guest=True, wlan_bands=["5g"]),
+    ]
 
 
 class FakeWifi:
     def __init__(self) -> None:
         self.rows = rows()
         self.log: list[tuple[str, str, object]] = []
-        self.clients = [{"mac": "c1", "name": "Sonos Playbar", "essid": "ExampleNet_Sonos"}, {"mac": "c2", "hostname": "bulb", "essid": "ExampleNet_IoT"}]
-        self.alter = None   # fn(row) applied to the stored row on PUT, to simulate the console changing something else
+        self.clients = [
+            {"mac": "c1", "name": "Sonos Playbar", "essid": "ExampleNet_Sonos"},
+            {"mac": "c2", "hostname": "bulb", "essid": "ExampleNet_IoT"},
+        ]
+        self.alter = None  # fn(row) applied to the stored row on PUT, to simulate the console changing something else
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         path, method = request.url.path, request.method
-        wrap = lambda x: {"meta": {"rc": "ok"}, "data": x}  # noqa: E731
+        wrap = lambda x: {"meta": {"rc": "ok"}, "data": x}
         if path == "/api/auth/login":
-            return httpx.Response(200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"})
+            return httpx.Response(
+                200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"}
+            )
         if method == "GET":
             if path == WLANS:
                 return httpx.Response(200, json=wrap(copy.deepcopy(self.rows)))
             if path == NETS:
-                return httpx.Response(200, json=wrap([
-                    {"_id": N_PRIV, "name": "LAN_Private", "purpose": "corporate"}, {"_id": N_IOT, "name": "LAN_IoT", "purpose": "corporate"},
-                    {"_id": N_SON, "name": "LAN_Sonos", "purpose": "corporate"}, {"_id": N_WAN, "name": "Internet", "purpose": "wan"}]))
+                return httpx.Response(
+                    200,
+                    json=wrap(
+                        [
+                            {"_id": N_PRIV, "name": "LAN_Private", "purpose": "corporate"},
+                            {"_id": N_IOT, "name": "LAN_IoT", "purpose": "corporate"},
+                            {"_id": N_SON, "name": "LAN_Sonos", "purpose": "corporate"},
+                            {"_id": N_WAN, "name": "Internet", "purpose": "wan"},
+                        ]
+                    ),
+                )
             if path == STA:
                 return httpx.Response(200, json=wrap(self.clients))
             if path == GROUPS:
@@ -91,18 +127,21 @@ class FakeWifi:
 
 @pytest.fixture
 def make_session(settings, tmp_path, monkeypatch):
-    monkeypatch.setenv("UNIFI_WIFI_TEST", SECRET)
+    monkeypatch.setenv("UNIFI_WIFI_TEST", FAKE_SECRET)
     monkeypatch.setenv("UNIFI_WIFI_SHORT", "short")
 
     @contextlib.asynccontextmanager
     async def opener(net, *, entities=frozenset({"wifi"}), writes=True):
-        s = dataclasses.replace(settings, enable_writes=writes, write_entities=entities, journal_dir=tmp_path / "journal")
+        s = dataclasses.replace(
+            settings, enable_writes=writes, write_entities=entities, journal_dir=tmp_path / "journal"
+        )
         mcp, api = create_server(s, transport=httpx.MockTransport(net))
         try:
             async with Client(mcp) as client:
                 yield Wrapped(client), tmp_path / "journal"
         finally:
             await api.client.aclose()
+
     return opener
 
 
@@ -130,11 +169,20 @@ def journal_text(path):
 async def test_create_is_disabled_wpa2_on_the_named_network_and_the_passphrase_never_appears(make_session):
     net = FakeWifi()
     async with make_session(net) as (c, journal):
-        pre, out = await apply(c, {"action": "create", "name": "zz-test", "network": "LAN_Private", "security": "wpa2", "passphrase_env": "UNIFI_WIFI_TEST"})
+        pre, out = await apply(
+            c,
+            {
+                "action": "create",
+                "name": "zz-test",
+                "network": "LAN_Private",
+                "security": "wpa2",
+                "passphrase_env": "UNIFI_WIFI_TEST",
+            },
+        )
         text = json.dumps(pre) + json.dumps(out) + journal_text(journal)
-    assert SECRET not in text and "UNIFI_WIFI_TEST" not in json.dumps(out)
+    assert FAKE_SECRET not in text and "UNIFI_WIFI_TEST" not in json.dumps(out)
     _, path, body = net.writes()[0]
-    assert path == WLANS and body["enabled"] is False and body["x_passphrase"] == SECRET
+    assert path == WLANS and body["enabled"] is False and body["x_passphrase"] == FAKE_SECRET
     assert body["networkconf_id"] == N_PRIV and body["ap_group_ids"] == [GROUP] and body["ap_group_mode"] == "all"
     assert body["usergroup_id"] == "ug1" and body["wpa3_support"] is False and body["pmf_mode"] == "disabled"
     assert out["applied"] and out["verified"] and "x_passphrase" in out["secret_fields_not_verified"]
@@ -144,11 +192,19 @@ async def test_create_is_disabled_wpa2_on_the_named_network_and_the_passphrase_n
 async def test_create_needs_network_security_and_a_passphrase_variable(make_session):
     net = FakeWifi()
     async with make_session(net) as (c, _):
-        for args, word in (({"name": "x", "security": "wpa2", "passphrase_env": "UNIFI_WIFI_TEST"}, "network"),
-                           ({"name": "x", "network": "LAN_Private", "passphrase_env": "UNIFI_WIFI_TEST"}, "security"),
-                           ({"name": "x", "network": "LAN_Private", "security": "wpa2"}, "passphrase_env"),
-                           ({"name": "x", "network": "Nope", "security": "wpa2", "passphrase_env": "UNIFI_WIFI_TEST"}, "not a network"),
-                           ({"name": "x", "network": "Internet", "security": "wpa2", "passphrase_env": "UNIFI_WIFI_TEST"}, "not a network")):
+        for args, word in (
+            ({"name": "x", "security": "wpa2", "passphrase_env": "UNIFI_WIFI_TEST"}, "network"),
+            ({"name": "x", "network": "LAN_Private", "passphrase_env": "UNIFI_WIFI_TEST"}, "security"),
+            ({"name": "x", "network": "LAN_Private", "security": "wpa2"}, "passphrase_env"),
+            (
+                {"name": "x", "network": "Nope", "security": "wpa2", "passphrase_env": "UNIFI_WIFI_TEST"},
+                "not a network",
+            ),
+            (
+                {"name": "x", "network": "Internet", "security": "wpa2", "passphrase_env": "UNIFI_WIFI_TEST"},
+                "not a network",
+            ),
+        ):
             assert word in await raw(c, {"action": "create", **args})
     assert not net.writes()
 
@@ -186,7 +242,16 @@ async def test_duplicate_name_and_oversize_name_are_refused(make_session):
 async def test_wpa3_only_warns(make_session):
     net = FakeWifi()
     async with make_session(net) as (c, _):
-        pre = await call(c, {"action": "create", "name": "w3", "network": "LAN_Private", "security": "wpa3", "passphrase_env": "UNIFI_WIFI_TEST"})
+        pre = await call(
+            c,
+            {
+                "action": "create",
+                "name": "w3",
+                "network": "LAN_Private",
+                "security": "wpa3",
+                "passphrase_env": "UNIFI_WIFI_TEST",
+            },
+        )
     assert any("WPA3-only" in w for w in pre["warnings"]) and pre["after"]["pmf_mode"] == "required"
 
 
@@ -198,7 +263,9 @@ async def test_edit_sends_the_whole_object_with_secrets_unchanged_and_nothing_el
         pre, out = await apply(c, {"action": "update", "target": "ExampleNet", "l2_isolation": True})
     body = net.writes()[0][2]
     assert body["x_passphrase"] == OLD_PW and body["x_iapp_key"] == "iapp-secret" and body["l2_isolation"] is True
-    assert {k: v for k, v in body.items() if k != "l2_isolation"} == {k: v for k, v in before[0].items() if k != "l2_isolation"}
+    assert {k: v for k, v in body.items() if k != "l2_isolation"} == {
+        k: v for k, v in before[0].items() if k != "l2_isolation"
+    }
     assert set(pre["diff"]) == {"l2_isolation"} and out["verified"]
     assert net.rows[1:] == before[1:]
     assert OLD_PW not in json.dumps(pre) + json.dumps(out)
@@ -209,10 +276,21 @@ async def test_changes_that_drop_clients_are_refused_until_acknowledged_and_name
     async with make_session(net) as (c, _):
         pre = await call(c, {"action": "update", "target": "ExampleNet_Sonos", "hide_ssid": True})
         assert any("Disconnect stop" in e for e in pre["errors"]) and any("Sonos Playbar" in w for w in pre["warnings"])
-        refused = await raw(c, {"action": "update", "target": "ExampleNet_Sonos", "hide_ssid": True, "confirm": True,
-                                "fingerprint": pre["fingerprint"], "approval_note": NOTE})
+        refused = await raw(
+            c,
+            {
+                "action": "update",
+                "target": "ExampleNet_Sonos",
+                "hide_ssid": True,
+                "confirm": True,
+                "fingerprint": pre["fingerprint"],
+                "approval_note": NOTE,
+            },
+        )
         assert "Refused" in refused and not net.writes()
-        _, out = await apply(c, {"action": "update", "target": "ExampleNet_Sonos", "hide_ssid": True, "acknowledge_disconnect": True})
+        _, out = await apply(
+            c, {"action": "update", "target": "ExampleNet_Sonos", "hide_ssid": True, "acknowledge_disconnect": True}
+        )
     assert out["applied"] and net.by_name("ExampleNet_Sonos")["hide_ssid"] is True
 
 
@@ -230,8 +308,8 @@ async def test_passphrase_change_is_applied_not_verified_and_rollback_says_re_en
     async with make_session(net) as (c, journal):
         pre, out = await apply(c, {"action": "update", "target": "ExampleNet_IoT", "passphrase_env": "UNIFI_WIFI_TEST"})
         text = json.dumps(pre) + json.dumps(out) + journal_text(journal)
-    assert net.by_name("ExampleNet_IoT")["x_passphrase"] == SECRET
-    assert SECRET not in text and OLD_PW not in text
+    assert net.by_name("ExampleNet_IoT")["x_passphrase"] == FAKE_SECRET
+    assert FAKE_SECRET not in text and OLD_PW not in text
     assert "x_passphrase" in out["secret_fields_not_verified"] and "re-enter" in out["rollback"]["note"]
 
 
@@ -261,6 +339,7 @@ async def test_other_ssids_changing_is_reported_as_a_mismatch(make_session):
     def alter(row):
         net.rows[1]["hide_ssid"] = True
         return row
+
     net.alter = alter
     async with make_session(net) as (c, _):
         _, out = await apply(c, {"action": "update", "target": "ExampleNet", "l2_isolation": True})
@@ -311,15 +390,20 @@ async def test_gates_stale_fingerprint_and_tier_c_note(make_session):
         pre = await call(c, args)
         assert "approval_note" in await raw(c, {**args, "confirm": True, "fingerprint": pre["fingerprint"]})
         net.by_name("ExampleNet")["hide_ssid"] = True
-        assert "differs from the preview" in await raw(c, {**args, "confirm": True, "fingerprint": pre["fingerprint"], "approval_note": NOTE})
+        assert "differs from the preview" in await raw(
+            c, {**args, "confirm": True, "fingerprint": pre["fingerprint"], "approval_note": NOTE}
+        )
     assert not net.writes()
 
 
 async def test_generic_tool_refuses_the_wlanconf_writes_and_names_the_typed_tool(make_session):
     net = FakeWifi()
     async with make_session(net) as (c, _):
-        for op, extra in (("deleteWlanConfig", {"path_params": {"id": "w-main"}}), ("createWlanConfig", {"body": {"name": "x"}}),
-                          ("updateWlanConfig", {"path_params": {"id": "w-main"}, "body": {"name": "x"}})):
+        for op, extra in (
+            ("deleteWlanConfig", {"path_params": {"id": "w-main"}}),
+            ("createWlanConfig", {"body": {"name": "x"}}),
+            ("updateWlanConfig", {"path_params": {"id": "w-main"}, "body": {"name": "x"}}),
+        ):
             res = await c.call_tool("unifi_console_call_operation", {"operation_id": op, "confirm": True, **extra})
             assert TOOL in res.content[0].text
     assert net.writes() == []

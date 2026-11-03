@@ -36,7 +36,7 @@ def norm_mac(value: Any) -> str:
     if re.fullmatch(r"([0-9a-f]{2}[:-]){5}[0-9a-f]{2}", text):
         return text.replace("-", ":")
     if re.fullmatch(r"[0-9a-f]{12}", text):
-        return ":".join(text[i:i + 2] for i in range(0, 12, 2))
+        return ":".join(text[i : i + 2] for i in range(0, 12, 2))
     return text
 
 
@@ -73,11 +73,16 @@ def prepare(action: str, before: dict[str, Any] | None, changes: dict[str, Any])
     return out
 
 
-def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], others: list[dict[str, Any]],
-             ctx: dict[str, list[dict[str, Any]]]) -> Findings:
+def validate(
+    action: str,
+    before: dict[str, Any] | None,
+    after: dict[str, Any],
+    others: list[dict[str, Any]],
+    ctx: dict[str, list[dict[str, Any]]],
+) -> Findings:
     f = Findings()
     if action == "delete":
-        return f                      # what uses the group is checked by the engine's reference check
+        return f  # what uses the group is checked by the engine's reference check
     before = before or {}
     name = str(after.get("name") or "").strip()
     if not name:
@@ -85,10 +90,14 @@ def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], 
     elif len(name) > 128:
         f.errors.append("The name is longer than 128 characters.")
     elif name != before.get("name") and any(str(r.get("name") or "").lower() == name.lower() for r in others):
-        f.errors.append(f"Another group is already called '{name}'. Names must be unique so a group can be addressed by name.")
+        f.errors.append(
+            f"Another group is already called '{name}'. Names must be unique so a group can be addressed by name."
+        )
 
     if after.get("type") != GROUP_TYPE:
-        f.errors.append(f"Only client groups (type {GROUP_TYPE}) are supported here; this group is '{after.get('type')}'.")
+        f.errors.append(
+            f"Only client groups (type {GROUP_TYPE}) are supported here; this group is '{after.get('type')}'."
+        )
         return f
 
     members = [str(m) for m in after.get("members") or []]
@@ -106,14 +115,26 @@ def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], 
     fresh = [m for m in seen if m not in old and _MAC.match(m)]
     unknown = [m for m in fresh if m not in known]
     if unknown:
-        f.warnings.append(f"{len(unknown)} new member(s) are not clients this console has seen: {', '.join(unknown[:10])}.")
+        f.warnings.append(
+            f"{len(unknown)} new member(s) are not clients this console has seen: {', '.join(unknown[:10])}."
+        )
     return f
 
 
 SPEC = EntitySpec(
-    key=KEY, label="client group", tier="A", list_op="listNetworkMemberGroups", create_op="createNetworkMemberGroup",
-    update_op="updateNetworkMemberGroup", delete_op="deleteNetworkMemberGroup", whole_object=True, id_field="id",
-    name_field="name", defaults={"type": GROUP_TYPE}, prepare=prepare, validate_ctx=validate,
+    key=KEY,
+    label="client group",
+    tier="A",
+    list_op="listNetworkMemberGroups",
+    create_op="createNetworkMemberGroup",
+    update_op="updateNetworkMemberGroup",
+    delete_op="deleteNetworkMemberGroup",
+    whole_object=True,
+    id_field="id",
+    name_field="name",
+    defaults={"type": GROUP_TYPE},
+    prepare=prepare,
+    validate_ctx=validate,
     context_ops=(("clients", "listKnownClients"),),
     reference_ops=(("listFirewallPoliciesWithHits", "firewall policy"), ("listTrafficPolicyObjects", "traffic object")),
 )
@@ -122,15 +143,28 @@ SPEC = EntitySpec(
 class ClientGroupInput(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    action: Literal["create", "update", "delete"] = Field(..., description="create a group, change its name or members, or delete it.")
+    action: Literal["create", "update", "delete"] = Field(
+        ..., description="create a group, change its name or members, or delete it."
+    )
     target: str | None = Field(default=None, description="Existing group: its id or exact name. Not used by create.")
     name: str | None = Field(default=None, description="Group name (unique).")
-    members: list[str] | None = Field(default=None, description="Full member list of client MAC addresses; replaces the existing members.")
+    members: list[str] | None = Field(
+        default=None, description="Full member list of client MAC addresses; replaces the existing members."
+    )
     add_members: list[str] | None = Field(default=None, description="update only: MAC addresses to add.")
-    remove_members: list[str] | None = Field(default=None, description="update only: MAC addresses to remove (must be present).")
-    type: Literal["CLIENTS"] | None = Field(default=None, description="Always CLIENTS; accepted so a recorded rollback can be replayed.")
-    confirm: bool = Field(default=False, description="false (default) returns a read-only preview. true applies the change and needs fingerprint.")
-    fingerprint: str | None = Field(default=None, description="From the preview of exactly this change; required with confirm=true.")
+    remove_members: list[str] | None = Field(
+        default=None, description="update only: MAC addresses to remove (must be present)."
+    )
+    type: Literal["CLIENTS"] | None = Field(
+        default=None, description="Always CLIENTS; accepted so a recorded rollback can be replayed."
+    )
+    confirm: bool = Field(
+        default=False,
+        description="false (default) returns a read-only preview. true applies the change and needs fingerprint.",
+    )
+    fingerprint: str | None = Field(
+        default=None, description="From the preview of exactly this change; required with confirm=true."
+    )
 
     def changes(self) -> dict[str, Any]:
         return {k: getattr(self, k) for k in FIELDS if getattr(self, k) is not None}
@@ -139,8 +173,13 @@ class ClientGroupInput(BaseModel):
 def register(mcp: MCPServer, engine: WriteEngine) -> None:
     @mcp.tool(
         name=TOOL,
-        annotations={"title": "Create, change or delete a client group", "readOnlyHint": False, "destructiveHint": True,
-                     "idempotentHint": False, "openWorldHint": False},
+        annotations={
+            "title": "Create, change or delete a client group",
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": False,
+            "openWorldHint": False,
+        },
     )
     async def unifi_console_client_group(params: ClientGroupInput) -> str:
         """Preview, then apply, a change to the console's client groups (named sets of client MAC addresses used by policies).
@@ -161,8 +200,12 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
             if params.action == "create" and not (params.name and params.members):
                 return json.dumps({"ok": False, "error": "create needs name and members."})
             result = await engine.execute(
-                SPEC, action=params.action, target=params.target, changes=params.changes(),
-                confirm=params.confirm, fingerprint=params.fingerprint,
+                SPEC,
+                action=params.action,
+                target=params.target,
+                changes=params.changes(),
+                confirm=params.confirm,
+                fingerprint=params.fingerprint,
             )
             return json.dumps(result, separators=(",", ":"), default=str)
         except Exception as exc:  # noqa: BLE001 - converted to an actionable message

@@ -1,5 +1,9 @@
 """Websocket messages around network saves. Usage: uv run --with ijson scripts/har_wswin.py <har> <out.json>"""
-import json, sys, collections
+
+import collections
+import json
+import sys
+
 import ijson
 
 har, out = sys.argv[1], sys.argv[2]
@@ -26,15 +30,28 @@ with open(har, "rb") as f:
             first = data[0] if isinstance(data, list) and data else {}
             kinds[kind] += 1
             row = {"ts": round(ts, 1), "kind": kind}
-            for k in ("mac", "name", "state", "adopt_state", "uptime", "last_seen", "key", "msg", "datetime",
-                      "provisioned_at", "essid", "network", "type"):
+            for k in (
+                "mac",
+                "name",
+                "state",
+                "adopt_state",
+                "uptime",
+                "last_seen",
+                "key",
+                "msg",
+                "datetime",
+                "provisioned_at",
+                "essid",
+                "network",
+                "type",
+            ):
                 if isinstance(first, dict) and k in first:
                     row[k] = first[k]
             if isinstance(first, dict) and "mac" not in row and meta.get("mac"):
                 row["mac"] = meta["mac"]
             rows.append(row)
         # keep only non-routine rows (events, anything not stat sync) plus device state/uptime per device
-        keep = [r for r in rows if r["kind"] not in ("session-metadata:sync",) ]
+        keep = [r for r in rows if r["kind"] not in ("session-metadata:sync",)]
         res = {"total_receive": len(rows), "kinds": dict(kinds), "rows": keep}
 json.dump(res, open(out, "w"), indent=0, default=str)
 print("ok", res.get("total_receive"), res.get("kinds"))

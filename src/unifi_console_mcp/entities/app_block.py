@@ -18,7 +18,6 @@ Application and category ids are used as the console stores them; the mapping to
 from __future__ import annotations
 
 import copy
-import dataclasses
 import json
 import re
 from datetime import date
@@ -38,14 +37,14 @@ DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 MODES = ("ALWAYS", "EVERY_DAY", "EVERY_WEEK", "ONE_TIME_ONLY", "CUSTOM")
 _MAC = re.compile(r"^[0-9a-f]{2}(:[0-9a-f]{2}){5}$")
 _TIME = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
-PROTECTED_NETWORKS = ("LAN_Private",)       # blocking a whole network of this name needs approval_note
+PROTECTED_NETWORKS = ("LAN_Private",)  # blocking a whole network of this name needs approval_note
 
 
 # ----------------------------------------------------------------------------------------------- normalising
 def _mac(value: str) -> str:
     v = str(value).strip().lower().replace("-", ":")
     if re.fullmatch(r"[0-9a-f]{12}", v):
-        v = ":".join(v[i:i + 2] for i in range(0, 12, 2))
+        v = ":".join(v[i : i + 2] for i in range(0, 12, 2))
     if not _MAC.match(v):
         raise UniFiError(f"'{value}' is not a MAC address.")
     return v
@@ -88,7 +87,7 @@ def normalise_schedule(s: dict[str, Any]) -> dict[str, Any]:
             raise UniFiError("schedule ONE_TIME_ONLY needs date (YYYY-MM-DD).")
         out["date"] = str(s["date"])
         need_times()
-    else:   # CUSTOM
+    else:  # CUSTOM
         if not (s.get("date_start") and s.get("date_end")):
             raise UniFiError("schedule CUSTOM needs date_start and date_end (YYYY-MM-DD).")
         out["date_start"], out["date_end"] = str(s["date_start"]), str(s["date_end"])
@@ -97,8 +96,20 @@ def normalise_schedule(s: dict[str, Any]) -> dict[str, Any]:
         if not all_day:
             need_times()
     # keep the key order the console returns, so an unchanged schedule compares equal
-    return {k: out[k] for k in ("mode", "date", "date_start", "date_end", "repeat_on_days", "time_all_day",
-                                "time_range_start", "time_range_end") if k in out}
+    return {
+        k: out[k]
+        for k in (
+            "mode",
+            "date",
+            "date_start",
+            "date_end",
+            "repeat_on_days",
+            "time_all_day",
+            "time_range_start",
+            "time_range_end",
+        )
+        if k in out
+    }
 
 
 def _schedule_findings(sch: Any, f: Findings, name: str) -> None:
@@ -117,8 +128,10 @@ def _schedule_findings(sch: Any, f: Findings, name: str) -> None:
     if sch.get("mode") == "CUSTOM" and not f.errors and str(sch.get("date_end")) < str(sch.get("date_start")):
         f.errors.append(f"'{name}': date_end is before date_start.")
     if "time_range_start" in sch and "time_range_end" in sch and sch["time_range_end"] <= sch["time_range_start"]:
-        f.warnings.append(f"'{name}': the time range ends at or before it starts, so it crosses midnight; whether the console "
-                          "accepts that is unverified.")
+        f.warnings.append(
+            f"'{name}': the time range ends at or before it starts, so it crosses midnight; whether the console "
+            "accepts that is unverified."
+        )
     if sch.get("mode") == "ALWAYS":
         f.warnings.append(f"'{name}' blocks all the time once applied.")
 
@@ -138,16 +151,23 @@ def _find(blocks: list[dict[str, Any]], target: str) -> int:
 def _resolve_networks(refs: list[str], rows: list[dict[str, Any]]) -> list[str]:
     ids: list[str] = []
     for ref in refs:
-        hits = ([r for r in rows if str(r.get("_id")) == ref] or [r for r in rows if r.get("name") == ref]
-                or [r for r in rows if str(r.get("name") or "").lower() == str(ref).lower()])
+        hits = (
+            [r for r in rows if str(r.get("_id")) == ref]
+            or [r for r in rows if r.get("name") == ref]
+            or [r for r in rows if str(r.get("name") or "").lower() == str(ref).lower()]
+        )
         if len(hits) != 1:
             known = ", ".join(str(r.get("name")) for r in rows)
-            raise UniFiError(f"{'No network' if not hits else str(len(hits)) + ' networks'} match '{ref}'. Known networks: {known}.")
+            raise UniFiError(
+                f"{'No network' if not hits else str(len(hits)) + ' networks'} match '{ref}'. Known networks: {known}."
+            )
         ids.append(str(hits[0]["_id"]))
     return ids
 
 
-def build_blocks(live: list[dict[str, Any]], ops: list[dict[str, Any]], networks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def build_blocks(
+    live: list[dict[str, Any]], ops: list[dict[str, Any]], networks: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     """Apply the requested operations, in order, to a copy of the live collection and return the complete new collection."""
     blocks = copy.deepcopy(live)
     for n, op in enumerate(ops, 1):
@@ -164,8 +184,16 @@ def build_blocks(live: list[dict[str, Any]], ops: list[dict[str, Any]], networks
             if kind == "create":
                 if op.get("target"):
                     raise UniFiError("create does not take a target.")
-                entry: dict[str, Any] = {"name": "", "app_ids": [], "client_macs": [], "network_ids": [], "type": "",
-                                         "target_type": "", "app_category_ids": [], "schedule": {}}
+                entry: dict[str, Any] = {
+                    "name": "",
+                    "app_ids": [],
+                    "client_macs": [],
+                    "network_ids": [],
+                    "type": "",
+                    "target_type": "",
+                    "app_category_ids": [],
+                    "schedule": {},
+                }
                 idx = None
                 if not op.get("name"):
                     raise UniFiError("create needs a name.")
@@ -189,14 +217,20 @@ def build_blocks(live: list[dict[str, Any]], ops: list[dict[str, Any]], networks
             if op.get("clients") is not None:
                 entry.update(type="DEVICE", client_macs=[_mac(m) for m in op["clients"]], network_ids=[])
             if op.get("networks") is not None:
-                entry.update(type="NETWORK", network_ids=_resolve_networks(list(op["networks"]), networks), client_macs=[])
+                entry.update(
+                    type="NETWORK", network_ids=_resolve_networks(list(op["networks"]), networks), client_macs=[]
+                )
             want = op.get("applies_to")
             if want and {"clients": "DEVICE", "networks": "NETWORK"}[want] != entry.get("type"):
-                raise UniFiError(f"applies_to {want} needs {'clients' if want == 'clients' else 'networks'} to be given as well.")
+                raise UniFiError(
+                    f"applies_to {want} needs {'clients' if want == 'clients' else 'networks'} to be given as well."
+                )
             if op.get("apps") is not None:
                 entry.update(target_type="APP_ID", app_ids=[int(a) for a in op["apps"]], app_category_ids=[])
             if op.get("categories") is not None:
-                entry.update(target_type="APP_CATEGORY", app_category_ids=[int(c) for c in op["categories"]], app_ids=[])
+                entry.update(
+                    target_type="APP_CATEGORY", app_category_ids=[int(c) for c in op["categories"]], app_ids=[]
+                )
             if op.get("schedule") is not None:
                 entry["schedule"] = normalise_schedule(dict(op["schedule"]))
             if idx is None:
@@ -210,15 +244,26 @@ def build_blocks(live: list[dict[str, Any]], ops: list[dict[str, Any]], networks
 
 # ----------------------------------------------------------------------------------------------- validation
 def _label(b: dict[str, Any], names: dict[str, str]) -> str:
-    who = (f"{len(b.get('client_macs') or [])} client(s)" if b.get("type") == "DEVICE"
-           else ", ".join(names.get(i, i) for i in b.get("network_ids") or []) or "no network")
-    what = (f"{len(b.get('app_ids') or [])} application(s)" if b.get("target_type") == "APP_ID"
-            else f"{len(b.get('app_category_ids') or [])} categor(y/ies)")
+    who = (
+        f"{len(b.get('client_macs') or [])} client(s)"
+        if b.get("type") == "DEVICE"
+        else ", ".join(names.get(i, i) for i in b.get("network_ids") or []) or "no network"
+    )
+    what = (
+        f"{len(b.get('app_ids') or [])} application(s)"
+        if b.get("target_type") == "APP_ID"
+        else f"{len(b.get('app_category_ids') or [])} categor(y/ies)"
+    )
     return f"{what} for {who}"
 
 
-def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], others: list[dict[str, Any]],
-             ctx: dict[str, list[dict[str, Any]]]) -> Findings:
+def validate(
+    action: str,
+    before: dict[str, Any] | None,
+    after: dict[str, Any],
+    others: list[dict[str, Any]],
+    ctx: dict[str, list[dict[str, Any]]],
+) -> Findings:
     f = Findings()
     old = {str(b.get("_id")): b for b in (before or {}).get("blocks", [])}
     new: list[dict[str, Any]] = after.get("blocks") or []
@@ -236,7 +281,7 @@ def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], 
             f.errors.append(f"Two blocks are called '{nm}'. Names must be unique so a block can be addressed by name.")
         seen.add(nm.lower())
         if str(b.get("_id")) in old and same(old[str(b["_id"])], b):
-            continue                                   # untouched: not re-validated, so an odd old entry cannot block other changes
+            continue  # untouched: not re-validated, so an odd old entry cannot block other changes
         if b.get("type") not in ("DEVICE", "NETWORK"):
             f.errors.append(f"'{nm}': type must be DEVICE or NETWORK.")
         if b.get("target_type") not in ("APP_ID", "APP_CATEGORY"):
@@ -259,7 +304,9 @@ def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], 
                 f.errors.append(f"'{nm}': duplicate client MACs.")
             devs = [m for m in macs if str(m).lower() in device_macs]
             if devs:
-                f.errors.append(f"'{nm}': {', '.join(devs)} belongs to a UniFi device, not a client. Blocking apps for it is refused.")
+                f.errors.append(
+                    f"'{nm}': {', '.join(devs)} belongs to a UniFi device, not a client. Blocking apps for it is refused."
+                )
         else:
             ids = b["network_ids"]
             if not ids:
@@ -272,11 +319,15 @@ def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], 
             if len(ids) > 1:
                 f.warnings.append(f"'{nm}': several networks in one block; the capture only had one.")
             if b["target_type"] == "APP_ID":
-                f.warnings.append(f"'{nm}': a NETWORK block for specific applications was not captured; the console may refuse it.")
+                f.warnings.append(
+                    f"'{nm}': a NETWORK block for specific applications was not captured; the console may refuse it."
+                )
             protected = [names[i] for i in ids if names.get(i) in PROTECTED_NETWORKS]
             if protected:
                 f.warnings.append(f"'{nm}' blocks traffic for the whole {', '.join(protected)} network.")
-        key, other = (("app_ids", "app_category_ids") if b["target_type"] == "APP_ID" else ("app_category_ids", "app_ids"))
+        key, other = (
+            ("app_ids", "app_category_ids") if b["target_type"] == "APP_ID" else ("app_category_ids", "app_ids")
+        )
         vals = b[key]
         if not vals or any(isinstance(v, bool) or not isinstance(v, int) or v <= 0 for v in vals):
             f.errors.append(f"'{nm}': {key} must be a non-empty list of positive whole numbers.")
@@ -286,18 +337,25 @@ def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], 
             f.errors.append(f"'{nm}': {other} must be empty for {b['target_type']}.")
         _schedule_findings(b.get("schedule"), f, nm)
         if not f.errors:
-            f.warnings.append(f"'{nm}': blocks {_label(b, names)}, starting as soon as it is applied "
-                              f"(schedule {b['schedule']['mode']}).")
+            f.warnings.append(
+                f"'{nm}': blocks {_label(b, names)}, starting as soon as it is applied "
+                f"(schedule {b['schedule']['mode']})."
+            )
     removed = [b for i, b in old.items() if i not in {str(x.get("_id")) for x in new}]
     if removed:
-        f.warnings.append("These blocks will be deleted (their generated firewall policies go with them): "
-                          + ", ".join(f"'{b.get('name')}'" for b in removed) + ".")
+        f.warnings.append(
+            "These blocks will be deleted (their generated firewall policies go with them): "
+            + ", ".join(f"'{b.get('name')}'" for b in removed)
+            + "."
+        )
     if old and not new:
         f.warnings.append("This leaves NO application blocks at all.")
     return f
 
 
-def _views(before: dict[str, Any] | None, after: dict[str, Any] | None) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+def _views(
+    before: dict[str, Any] | None, after: dict[str, Any] | None
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     def view(row: dict[str, Any] | None) -> dict[str, Any] | None:
         if row is None:
             return None
@@ -306,6 +364,7 @@ def _views(before: dict[str, Any] | None, after: dict[str, Any] | None) -> tuple
             key = str(b.get("name"))
             out[key if key not in out else f"{key} ({b.get('_id')})"] = {k: v for k, v in b.items() if k != "_id"}
         return out
+
     return view(before), view(after)
 
 
@@ -325,7 +384,9 @@ def verify(plan: Any, rows: list[dict[str, Any]], stored: dict[str, Any] | None)
         if not covers(_strip(g), _strip(w)):
             out.append({"field": f"block '{w.get('name')}'", "requested": _strip(w), "stored": _strip(g)})
         elif w.get("_id") and str(g.get("_id")) != str(w["_id"]):
-            out.append({"field": f"block '{w.get('name')}'", "requested": f"id {w['_id']}", "stored": f"id {g.get('_id')}"})
+            out.append(
+                {"field": f"block '{w.get('name')}'", "requested": f"id {w['_id']}", "stored": f"id {g.get('_id')}"}
+            )
         elif not w.get("_id") and not g.get("_id"):
             out.append({"field": f"block '{w.get('name')}'", "requested": "an id from the console", "stored": "none"})
     return out
@@ -342,9 +403,20 @@ def _body(before: dict[str, Any] | None, after: dict[str, Any] | None, effective
 
 
 SPEC = EntitySpec(
-    key=KEY, label="application block set", tier="B", list_op="listFirewallAppBlocks", update_op="replaceFirewallAppBlocks",
-    singleton=True, id_field="_id", name_field="name", ignore=VOLATILE, validate_ctx=validate, verify=verify,
-    verify_skip=frozenset({"blocks"}), focus=_views, rollback=rollback,
+    key=KEY,
+    label="application block set",
+    tier="B",
+    list_op="listFirewallAppBlocks",
+    update_op="replaceFirewallAppBlocks",
+    singleton=True,
+    id_field="_id",
+    name_field="name",
+    ignore=VOLATILE,
+    validate_ctx=validate,
+    verify=verify,
+    verify_skip=frozenset({"blocks"}),
+    focus=_views,
+    rollback=rollback,
     wrap_rows=lambda rows: [{"_id": ROW_ID, "blocks": rows}],
     context_ops=(("networks", "listNetworkConfig"), ("devices", "listDevicesBasic")),
     action_ops={"update": ActionOp("replaceFirewallAppBlocks", _body, with_id=False)},
@@ -356,12 +428,18 @@ class ScheduleInput(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     mode: Literal["ALWAYS", "EVERY_DAY", "EVERY_WEEK", "ONE_TIME_ONLY", "CUSTOM"] = Field(
-        ..., description="ALWAYS; EVERY_DAY (needs a time range); EVERY_WEEK (days, and a time range unless time_all_day); "
-                         "ONE_TIME_ONLY (date and a time range); CUSTOM (date_start, date_end, days, and a time range unless time_all_day).")
+        ...,
+        description="ALWAYS; EVERY_DAY (needs a time range); EVERY_WEEK (days, and a time range unless time_all_day); "
+        "ONE_TIME_ONLY (date and a time range); CUSTOM (date_start, date_end, days, and a time range unless time_all_day).",
+    )
     time_range_start: str | None = Field(default=None, description="HH:MM, 24 hour.")
     time_range_end: str | None = Field(default=None, description="HH:MM, 24 hour.")
-    time_all_day: bool | None = Field(default=None, description="EVERY_WEEK and CUSTOM only: the whole day, no time range.")
-    repeat_on_days: list[Literal["mon", "tue", "wed", "thu", "fri", "sat", "sun"]] | None = Field(default=None, description="EVERY_WEEK and CUSTOM.")
+    time_all_day: bool | None = Field(
+        default=None, description="EVERY_WEEK and CUSTOM only: the whole day, no time range."
+    )
+    repeat_on_days: list[Literal["mon", "tue", "wed", "thu", "fri", "sat", "sun"]] | None = Field(
+        default=None, description="EVERY_WEEK and CUSTOM."
+    )
     date: str | None = Field(default=None, description="ONE_TIME_ONLY: YYYY-MM-DD.")
     date_start: str | None = Field(default=None, description="CUSTOM: YYYY-MM-DD.")
     date_end: str | None = Field(default=None, description="CUSTOM: YYYY-MM-DD.")
@@ -373,11 +451,17 @@ class BlockChange(BaseModel):
     op: Literal["create", "update", "delete"] = Field(..., description="Add a block, change one, or remove one.")
     target: str | None = Field(default=None, description="Existing block: its id or exact name. Not used by create.")
     name: str | None = Field(default=None, description="Block name (unique).")
-    applies_to: Literal["clients", "networks"] | None = Field(default=None, description="Optional check that the block is for clients or for networks.")
-    clients: list[str] | None = Field(default=None, description="Client MAC addresses to block (a DEVICE block). UniFi devices are refused.")
+    applies_to: Literal["clients", "networks"] | None = Field(
+        default=None, description="Optional check that the block is for clients or for networks."
+    )
+    clients: list[str] | None = Field(
+        default=None, description="Client MAC addresses to block (a DEVICE block). UniFi devices are refused."
+    )
     networks: list[str] | None = Field(default=None, description="Networks to block, by name or id (a NETWORK block).")
     apps: list[int] | None = Field(default=None, description="Application ids to block, as the console stores them.")
-    categories: list[int] | None = Field(default=None, description="Application category ids to block, as the console stores them.")
+    categories: list[int] | None = Field(
+        default=None, description="Application category ids to block, as the console stores them."
+    )
     schedule: ScheduleInput | None = Field(default=None, description="When the block applies. Required for create.")
 
 
@@ -385,15 +469,29 @@ class AppBlockInput(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     changes: list[BlockChange] | None = Field(
-        default=None, description="One or more changes, applied together in a single request (as the UI's Apply button does).")
+        default=None,
+        description="One or more changes, applied together in a single request (as the UI's Apply button does).",
+    )
     replace_all: list[dict[str, Any]] | None = Field(
-        default=None, description="Replace the whole set with exactly this list (used by a recorded rollback). [] removes every block.")
-    approval_note: str | None = Field(default=None, description="Reference to the approved plan. Required to block a whole protected network such as LAN_Private.")
-    confirm: bool = Field(default=False, description="false (default) returns a read-only preview. true applies the change and needs fingerprint.")
-    fingerprint: str | None = Field(default=None, description="From the preview of exactly this change; required with confirm=true.")
+        default=None,
+        description="Replace the whole set with exactly this list (used by a recorded rollback). [] removes every block.",
+    )
+    approval_note: str | None = Field(
+        default=None,
+        description="Reference to the approved plan. Required to block a whole protected network such as LAN_Private.",
+    )
+    confirm: bool = Field(
+        default=False,
+        description="false (default) returns a read-only preview. true applies the change and needs fingerprint.",
+    )
+    fingerprint: str | None = Field(
+        default=None, description="From the preview of exactly this change; required with confirm=true."
+    )
 
 
-def _needs_approval(blocks: list[dict[str, Any]], live: list[dict[str, Any]], networks: list[dict[str, Any]]) -> list[str]:
+def _needs_approval(
+    blocks: list[dict[str, Any]], live: list[dict[str, Any]], networks: list[dict[str, Any]]
+) -> list[str]:
     names = {str(n.get("_id")): str(n.get("name")) for n in networks}
     old = {str(b.get("_id")): b for b in live}
     hits: list[str] = []
@@ -423,14 +521,24 @@ async def _policy_check(engine: WriteEngine, blocks: list[dict[str, Any]]) -> di
         return {"checked": False, "reason": str(exc)}
     have = {str(p.get("origin_id")) for p in policies if p.get("origin_type") == "simple_app_block"}
     missing = [str(b.get("name")) for b in blocks if str(b.get("_id")) not in have]
-    return {"checked": True, "blocks": len(blocks), "with_generated_policy": len(blocks) - len(missing), "missing": missing}
+    return {
+        "checked": True,
+        "blocks": len(blocks),
+        "with_generated_policy": len(blocks) - len(missing),
+        "missing": missing,
+    }
 
 
 def register(mcp: MCPServer, engine: WriteEngine) -> None:
     @mcp.tool(
         name=TOOL,
-        annotations={"title": "Add, change or remove application blocks (Simple App Blocking)", "readOnlyHint": False,
-                     "destructiveHint": True, "idempotentHint": False, "openWorldHint": False},
+        annotations={
+            "title": "Add, change or remove application blocks (Simple App Blocking)",
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": False,
+            "openWorldHint": False,
+        },
     )
     async def unifi_console_app_block(params: AppBlockInput) -> str:
         """Preview, then apply, changes to the console's application blocks (Settings > Security > Simple App Blocking). Reading
@@ -452,7 +560,12 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
         """
         try:
             if bool(params.changes) == (params.replace_all is not None):
-                return json.dumps({"ok": False, "error": "Give either changes (a non-empty list) or replace_all, not both and not neither."})
+                return json.dumps(
+                    {
+                        "ok": False,
+                        "error": "Give either changes (a non-empty list) or replace_all, not both and not neither.",
+                    }
+                )
             live = await engine._read_list("listFirewallAppBlocks")
             networks = await engine._read_list("listNetworkConfig")
             if params.replace_all is not None:
@@ -461,17 +574,28 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
                 for b in params.replace_all:
                     b = copy.deepcopy(b)
                     if b.get("_id") is not None and str(b["_id"]) not in known:
-                        b.pop("_id")                        # a deleted block comes back under a new id
+                        b.pop("_id")  # a deleted block comes back under a new id
                     new.append(b)
             else:
                 new = build_blocks(live, [c.model_dump(exclude_none=True) for c in params.changes or []], networks)
             protected = _needs_approval(new, live, networks)
             if protected and not (params.approval_note or "").strip():
-                return json.dumps({"ok": False, "error": f"Blocking a whole protected network ({', '.join(protected)}) needs approval_note "
-                                                         "naming the plan that was approved."})
-            result = await engine.execute(SPEC, action="update", target=None, changes={"blocks": new},
-                                          confirm=params.confirm, fingerprint=params.fingerprint,
-                                          approval_note=params.approval_note)
+                return json.dumps(
+                    {
+                        "ok": False,
+                        "error": f"Blocking a whole protected network ({', '.join(protected)}) needs approval_note "
+                        "naming the plan that was approved.",
+                    }
+                )
+            result = await engine.execute(
+                SPEC,
+                action="update",
+                target=None,
+                changes={"blocks": new},
+                confirm=params.confirm,
+                fingerprint=params.fingerprint,
+                approval_note=params.approval_note,
+            )
             result["summary"] = _summary(live, new)
             if result.get("applied"):
                 stored = await engine._read_list("listFirewallAppBlocks")

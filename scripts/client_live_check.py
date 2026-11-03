@@ -15,6 +15,7 @@ SAFETY
     no active client uses. A fixed IP only takes effect when the Hub next renews its lease, and it is put back first.
   * Journal lines go to the normal journal folder. Prints field names and short values only.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -38,7 +39,13 @@ TOOL = "unifi_console_client"
 TEST_NOTE = "zz live check"
 TEST_NAME = "Harmony Hub (zz-check)"
 TEST_DNS = "zz-hubcheck.example.home"
-WATCHED = FIELDS + ("blocked", "usergroup_id", "fixed_ap_enabled", "virtual_network_override_enabled", "virtual_network_override_id")
+WATCHED = FIELDS + (
+    "blocked",
+    "usergroup_id",
+    "fixed_ap_enabled",
+    "virtual_network_override_enabled",
+    "virtual_network_override_id",
+)
 
 PLAN = f"""\
 1. read the Hub (MAC {HUB_MAC}, must still be called "{HUB_NAME}") and remember name, note, noted, fixed IP and Local DNS record
@@ -76,10 +83,13 @@ def others(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return {str(r.get("mac")): watched(r) for r in rows if str(r.get("mac")).lower() != HUB_MAC}
 
 
-def spare_address(hub: dict[str, Any], clients: list[dict[str, Any]], active: list[dict[str, Any]],
-                  networks: list[dict[str, Any]]) -> str | None:
+def spare_address(
+    hub: dict[str, Any], clients: list[dict[str, Any]], active: list[dict[str, Any]], networks: list[dict[str, Any]]
+) -> str | None:
     ip = ipaddress.IPv4Address(hub["fixed_ip"])
-    net = next((n for n in networks if n.get("ip_subnet") and ip in ipaddress.IPv4Network(n["ip_subnet"], strict=False)), None)
+    net = next(
+        (n for n in networks if n.get("ip_subnet") and ip in ipaddress.IPv4Network(n["ip_subnet"], strict=False)), None
+    )
     if net is None:
         return None
     network = ipaddress.IPv4Network(net["ip_subnet"], strict=False)
@@ -106,14 +116,17 @@ async def main(run: bool, with_fixed_ip: bool = False, transport: Any = None) ->
             rows = await engine._rows(SPEC)
             hub = next((r for r in rows if str(r.get("mac")).lower() == HUB_MAC), None)
             if hub is None or hub.get("name") != HUB_NAME:
-                print(f"\nSTOP: no client {HUB_MAC} called '{HUB_NAME}' (found: {hub and hub.get('name')!r}). Nothing was changed.")
+                print(
+                    f"\nSTOP: no client {HUB_MAC} called '{HUB_NAME}' (found: {hub and hub.get('name')!r}). Nothing was changed."
+                )
                 return 1
             original = {k: hub.get(k) for k in FIELDS}
             others_before = others(rows)
             print(f"\n[1] Hub {hub['_id']}: " + json.dumps({k: original[k] for k in FIELDS}))
             print(f"    {len(others_before)} other client(s) recorded")
             if not hub.get("use_fixedip") or not hub.get("fixed_ip"):
-                print("STOP: the Hub has no fixed IP stored, so there is nothing safe to restore against."); return 1
+                print("STOP: the Hub has no fixed IP stored, so there is nothing safe to restore against.")
+                return 1
 
             async def step(label: str, args: dict[str, Any], expect: set[str]) -> dict[str, Any] | None:
                 nonlocal failures
@@ -126,14 +139,20 @@ async def main(run: bool, with_fixed_ip: bool = False, transport: Any = None) ->
                 return out
 
             try:
-                print("\n[2] note");  await step("note", {"note": TEST_NOTE}, {"note"})
-                print("\n[3] name");  await step("name", {"name": TEST_NAME}, {"name"})
+                print("\n[2] note")
+                await step("note", {"note": TEST_NOTE}, {"note"})
+                print("\n[3] name")
+                await step("name", {"name": TEST_NAME}, {"name"})
                 print("\n[4] Local DNS record")
                 await step("dns", {"local_dns_record": TEST_DNS}, {"local_dns_record", "local_dns_record_enabled"})
                 if with_fixed_ip:
                     print("\n[5] fixed IP")
-                    spare = spare_address(hub, rows, await engine._read_list("listActiveClientsLegacy"),
-                                          await engine._read_list("listNetworkConfig"))
+                    spare = spare_address(
+                        hub,
+                        rows,
+                        await engine._read_list("listActiveClientsLegacy"),
+                        await engine._read_list("listNetworkConfig"),
+                    )
                     if spare is None:
                         failures += 1
                         print("  no spare address found; step skipped")
@@ -167,7 +186,9 @@ async def main(run: bool, with_fixed_ip: bool = False, transport: Any = None) ->
             hub_after = next((r for r in after if str(r.get("mac")).lower() == HUB_MAC), {})
             exact = all(hub_after.get(k) == original[k] for k in FIELDS if original[k] is not None)
             changed = sorted(m for m, v in others(after).items() if others_before.get(m) != v)
-            print(f"\n[7] Hub back to its original values: {exact}; other clients unchanged: {not changed} {changed or ''}")
+            print(
+                f"\n[7] Hub back to its original values: {exact}; other clients unchanged: {not changed} {changed or ''}"
+            )
             failures += (not exact) or bool(changed)
     finally:
         await api.client.aclose()

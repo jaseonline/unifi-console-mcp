@@ -13,6 +13,7 @@ SAFETY
   * One step runs with the safety net forced to fail, which proves the automatic restore without any real outage.
   * A finally block deletes zz-netcheck if anything left it behind.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -71,10 +72,17 @@ def _h(obj: Any) -> str:
 
 
 async def snapshot(engine: WriteEngine) -> dict[str, dict[str, str]]:
-    nets = {str(r["_id"]): _h({k: v for k, v in r.items() if k not in VOLATILE}) for r in await engine._rows(SPEC) if r.get("name") != NAME}
+    nets = {
+        str(r["_id"]): _h({k: v for k, v in r.items() if k not in VOLATILE})
+        for r in await engine._rows(SPEC)
+        if r.get("name") != NAME
+    }
     wlans = {str(r["_id"]): _h(r) for r in await engine._read_list("listWlanConfigLegacy")}
-    ports = {str(r["_id"]): _h(sorted(r.get("port_overrides") or [], key=lambda e: e.get("port_idx", 0)))
-             for r in await engine._read_list("listDevicesDetailed") if r.get("type") == "usw"}
+    ports = {
+        str(r["_id"]): _h(sorted(r.get("port_overrides") or [], key=lambda e: e.get("port_idx", 0)))
+        for r in await engine._read_list("listDevicesDetailed")
+        if r.get("type") == "usw"
+    }
     return {"networks": nets, "ssids": wlans, "switch ports": ports}
 
 
@@ -102,8 +110,10 @@ async def main(run: bool, transport: Any = None) -> int:
     async def baseline(client: Client, engine: WriteEngine) -> int:
         rows = await engine._rows(SPEC)
         ctx = await engine._context(SPEC)
-        print(f"\n[1] baseline: {len([r for r in rows if r.get('purpose') != 'wan'])} LAN networks: "
-              f"{', '.join(sorted(str(r.get('name')) for r in rows))}")
+        print(
+            f"\n[1] baseline: {len([r for r in rows if r.get('purpose') != 'wan'])} LAN networks: "
+            f"{', '.join(sorted(str(r.get('name')) for r in rows))}"
+        )
         problems = []
         if find(rows):
             problems.append(f"a network called {NAME!r} already exists")
@@ -123,7 +133,9 @@ async def main(run: bool, transport: Any = None) -> int:
             print("STOP: " + "; ".join(problems) + ". Nothing was changed.")
             return 1
         state["snap"] = await snapshot(engine)
-        state["clash"] = next(r for r in rows if r.get("vlan") and r.get("purpose") == "corporate" and r.get("name") != "LAN_Private")
+        state["clash"] = next(
+            r for r in rows if r.get("vlan") and r.get("purpose") == "corporate" and r.get("name") != "LAN_Private"
+        )
         print("    snapshot: " + ", ".join(f"{len(v)} {k}" for k, v in state["snap"].items()) + "; DNS probe ok")
         return 0
 
@@ -153,14 +165,25 @@ async def main(run: bool, transport: Any = None) -> int:
         print(f"\n[3] create {NAME} (must be stored disabled)")
         out = await apply(client, NEW)
         row = find(await engine._rows(SPEC))
-        print(f"  applied={out['applied']} verified={out['verified']} enabled={row and row.get('enabled')} zone_ok={bool(row) and row.get('firewall_zone_id') is not None} "
-              f"guard={'present' if 'guard' in out else 'none'}")
+        print(
+            f"  applied={out['applied']} verified={out['verified']} enabled={row and row.get('enabled')} zone_ok={bool(row) and row.get('firewall_zone_id') is not None} "
+            f"guard={'present' if 'guard' in out else 'none'}"
+        )
         bad += not (out["applied"] and out["verified"] and row and row.get("enabled") is False and "guard" not in out)
         if not row:
             return bad + 1
 
         print("\n[4] change the DHCP range and lease")
-        out = await apply(client, {"action": "update", "target": NAME, "dhcp_start": "10.199.99.20", "dhcp_stop": "10.199.99.200", "dhcp_lease_seconds": 43200})
+        out = await apply(
+            client,
+            {
+                "action": "update",
+                "target": NAME,
+                "dhcp_start": "10.199.99.20",
+                "dhcp_stop": "10.199.99.200",
+                "dhcp_lease_seconds": 43200,
+            },
+        )
         print(f"  verified={out['verified']} diff={json.dumps(out['diff'])}")
         bad += not (out["verified"] and set(out["diff"]) == {"dhcpd_start", "dhcpd_stop", "dhcpd_leasetime"})
 
@@ -168,8 +191,15 @@ async def main(run: bool, transport: Any = None) -> int:
         for action, want in (("enable", True), ("disable", False)):
             out = await apply(client, {"action": action, "target": NAME})
             now = find(await engine._rows(SPEC))
-            print(f"  {action}: verified={out['verified']} enabled={now and now.get('enabled')} guard={out.get('guard')}")
-            bad += not (out["verified"] and now and now.get("enabled") is want and (out.get("guard") or {}).get("probe_after") == "ok")
+            print(
+                f"  {action}: verified={out['verified']} enabled={now and now.get('enabled')} guard={out.get('guard')}"
+            )
+            bad += not (
+                out["verified"]
+                and now
+                and now.get("enabled") is want
+                and (out.get("guard") or {}).get("probe_after") == "ok"
+            )
         return bad
 
     async def forced(client: Client, engine: WriteEngine) -> int:
@@ -177,9 +207,19 @@ async def main(run: bool, transport: Any = None) -> int:
         out = await apply(client, {"action": "enable", "target": NAME})
         g = out.get("guard") or {}
         now = find(await engine._rows(SPEC))
-        print(f"  applied={out['applied']} auto_restored={g.get('auto_restored')} restore_verified={g.get('restore_verified')} "
-              f"probe_after_restore={g.get('probe_after_restore')} enabled_now={now and now.get('enabled')}")
-        return int(not (out["applied"] is False and g.get("auto_restored") and g.get("restore_verified") and now and now.get("enabled") is False))
+        print(
+            f"  applied={out['applied']} auto_restored={g.get('auto_restored')} restore_verified={g.get('restore_verified')} "
+            f"probe_after_restore={g.get('probe_after_restore')} enabled_now={now and now.get('enabled')}"
+        )
+        return int(
+            not (
+                out["applied"] is False
+                and g.get("auto_restored")
+                and g.get("restore_verified")
+                and now
+                and now.get("enabled") is False
+            )
+        )
 
     async def delete(client: Client, engine: WriteEngine) -> int:
         print("\n[7] delete")

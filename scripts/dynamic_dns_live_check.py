@@ -15,6 +15,7 @@ SAFETY
   * The delete is first tried WITHOUT discard_token (it must be refused), then applied with it. The entry is deleted in a
     finally block, also when a step fails; leftovers named zz-ddnscheck* are removed first.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -70,7 +71,9 @@ async def apply(client: Client, args: dict[str, Any], seen: list[str]) -> dict[s
 
 
 def snapshot(rows: list[dict[str, Any]]) -> list[tuple]:
-    return sorted(tuple(str(r.get(k)) for k in KEYS) for r in rows if not str(r.get("host_name", "")).startswith(PREFIX))
+    return sorted(
+        tuple(str(r.get(k)) for k in KEYS) for r in rows if not str(r.get("host_name", "")).startswith(PREFIX)
+    )
 
 
 async def main(run: bool, transport: Any = None) -> int:
@@ -89,7 +92,9 @@ async def main(run: bool, transport: Any = None) -> int:
         async with Client(mcp) as client:
             before = await engine._rows(SPEC)
             others_before = snapshot(before)
-            print(f"\n[1] {len(before)} existing entr{'y' if len(before) == 1 else 'ies'}; {len(others_before)} are not ours")
+            print(
+                f"\n[1] {len(before)} existing entr{'y' if len(before) == 1 else 'ies'}; {len(others_before)} are not ours"
+            )
             for r in before:
                 print(f"    {r.get('host_name')} ({r.get('service')} on {r.get('interface')})")
                 if str(r.get("host_name", "")).startswith(PREFIX):
@@ -99,36 +104,72 @@ async def main(run: bool, transport: Any = None) -> int:
             created_id: str | None = None
             try:
                 print("\n[2] create")
-                out = await apply(client, {"action": "create", "service": "custom", "host_name": HOST, "interface": "wan2",
-                                           "login": "zz-check", "server": HOST, "token_env": ENV}, seen)
+                out = await apply(
+                    client,
+                    {
+                        "action": "create",
+                        "service": "custom",
+                        "host_name": HOST,
+                        "interface": "wan2",
+                        "login": "zz-check",
+                        "server": HOST,
+                        "token_env": ENV,
+                    },
+                    seen,
+                )
                 created_id = out["id"]
-                print(f"  verified={out['verified']} id={created_id} not verified (write-only): {out.get('secret_fields_not_verified')}")
+                print(
+                    f"  verified={out['verified']} id={created_id} not verified (write-only): {out.get('secret_fields_not_verified')}"
+                )
                 failures += not out["verified"] or out.get("secret_fields_not_verified") != ["x_password"]
 
                 print("\n[3] read back")
                 row = next((r for r in await engine._rows(SPEC) if r.get("_id") == created_id), None)
-                want = {"service": "custom", "host_name": HOST, "interface": "wan2", "login": "zz-check", "server": HOST}
+                want = {
+                    "service": "custom",
+                    "host_name": HOST,
+                    "interface": "wan2",
+                    "login": "zz-check",
+                    "server": HOST,
+                }
                 ok = row is not None and all(row.get(k) == v for k, v in want.items())
                 print(f"  stored fields match: {ok}")
                 failures += not ok
 
                 print("\n[4] update (same token supplied again, login changes)")
-                out = await apply(client, {"action": "update", "target": created_id, "login": "zz-check-2", "token_env": ENV}, seen)
+                out = await apply(
+                    client, {"action": "update", "target": created_id, "login": "zz-check-2", "token_env": ENV}, seen
+                )
                 row = next((r for r in await engine._rows(SPEC) if r.get("_id") == created_id), None)
-                want = {"service": "custom", "host_name": HOST, "interface": "wan2", "login": "zz-check-2", "server": HOST}
+                want = {
+                    "service": "custom",
+                    "host_name": HOST,
+                    "interface": "wan2",
+                    "login": "zz-check-2",
+                    "server": HOST,
+                }
                 ok = row is not None and all(row.get(k) == v for k, v in want.items()) and out["id"] == created_id
-                print(f"  verified={out['verified']} same id={out['id'] == created_id} stored fields match: {ok} "
-                      f"diff keys={sorted(out['diff'])} not verified (write-only): {out.get('secret_fields_not_verified')}")
+                print(
+                    f"  verified={out['verified']} same id={out['id'] == created_id} stored fields match: {ok} "
+                    f"diff keys={sorted(out['diff'])} not verified (write-only): {out.get('secret_fields_not_verified')}"
+                )
                 failures += not (out["verified"] and ok)
 
                 print("\n[5] delete: refused without discard_token, then applied with it")
                 pre = await tool(client, {"action": "delete", "target": created_id}, seen)
-                refused = await tool(client, {"action": "delete", "target": created_id, "confirm": True,
-                                              "fingerprint": pre["fingerprint"]}, seen)
-                print(f"  refused without discard_token: {refused.get('ok') is False}; warning shown: {bool(pre['warnings'])}")
+                refused = await tool(
+                    client,
+                    {"action": "delete", "target": created_id, "confirm": True, "fingerprint": pre["fingerprint"]},
+                    seen,
+                )
+                print(
+                    f"  refused without discard_token: {refused.get('ok') is False}; warning shown: {bool(pre['warnings'])}"
+                )
                 failures += refused.get("ok") is not False
                 out = await apply(client, {"action": "delete", "target": created_id, "discard_token": True}, seen)
-                print(f"  verified={out['verified']} rollback={out['rollback']['action']} note={out['rollback'].get('note')!r}")
+                print(
+                    f"  verified={out['verified']} rollback={out['rollback']['action']} note={out['rollback'].get('note')!r}"
+                )
                 failures += not out["verified"]
                 created_id = None
             except Exception as exc:  # report, then fall through to cleanup
@@ -137,7 +178,9 @@ async def main(run: bool, transport: Any = None) -> int:
             finally:
                 if created_id:
                     try:
-                        out = await apply(client, {"action": "delete", "target": created_id, "discard_token": True}, seen)
+                        out = await apply(
+                            client, {"action": "delete", "target": created_id, "discard_token": True}, seen
+                        )
                         print(f"  cleanup delete: verified={out['verified']}")
                     except Exception as exc:  # noqa: BLE001
                         failures += 1
@@ -145,10 +188,15 @@ async def main(run: bool, transport: Any = None) -> int:
 
             after = await engine._rows(SPEC)
             leftovers = [r.get("host_name") for r in after if str(r.get("host_name", "")).startswith(PREFIX)]
-            print(f"\n[6] other entries unchanged: {snapshot(after) == others_before}; leftovers: {leftovers or 'none'}")
+            print(
+                f"\n[6] other entries unchanged: {snapshot(after) == others_before}; leftovers: {leftovers or 'none'}"
+            )
             failures += snapshot(after) != others_before or bool(leftovers)
-            journal = "".join(p.read_text(encoding="utf-8", errors="replace") for p in settings.journal_dir.glob("*.jsonl")) \
-                if settings.journal_dir.exists() else ""
+            journal = (
+                "".join(p.read_text(encoding="utf-8", errors="replace") for p in settings.journal_dir.glob("*.jsonl"))
+                if settings.journal_dir.exists()
+                else ""
+            )
             leaked = any(token in text for text in seen) or token in journal
             print(f"    made-up token found in any tool output or journal file: {leaked}")
             failures += leaked

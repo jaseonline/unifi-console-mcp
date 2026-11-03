@@ -1,21 +1,31 @@
 """The network live check only touches its throwaway VLAN and always ends on the original state."""
+
 from __future__ import annotations
 
 import copy
 
 import httpx
-
-from test_doh import load_script
-from test_network import FakeNet, N_PRIV
-from test_doh import FakeDns
+from test_doh import FakeDns, load_script
+from test_network import FakeNet
 
 
 def prepare(monkeypatch, tmp_path, dns):
     from unifi_console_mcp.config import Settings
 
-    monkeypatch.setattr(Settings, "from_env", classmethod(lambda cls: cls(
-        host="console.test", username="u", password="p", journal_dir=tmp_path / "journal", dns_probe_server=f"127.0.0.1:{dns.port}",
-        dns_probe_window=1.0)))
+    monkeypatch.setattr(
+        Settings,
+        "from_env",
+        classmethod(
+            lambda cls: cls(
+                host="console.test",
+                username="u",
+                password="p",
+                journal_dir=tmp_path / "journal",
+                dns_probe_server=f"127.0.0.1:{dns.port}",
+                dns_probe_window=1.0,
+            )
+        ),
+    )
     monkeypatch.setattr("unifi_console_mcp.entities.network.socket.gethostbyname", lambda host: "192.168.1.2")
     return load_script("network_live_check")
 

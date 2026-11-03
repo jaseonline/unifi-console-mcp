@@ -1,4 +1,5 @@
 """The gap-closure live check must restore everything it changes on a fake console."""
+
 from __future__ import annotations
 
 import contextlib
@@ -9,11 +10,11 @@ import uuid
 from pathlib import Path
 
 import httpx
-from mcp.client import Client
-
 from conftest import make_jwt
+from mcp.client import Client
 from test_network_list import SONOS, FakeLists
 from test_site_settings import MAPS_KEY, FakeSettings
+
 from unifi_console_mcp.server import create_server
 from unifi_console_mcp.writes import WriteEngine
 
@@ -35,8 +36,10 @@ class FakePortForwards:
     def __call__(self, request: httpx.Request) -> httpx.Response:
         path, method = request.url.path, request.method
         if path == "/api/auth/login":
-            return httpx.Response(200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"})
-        wrap = lambda x: {"meta": {"rc": "ok"}, "data": x}  # noqa: E731
+            return httpx.Response(
+                200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"}
+            )
+        wrap = lambda x: {"meta": {"rc": "ok"}, "data": x}
         if path == PF and method == "GET":
             return httpx.Response(200, json=wrap(list(self.items.values())))
         if path == PF and method == "POST":
@@ -71,7 +74,11 @@ async def test_settings_sections_restore_the_original_groups(settings, tmp_path,
     net = FakeSettings()
     before = json.loads(json.dumps(net.groups))
     async with session(settings, tmp_path, net) as (mod, client, engine):
-        fails = await mod.syslog_section(client, engine) + await mod.retention_section(client, engine) + await mod.logging_section(client, engine)
+        fails = (
+            await mod.syslog_section(client, engine)
+            + await mod.retention_section(client, engine)
+            + await mod.logging_section(client, engine)
+        )
     out = capsys.readouterr().out
     assert fails == 0 and net.groups == before and MAPS_KEY not in out
     assert net.system[-1] == {"cmd": "set-param", "key": "debug.setting_preference", "value": "auto"}

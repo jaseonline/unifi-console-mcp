@@ -1,4 +1,5 @@
 """Unit checks for the 2026-10-18 capture batch: DoH Auto, port forward source limiting."""
+
 from __future__ import annotations
 
 import pytest
@@ -8,8 +9,15 @@ from unifi_console_mcp.entities import doh, port_forward
 
 
 def test_doh_auto_sends_the_captured_resolvers_and_clears_custom():
-    out = doh.prepare("update", {"state": "custom", "server_names": [], "custom_servers": [{"server_name": "a", "sdns_stamp": "x", "enabled": True}]},
-                      {"state": "auto"})
+    out = doh.prepare(
+        "update",
+        {
+            "state": "custom",
+            "server_names": [],
+            "custom_servers": [{"server_name": "a", "sdns_stamp": "x", "enabled": True}],
+        },
+        {"state": "auto"},
+    )
     assert out == {"state": "auto", "server_names": ["cloudflare", "google"], "custom_servers": []}
 
 
@@ -24,8 +32,17 @@ def test_doh_auto_validates_with_a_note_and_no_errors():
     assert not f.errors and any("Auto" in w for w in f.warnings)
 
 
-BASE = {"name": "n", "dst_port": "5847", "fwd_port": "2020", "fwd": "10.88.1.15", "proto": "tcp_udp", "pfwd_interface": "wan",
-        "enabled": True, "src_limiting_enabled": True, "src": "142.250.0.0/15"}
+BASE = {
+    "name": "n",
+    "dst_port": "5847",
+    "fwd_port": "2020",
+    "fwd": "10.88.1.15",
+    "proto": "tcp_udp",
+    "pfwd_interface": "wan",
+    "enabled": True,
+    "src_limiting_enabled": True,
+    "src": "142.250.0.0/15",
+}
 
 
 def test_port_forward_source_limit_sets_the_type_and_names_the_scope():

@@ -56,7 +56,10 @@ def _valid_domain(value: str) -> bool:
 
 CHECKS = {
     "port-group": (lambda v: parse_ports(v) is not None, "a port (1-65535) or a range such as 58690-58699"),
-    "address-group": (_valid_address, "an IPv4 address, a CIDR such as 10.88.1.0/24, or a range such as 10.88.1.10-10.88.1.20"),
+    "address-group": (
+        _valid_address,
+        "an IPv4 address, a CIDR such as 10.88.1.0/24, or a range such as 10.88.1.10-10.88.1.20",
+    ),
     "ipv6-address-group": (_valid_ipv6, "an IPv6 address, a prefix such as 2a01:4b00:85c9::/48, or a range"),
     "domain-group": (_valid_domain, "a domain name such as example.com"),
 }
@@ -68,7 +71,9 @@ def prepare(action: str, before: dict[str, Any] | None, changes: dict[str, Any])
     if add is None and remove is None:
         return changes
     if action == "create":
-        raise UniFiError("add_members and remove_members only apply to an existing list; use group_members to create one.")
+        raise UniFiError(
+            "add_members and remove_members only apply to an existing list; use group_members to create one."
+        )
     if "group_members" in changes:
         raise UniFiError("Use either group_members (replace the whole list) or add_members/remove_members, not both.")
     members = [str(m) for m in (before or {}).get("group_members", [])]
@@ -82,7 +87,9 @@ def prepare(action: str, before: dict[str, Any] | None, changes: dict[str, Any])
     return changes
 
 
-def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], others: list[dict[str, Any]]) -> Findings:
+def validate(
+    action: str, before: dict[str, Any] | None, after: dict[str, Any], others: list[dict[str, Any]]
+) -> Findings:
     f = Findings()
     name = str(after.get("name") or "").strip()
     if not name:
@@ -90,7 +97,9 @@ def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], 
     elif len(name) > 128:
         f.errors.append("The name is longer than 128 characters.")
     elif any(r.get("name") == name for r in others):
-        f.errors.append(f"Another list is already called '{name}'. Names must be unique so a list can be addressed by name.")
+        f.errors.append(
+            f"Another list is already called '{name}'. Names must be unique so a list can be addressed by name."
+        )
 
     gtype = after.get("group_type")
     if gtype not in TYPES:
@@ -117,9 +126,18 @@ def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], 
 
 
 SPEC = EntitySpec(
-    key=KEY, label="network list", tier="A", list_op="listFirewallGroups", create_op="createFirewallGroup",
-    update_op="updateFirewallGroup", delete_op="deleteFirewallGroup", whole_object=False, defaults={},
-    validate=validate, prepare=prepare, create_extra={"_id": None, "source": "static"},
+    key=KEY,
+    label="network list",
+    tier="A",
+    list_op="listFirewallGroups",
+    create_op="createFirewallGroup",
+    update_op="updateFirewallGroup",
+    delete_op="deleteFirewallGroup",
+    whole_object=False,
+    defaults={},
+    validate=validate,
+    prepare=prepare,
+    create_extra={"_id": None, "source": "static"},
     reference_ops=(("listFirewallPoliciesWithHits", "firewall policy"), ("listTrafficPolicyObjects", "traffic object")),
 )
 
@@ -129,18 +147,31 @@ FIELDS = ("name", "description", "group_type", "group_members", "add_members", "
 class NetworkListInput(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    action: Literal["create", "update", "delete"] = Field(..., description="create a list, update fields or members of one, or delete it.")
+    action: Literal["create", "update", "delete"] = Field(
+        ..., description="create a list, update fields or members of one, or delete it."
+    )
     target: str | None = Field(default=None, description="Existing list: its _id or exact name. Not used by create.")
     name: str | None = Field(default=None, description="List name (unique).")
     description: str | None = Field(default=None, description="Free text.")
     group_type: Literal["port-group", "address-group", "ipv6-address-group", "domain-group"] | None = Field(
-        default=None, description="create only; fixed afterwards. Port list, IPv4 address list, IPv6 address list or domain list.")
+        default=None,
+        description="create only; fixed afterwards. Port list, IPv4 address list, IPv6 address list or domain list.",
+    )
     group_members: list[str] | None = Field(
-        default=None, description="Full member list; replaces the existing members. Ports/ranges ('3400-3405'), IPv4 or IPv6 addresses/CIDR/ranges, or domains.")
+        default=None,
+        description="Full member list; replaces the existing members. Ports/ranges ('3400-3405'), IPv4 or IPv6 addresses/CIDR/ranges, or domains.",
+    )
     add_members: list[str] | None = Field(default=None, description="update only: members to add to the existing list.")
-    remove_members: list[str] | None = Field(default=None, description="update only: members to remove (must be present).")
-    confirm: bool = Field(default=False, description="false (default) returns a read-only preview. true applies the change and needs fingerprint.")
-    fingerprint: str | None = Field(default=None, description="From the preview of exactly this change; required with confirm=true.")
+    remove_members: list[str] | None = Field(
+        default=None, description="update only: members to remove (must be present)."
+    )
+    confirm: bool = Field(
+        default=False,
+        description="false (default) returns a read-only preview. true applies the change and needs fingerprint.",
+    )
+    fingerprint: str | None = Field(
+        default=None, description="From the preview of exactly this change; required with confirm=true."
+    )
 
     def changes(self) -> dict[str, Any]:
         return {k: getattr(self, k) for k in FIELDS if getattr(self, k) is not None}
@@ -149,8 +180,13 @@ class NetworkListInput(BaseModel):
 def register(mcp: MCPServer, engine: WriteEngine) -> None:
     @mcp.tool(
         name=TOOL,
-        annotations={"title": "Create, change or delete a network list", "readOnlyHint": False, "destructiveHint": True,
-                     "idempotentHint": False, "openWorldHint": False},
+        annotations={
+            "title": "Create, change or delete a network list",
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": False,
+            "openWorldHint": False,
+        },
     )
     async def unifi_console_network_list(params: NetworkListInput) -> str:
         """Preview, then apply, a change to the console's network lists (port, address and domain lists used by firewall policies).
@@ -167,10 +203,16 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
             if params.action == "delete" and params.changes():
                 return json.dumps({"ok": False, "error": "delete takes no field values."})
             if params.action == "update" and params.group_type is not None:
-                return json.dumps({"ok": False, "error": "The type of an existing list cannot be changed; create a new list instead."})
+                return json.dumps(
+                    {"ok": False, "error": "The type of an existing list cannot be changed; create a new list instead."}
+                )
             result = await engine.execute(
-                SPEC, action=params.action, target=params.target, changes=params.changes(),
-                confirm=params.confirm, fingerprint=params.fingerprint,
+                SPEC,
+                action=params.action,
+                target=params.target,
+                changes=params.changes(),
+                confirm=params.confirm,
+                fingerprint=params.fingerprint,
             )
             return json.dumps(result, separators=(",", ":"), default=str)
         except Exception as exc:  # noqa: BLE001 - converted to an actionable message

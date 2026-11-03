@@ -5,65 +5,61 @@ info:
   version: 2.0.0
   summary: Reference for the UniFi Cloud Key Gen2 Plus console (official Integration API, controller API, UniFi OS) and UniFi Site Manager.
   description: |
-    Merged from three Postman exports (UniFi APIController, UniFi Network API, UniFi CloudKey API), then extended with the
-    full official Integration API and Site Manager API endpoint sets for completeness.
-
     ## How this reference is organised
     Each operation appears under exactly one tag, prefixed by the API it belongs to:
 
     | Prefix | Base path | Auth | Stability |
     |---|---|---|---|
-    | **Integration** | `https://{host}/proxy/network/integration/v1` | `ApiKey` (local key) | Official, versioned |
-    | **Controller** | `https://{host}/proxy/network/api/s/{site}` and `/proxy/network/v2/api/site/{site}` | `ControllerSession` (+ `CsrfToken` on writes) | Undocumented, community reverse-engineered; may change between Network Application releases |
-    | **UniFi OS** | `https://{host}/api/...` | `ControllerSession` | Undocumented |
-    | **Cloud** | `https://api.ui.com` | `ApiKey` (cloud key) | Official; `/ea/` paths are Early Access |
+    | **Integration** | `/proxy/network/integration/v1` | `ApiKey` (local key) | Official, versioned |
+    | **Controller** | `/proxy/network/api/s/{site}` and `/proxy/network/v2/api/site/{site}` | `ControllerSession` (+ `CsrfToken` on writes) | Undocumented and may change between Network Application releases |
+    | **UniFi OS** | `/api/` | `ControllerSession` | Undocumented authentication |
+    | **Cloud** | `https://unifi.ui.com` | `ApiKey` (cloud key) | Official; `/ea/` paths are Early Access |
 
     ## Getting started
-    1. **Integration API:** create a key in *Network > Settings > Control Plane > Integrations*, send it as `X-API-KEY`.
-       Call `listLocalSites` first; the returned `id` is `{siteId}` for every other Integration call (see the **Links** on that response).
-    2. **Controller API:** call `localLogin`. Keep the `TOKEN` cookie, and echo the `X-CSRF-Token` response header on every
-       state-changing request. `{site}` is the site *name*, normally `default`.
+    1. **Integration API:** create a key in `~/network/default/integrations` and send it as `X-API-KEY`. Call `listLocalSites` first; the returned `id` is `{siteId}` for every other Integration call (see the **Links** on that response).
+    2. **Controller API:** call `localLogin`. Keep the `TOKEN` cookie, and echo the `X-CSRF-Token` response header on every state-changing request. `{site}` is the site *name*, normally `default`.
     3. **Cloud:** create a key at <https://unifi.ui.com/settings/api-keys>, send it as `X-API-KEY` to `api.ui.com`.
 
     ## Conventions
-    - Operations that change state carry `x-destructive: true` (shown under each operation). Per the project change-management
-      rule, firewall, VLAN and tunnel changes need a written plan and approval before use.
+    - Operations that change state carry `x-destructive: true` (shown under each operation). Per the project change-management rule, firewall, VLAN and tunnel changes need a written plan and approval before use.
     - `{siteId}` is the site UUID (Integration API). `{site}` is the site name, normally `default` (controller API).
-    - List endpoints in the Integration API page with `offset`/`limit` and filter with `filter` (see the `Filter` parameter).
-      Cloud list endpoints page with `pageSize`/`nextToken`.
-    - Examples are placeholders: documentation-range MACs (`00:00:5e:00:53:xx`), RFC 5737 public IPs, invented UUIDs.
-      The console's management address `192.168.1.2` is the common Cloud Key default and is published deliberately.
+    - List endpoints in the Integration API page with `offset`/`limit` and filter with `filter` (see the `Filter` parameter). Cloud list endpoints page with `pageSize`/`nextToken`.
+    - Examples are placeholders: documentation-range MACs (`00:00:5e:00:53:xx`), RFC 5737 public IPs, invented UUIDs. The console's management address `192.168.1.2` is the common Cloud Key default and is published deliberately.
 
-    ## Removed during cleansing
-    Not applicable to this network and not part of the official APIs: IPsec/site VPN creation via the controller API, static routes,
-    LTE backup, dynamic DNS, DPI and SSL inspection settings (both off), reboot/power-off, Postman scaffolding (`/users`, `/health`,
-    `/rate_limit`, `/info`, `/auth/*`), UI locale asset files, Wi-Fi 6E and UNMS items, and all captured secrets.
-    Legacy firewall rules are listed (read-only, deprecated) for completeness; the site uses the zone-based firewall.
+    ## Scope
+    Not applicable to this network and not part of the official APIs: IPsec/site VPN creation via the controller API, static routes, LTE backup, dynamic DNS, DPI and SSL inspection settings (both off), reboot/power-off, Postman scaffolding (`/users`, `/health`, `/rate_limit`, `/info`, `/auth/*`), UI locale asset files, Wi-Fi 6E and UNMS items, and all captured secrets. Legacy firewall rules are listed (read-only, deprecated) for completeness; the site uses the zone-based firewall.
 
     ## Caveats
-    - Integration API paths, parameters, enums and required fields are checked against the console's own built-in reference
-      (UniFi Network API 11.0.81, *Settings > Control Plane > Integrations*) and its OpenAPI document
-      (`getIntegrationOpenApi`). Nested types (Wi-Fi security, firewall traffic filters and schedules, ACL filters,
-      IPv4/IPv6 network configuration and so on) are generated from that document.
+    - Integration API paths, parameters, enums and required fields are checked against the console's own built-in reference (UniFi Network API 11.0.81, `/unifi-api/network` or `/proxy/network/api-docs/integration.json`) and its OpenAPI document (`getIntegrationOpenApi`). Nested types (Wi-Fi security, firewall traffic filters and schedules, ACL filters, IPv4/IPv6 network configuration and so on) are generated from that document.
     - Controller-API schemas are deliberately partial (fields of interest only).
-    - `/v1/dpi/applications` in the cloud Postman export was mislabelled; it is a local Integration endpoint and is listed there.
   contact:
-    name: unifi-console-mcp
+    name: jase
     url: https://github.com/jaseonline/unifi-console-mcp
+    email: jase@example.home
   license:
-    name: Internal use
-    identifier: LicenseRef-Internal
+    name: 'MIT License'
+    identifier: MIT
 externalDocs:
-  description: Ubiquiti developer documentation (official APIs)
+  description: UniFi Developer Portal (official APIs)
   url: https://developer.ui.com/
-servers:
-  - url: https://{host}
-    description: Local console (Cloud Key Gen2 Plus, self-signed certificate)
+servers:  
+  - url: https://{host}:{port}
+    description: Local console
     variables:
       host:
-        default: 192.168.1.2
-        enum: ['192.168.1.2']
-        description: Console address on the management LAN
+        default: '192.168.1.2'
+        enum: 
+          - '192.168.1.2'
+          - 'unifi.local'
+        description: IP or Host
+      port:
+        default: '443'
+        enum: 
+          - '443'
+          - '8443'
+        description: Port
+  - url: https://unifi.ui.com
+    description: UniFi Site Manager
 tags:
   - name: Auth
     description: UniFi OS console login/logout. Produces the session used by the **Controller** and **UniFi OS** tags.
@@ -134,8 +130,7 @@ paths:
       operationId: localLogin
       summary: Log in to the console (session cookie)
       description: |
-        Returns a `TOKEN` cookie and an `X-CSRF-Token` response header, both required by the controller API.
-        Use a local-only admin account; MFA (`token`) is needed only for UI-account logins with 2FA.
+        Returns a `TOKEN` cookie and an `X-CSRF-Token` response header, both required by the controller API. Use a local-only admin account; MFA (`token`) is needed only for UI-account logins with 2FA.
       tags: [Auth]
       security: []
       requestBody:
@@ -2016,6 +2011,80 @@ paths:
                   has_unknown_switch: {type: boolean, description: 'True when an unmanaged switch is inferred between two nodes'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/v2/api/site/{site}/radio-ai/isolation-matrix:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    get:
+      operationId: getRadioIsolationMatrix
+      summary: AP-to-AP radio isolation and neighbour matrix (Radio AI)
+      description: |
+        How well each AP hears the others, per radio band. `ap_radio_neighbours` lists, for each AP, the other APs it hears,
+        grouped by channel, with signal strength. `ap_radio_isolation` lists channel interference per AP (empty when none).
+        Bands with no capable APs come back with empty lists (`6e` on this site). Captured 2026-10-19 (Network 11.0.81).
+      tags: [Controller · Devices]
+      security: [{ControllerSession: []}]
+      parameters:
+        - {name: radioBand, in: query, description: '`all` or one band', schema: {type: string, enum: [all, ng, na, 6e], default: all}}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RadioIsolationMatrix'}
+              example:
+                ap_radio_isolation:
+                  - radio: ng
+                    ap_interference:
+                      - {channel_interference: [], device: {last_scan_band: ng, last_scan_width: 20, mac: '00:00:5e:00:53:01'}}
+                      - {channel_interference: [], device: {last_scan_band: ng, last_scan_width: 20, mac: '00:00:5e:00:53:02'}}
+                  - {radio: 6e, ap_interference: []}
+                ap_radio_neighbours:
+                  - radio: na
+                    ap_neighbours:
+                      - device: {channel: 100, channel_width: 80, mac: '00:00:5e:00:53:02', model: U7MSH, name: AP-Garden, type: uap, state: 1, supports_neighbour_scan: false}
+                        channel_neighbours:
+                          - channel: 44
+                            neighbours:
+                              - {channel_width: 40, device: {mac: '00:00:5e:00:53:01', model: U7PG2, name: AP-Office, type: uap}, scan: {signal: -62}}
+                      - device: {channel: 44, channel_width: 40, mac: '00:00:5e:00:53:01', model: U7PG2, name: AP-Office, type: uap, state: 1, supports_neighbour_scan: false}
+                        channel_neighbours:
+                          - channel: 100
+                            neighbours:
+                              - {channel_width: 80, device: {mac: '00:00:5e:00:53:02', model: U7MSH, name: AP-Garden, type: uap}, scan: {signal: -60}}
+                  - {radio: 6e, ap_neighbours: []}
+                optimization_status: {in_progress: false, in_progress_in_site: false}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/v2/api/site/{site}/wifi-stats/radios:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    get:
+      operationId: getWifiRadioStats
+      summary: Per-radio Wi-Fi statistics over a time window
+      description: |
+        One row per AP radio: traffic, average client signal, channel utilisation, interference and transmit retries, averaged
+        over the window. `radio_name` is the AP's interface (`wifi0` = 2.4 GHz, `wifi1` = 5 GHz on the APs captured).
+        Captured 2026-10-19 (Network 11.0.81).
+      tags: [Controller · Devices]
+      security: [{ControllerSession: []}]
+      parameters:
+        - {name: start, in: query, required: true, description: 'Window start (epoch ms)', schema: {type: integer}, example: 1792361749512}
+        - {name: end, in: query, required: true, description: 'Window end (epoch ms)', schema: {type: integer}, example: 1792448149512}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  radio_details: {type: array, items: {$ref: '#/components/schemas/WifiRadioStats'}}
+              example:
+                radio_details:
+                  - {bytes: 175396575, client_signal_avg: -54.12, device_mac: '00:00:5e:00:53:02', interference_avg: 0.0, radio_name: wifi0, tx_retries_percentage: 18.9, utilization_avg: 33.1}
+                  - {bytes: 19842714526, client_signal_avg: -54.49, device_mac: '00:00:5e:00:53:02', interference_avg: 3.1, radio_name: wifi1, tx_retries_percentage: 5.0, utilization_avg: 7.8}
+                  - {bytes: 304163177, client_signal_avg: -43.87, device_mac: '00:00:5e:00:53:01', interference_avg: 0.0, radio_name: wifi0, tx_retries_percentage: 6.6, utilization_avg: 40.5}
+                  - {bytes: 6333346106, client_signal_avg: -51.93, device_mac: '00:00:5e:00:53:01', interference_avg: 2.0, radio_name: wifi1, tx_retries_percentage: 4.4, utilization_avg: 5.6}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   /proxy/network/api/s/{site}/rest/device/{id}:
     parameters:
@@ -2300,9 +2369,15 @@ paths:
         - `usg`: gateway-wide options: MSS clamping, ARP cache, connection-tracking helper modules (FTP, SIP, GRE,
           PPTP, TFTP, H.323), firewall state timeouts.
         - `global_nat`: NAT `mode` and `excluded_network_ids`.
+        - `radio_ai`, `test_and_commit`, `device_supervision`, `global_switch`: the *Settings > Control Plane* groups shown
+          under Scheduled Operations, Connectivity Safeguards, Self-Healing & Recovery and Performance Integrity (captured
+          2026-10-19, Network 11.0.81). The page has one Apply button but sends one call per group that changed; each group can
+          be sent on its own. See the `Setting*` schemas for which field each UI control sets.
 
         The UI sends `usg` and `global_nat` automatically after any gateway *Settings* save, even a rename.
         `usg` and `global_nat` change how the gateway forwards traffic: treat as firewall changes (written plan first).
+        `global_switch` holds STP, flow control, 802.1X, DHCP snooping and isolation ACLs for every switch: treat it the same way.
+        Turning a feature off sends the same whole group with its switch set to `false`; the reply echoes the stored group.
         Partial bodies have not been tested; send the whole group read from `getSiteSetting`.
       x-destructive: true
       tags: [Controller · System]
@@ -2311,8 +2386,150 @@ paths:
         required: true
         content:
           application/json:
-            schema: {type: object, required: [key], additionalProperties: true, properties: {key: {type: string}}}
+            schema:
+              anyOf:
+                - {$ref: '#/components/schemas/SettingRadioAi'}
+                - {$ref: '#/components/schemas/SettingTestAndCommit'}
+                - {$ref: '#/components/schemas/SettingDeviceSupervision'}
+                - {$ref: '#/components/schemas/SettingGlobalSwitch'}
+                - {type: object, required: [key], additionalProperties: true, properties: {key: {type: string}}, description: 'Any other group (`lcm`, `usg`, `global_nat`, ...)'}
             examples:
+              radioAiEnable:
+                summary: Channel AI Optimization on, 2.4 and 5 GHz, nightly at 03:00
+                value:
+                  key: radio_ai
+                  _id: 6a2f9c1e-4b7d-4e30-9a58-1c3e7d2b8f40
+                  site_id: 2d8b4e17-9c3a-4f62-b0e5-7a1c9d3f6e28
+                  enabled: true
+                  setting_preference: auto
+                  default: true
+                  auto_enabled: false
+                  optimize: [channel]
+                  radios: [ng, na]
+                  cron_expr: '0 3 * * *'
+                  auto_channel_presets_type: maximum_speed
+                  auto_adjust_channels_to_country: true
+                  channels_ng: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13']
+                  channels_na: ['36', '40', '44', '48', '52', '56', '60', '64', '100', '104', '108', '112', '116', '120', '124', '128', '132', '136', '140', '144', '149', '153', '157', '161', '165']
+                  channels_6e: ['1', '5', '9', '13', '17', '21', '25', '29', '33', '37', '41', '45', '49', '53', '57', '61', '65', '69', '73', '77', '81', '85', '89', '93']
+                  ht_modes_ng: ['20']
+                  ht_modes_na: ['20', '40']
+                  channels_blacklist: [{radio: ng, channel: '14', channel_width: '20'}]
+                  radios_configuration:
+                    - {radio: na, channel_width: 80, dfs: true}
+                    - {radio: ng, channel_width: 20, dfs: false}
+                    - {radio: 6e, channel_width: 320, dfs: false}
+                  high_priority_devices: []
+                  exclude_devices: []
+              radioAiDisable:
+                summary: Channel AI Optimization off (inferred)
+                value:
+                  key: radio_ai
+                  _id: 6a2f9c1e-4b7d-4e30-9a58-1c3e7d2b8f40
+                  site_id: 2d8b4e17-9c3a-4f62-b0e5-7a1c9d3f6e28
+                  enabled: false
+                  setting_preference: auto
+                  default: true
+                  auto_enabled: false
+                  optimize: [channel]
+                  radios: [ng, na]
+                  cron_expr: '0 3 * * *'
+                  auto_channel_presets_type: maximum_speed
+                  auto_adjust_channels_to_country: true
+                  channels_ng: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13']
+                  channels_na: ['36', '40', '44', '48', '52', '56', '60', '64', '100', '104', '108', '112', '116', '120', '124', '128', '132', '136', '140', '144', '149', '153', '157', '161', '165']
+                  channels_6e: ['1', '5', '9', '13', '17', '21', '25', '29', '33', '37', '41', '45', '49', '53', '57', '61', '65', '69', '73', '77', '81', '85', '89', '93']
+                  ht_modes_ng: ['20']
+                  ht_modes_na: ['20', '40']
+                  channels_blacklist: [{radio: ng, channel: '14', channel_width: '20'}]
+                  radios_configuration:
+                    - {radio: na, channel_width: 80, dfs: true}
+                    - {radio: ng, channel_width: 20, dfs: false}
+                    - {radio: 6e, channel_width: 320, dfs: false}
+                  high_priority_devices: []
+                  exclude_devices: []
+              testAndCommitEnable:
+                summary: Test & Confirm on (Auto) with Management VLAN Rollback on
+                value:
+                  key: test_and_commit
+                  _id: 8e1d4a62-7c3b-4f95-a2d0-5b9e6f1c3a74
+                  site_id: 2d8b4e17-9c3a-4f62-b0e5-7a1c9d3f6e28
+                  enabled: true
+                  mode: auto
+                  pages: {internet: false, network_settings: false, vpn: false}
+                  device_vlan_testing: true
+              testAndCommitDisable:
+                summary: Test & Confirm off (inferred)
+                value:
+                  key: test_and_commit
+                  _id: 8e1d4a62-7c3b-4f95-a2d0-5b9e6f1c3a74
+                  site_id: 2d8b4e17-9c3a-4f62-b0e5-7a1c9d3f6e28
+                  enabled: false
+                  mode: auto
+                  pages: {internet: false, network_settings: false, vpn: false}
+                  device_vlan_testing: true
+              deviceSupervisionEnable:
+                summary: Device Auto-Recovery on, 1 min heartbeat, 15 min silence threshold
+                value:
+                  key: device_supervision
+                  _id: 3b7f2e95-1a4c-4d68-8e0b-9c6d2a5f7e13
+                  site_id: 2d8b4e17-9c3a-4f62-b0e5-7a1c9d3f6e28
+                  heartbeat_interval_seconds: 60
+                  silence_threshold_seconds: 900
+                  power_off_duration_seconds: 120
+                  global_supervision_enabled: true
+              deviceSupervisionDisable:
+                summary: Device Auto-Recovery off
+                value:
+                  key: device_supervision
+                  _id: 3b7f2e95-1a4c-4d68-8e0b-9c6d2a5f7e13
+                  site_id: 2d8b4e17-9c3a-4f62-b0e5-7a1c9d3f6e28
+                  heartbeat_interval_seconds: 60
+                  silence_threshold_seconds: 900
+                  power_off_duration_seconds: 120
+                  global_supervision_enabled: false
+              globalSwitch:
+                summary: Switch-wide settings (Auto STP Edge on, PoE staging 0.2 s, link debounce 300 ms)
+                value:
+                  key: global_switch
+                  _id: 5c9a3e71-2d6b-4f18-b4e7-0a8c1f5d9b26
+                  site_id: 2d8b4e17-9c3a-4f62-b0e5-7a1c9d3f6e28
+                  auto_stp_edge_detection_enabled: true
+                  poe_staging_delay_msec: 200
+                  link_debounce: 300
+                  stp_version: rstp
+                  flowctrl_enabled: true
+                  jumboframe_enabled: false
+                  forward_unknown_mcast_router_ports: false
+                  flood_known_protocols: false
+                  dhcp_snoop: false
+                  dot1x_portctrl_enabled: false
+                  dot1x_fallback_networkconf_id: 7f4b1d93-6e2a-4c85-9b30-d1e8a5c2f647
+                  radiusprofile_id: ''
+                  switch_exclusions: ['00:00:5e:00:53:21', '00:00:5e:00:53:22', '00:00:5e:00:53:23']
+                  acl_device_isolation: []
+                  acl_l3_isolation: []
+              globalSwitchAutoStpEdgeOff:
+                summary: Auto STP Edge off (inferred)
+                value:
+                  key: global_switch
+                  _id: 5c9a3e71-2d6b-4f18-b4e7-0a8c1f5d9b26
+                  site_id: 2d8b4e17-9c3a-4f62-b0e5-7a1c9d3f6e28
+                  auto_stp_edge_detection_enabled: false
+                  poe_staging_delay_msec: 200
+                  link_debounce: 300
+                  stp_version: rstp
+                  flowctrl_enabled: true
+                  jumboframe_enabled: false
+                  forward_unknown_mcast_router_ports: false
+                  flood_known_protocols: false
+                  dhcp_snoop: false
+                  dot1x_portctrl_enabled: false
+                  dot1x_fallback_networkconf_id: 7f4b1d93-6e2a-4c85-9b30-d1e8a5c2f647
+                  radiusprofile_id: ''
+                  switch_exclusions: ['00:00:5e:00:53:21', '00:00:5e:00:53:22', '00:00:5e:00:53:23']
+                  acl_device_isolation: []
+                  acl_l3_isolation: []
               lcm:
                 summary: Device display settings
                 value: {key: lcm, enabled: true, brightness: 100, touch_event: true, idle_timeout: 300, sync: true}
@@ -2787,6 +3004,7 @@ paths:
       parameters:
         - {name: includeTrafficUsage, in: query, description: 'Include per-client traffic counters', schema: {type: boolean, default: false}}
         - {name: includeUnifiDevices, in: query, description: 'Include UniFi devices that appear as clients', schema: {type: boolean, default: false}}
+        - {name: includeMatterThreadClients, in: query, description: 'Include Matter and Thread clients', schema: {type: boolean, default: false}}
       responses:
         '200':
           description: OK
@@ -2820,6 +3038,206 @@ paths:
               schema:
                 type: array
                 items: {$ref: '#/components/schemas/ActiveClient'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/v2/api/site/{site}/wifi-connectivity:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    get:
+      operationId: getWifiConnectivity
+      summary: Wi-Fi connection attempts, success rates and failures by client (Wi-Fi Connectivity insights)
+      description: |
+        Connection attempts in a time window: success ratios per stage (association, authentication, DHCP, DNS), average
+        latency per stage, and `event_groups` of attempts per client, newest first. A group collects one client's consecutive
+        attempts that ended at the same `failure_stage`, so one client can appear in several groups.
+        Latencies appear to be microseconds. Clients the console has not identified have no `hostname`, `fingerprint` or
+        `wlanconf_id`, and `name` is the MAC. For roams use `queryWifiConnectivityEvents`. Captured 2026-10-19 (Network 11.0.81).
+      tags: [Controller · Clients]
+      security: [{ControllerSession: []}]
+      parameters:
+        - {name: start, in: query, required: true, description: 'Window start (epoch ms)', schema: {type: integer}, example: 1792273438065}
+        - {name: end, in: query, required: true, description: 'Window end (epoch ms)', schema: {type: integer}, example: 1792446238065}
+        - {name: apMac, in: query, description: 'One AP MAC, or `all`', schema: {type: string, default: all}}
+        - {name: clientMac, in: query, description: 'One client MAC, or `all`', schema: {type: string, default: all}}
+        - {name: radioBand, in: query, description: '`all` or one band', schema: {type: string, enum: [all, ng, na, 6e], default: all}}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WifiConnectivitySummary'}
+              example:
+                attempts: {association_ratio: 100.0, authentication_ratio: 100.0, dhcp_ratio: 100.0, dns_ratio: 100.0, failed_client_connections: 0, success_ratio: 100.0, total_attempts: 90}
+                latencies: {association_latency: 13966, authentication_latency: 201707, dhcp_latency: 845217, total_latency: 2458158, traffic_latency: 1358500}
+                total_clients: 27
+                event_groups:
+                  - start_time: 1792441865000
+                    failure_stage: SUCCESS
+                    latency_avg: 1890000
+                    ap_macs: ['00:00:5e:00:53:01', '00:00:5e:00:53:02']
+                    client:
+                      mac: '00:00:5e:00:53:2e'
+                      name: Office Laptop (WiFi)
+                      hostname: office-laptop
+                      oui: Intel Corporate
+                      is_wired: false
+                      wlanconf_id: 4c9e1b72-3a8d-4f15-b6e0-2d7a9c5f8e31
+                      fingerprint: {computed_dev_id: 4207, computed_engine: 0, confidence: 90, dev_cat: 1, dev_family: 13, dev_id: 2663, dev_id_override: 4207, dev_vendor: 43, has_override: true, os_name: 18}
+                    events:
+                      - {ap_mac: '00:00:5e:00:53:02', failure_reason: SUCCESS, latency: 1630000, start_time: 1792441865000}
+                      - {ap_mac: '00:00:5e:00:53:01', failure_reason: SUCCESS, latency: 2150000, start_time: 1792348856000}
+                  - start_time: 1792432799000
+                    failure_stage: DNS
+                    latency_avg: 30000
+                    ap_macs: ['00:00:5e:00:53:01', '00:00:5e:00:53:02']
+                    client:
+                      mac: '00:00:5e:00:53:3a'
+                      name: iPhone
+                      hostname: iPhone
+                      oui: Apple, Inc.
+                      is_wired: false
+                      wlanconf_id: 4c9e1b72-3a8d-4f15-b6e0-2d7a9c5f8e31
+                      fingerprint: {computed_dev_id: 4623, computed_engine: 0, confidence: 100, dev_cat: 44, dev_family: 9, dev_id: 4623, dev_vendor: 320, has_override: false, os_name: 24}
+                    events:
+                      - {ap_mac: '00:00:5e:00:53:02', failure_reason: DNS_RESPONSE_NOT_SEEN, latency: 20000, start_time: 1792432799000}
+                      - {ap_mac: '00:00:5e:00:53:01', failure_reason: DNS_RESPONSE_NOT_SEEN, latency: 40000, start_time: 1792432325000}
+                  - start_time: 1792373906000
+                    failure_stage: DHCP
+                    latency_avg: 50000
+                    ap_macs: ['00:00:5e:00:53:02']
+                    client:
+                      mac: '00:00:5e:00:53:4b'
+                      name: '00:00:5e:00:53:4b'
+                      is_wired: false
+                    events:
+                      - {ap_mac: '00:00:5e:00:53:02', failure_reason: DHCP_TIMEOUT, latency: 50000, start_time: 1792373906000}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/v2/api/site/{site}/wifi-connectivity/events:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    post:
+      operationId: queryWifiConnectivityEvents
+      summary: Wi-Fi roams and failed connections, paged (Wi-Fi Connectivity insights)
+      description: |
+        Successful roams, failed roams and failed connections in a time window, newest first. Read-only despite POST.
+        Each event names the AP, radio and signal at both ends (`from_endpoint`, `to_endpoint`).
+        For later pages, increase `pageNumber` and pass the previous page's `last_event_cursor` as `lastEventCursor`.
+        Captured 2026-10-19 (Network 11.0.81).
+      tags: [Controller · Clients]
+      security: [{ControllerSession: [], CsrfToken: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/WifiConnectivityQuery'}
+            examples:
+              allEvents:
+                summary: All event types, last 48 hours, first page
+                value:
+                  wlanIds: []
+                  clientMacs: []
+                  clientGroups: []
+                  clientVendors: []
+                  sourceDeviceMacs: []
+                  destinationDeviceMacs: []
+                  deviceTags: []
+                  sourceRadioBands: []
+                  destinationRadioBands: []
+                  sourceChannelWidths: []
+                  destinationChannelWidths: []
+                  sourceSignalMin: -120
+                  sourceSignalMax: 0
+                  destinationSignalMin: -120
+                  destinationSignalMax: 0
+                  eventTypes: [SUCCESS_ROAMING, FAILED_ROAMING, FAILED_CONNECTION]
+                  fastRoaming: false
+                  triggeredByRoamingAssistant: false
+                  triggeredByMinimalRssi: false
+                  timestampFrom: 1792273438065
+                  timestampTo: 1792446238065
+                  pageNumber: 0
+                  pageSize: 100
+              nextPage:
+                summary: Second page, failures only, one client
+                value:
+                  clientMacs: ['00:00:5e:00:53:2e']
+                  eventTypes: [FAILED_ROAMING, FAILED_CONNECTION]
+                  timestampFrom: 1792273438065
+                  timestampTo: 1792446238065
+                  pageNumber: 1
+                  pageSize: 100
+                  lastEventCursor: 1792349772781
+      responses:
+        '200':
+          description: One page of events
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WifiConnectivityPage'}
+              example:
+                data:
+                  - id: 3f6c2a1e-8b4d-4c7a-9e21-5d0b7a6c4e01
+                    time: 1792349772770
+                    type: SUCCESS_ROAMING
+                    client:
+                      mac: '00:00:5e:00:53:2e'
+                      name: 'Smoke alarm: Living Room'
+                      hostname: ''
+                      ip: 10.88.1.11
+                      groups: []
+                      fingerprint: {computed_dev_id: 2118, computed_engine: 0, dev_cat: 4, dev_family: 7, dev_id: 3092, dev_id_override: 2118, dev_vendor: 254, has_override: true, os_class: 3, os_name: 3}
+                    from_endpoint:
+                      band: ng
+                      channel: 6
+                      channel_width: 20
+                      device_mac: '00:00:5e:00:53:01'
+                      device_model: U7PG2
+                      device_name: AP-Office
+                      device_tags: [7a1d9c40-2e5b-4f83-b6a0-91c4d8e2f310]
+                      rssi: -46
+                      wlan_id: 0b8e4f2a-6c1d-4a93-8f57-2e9d3c7b1a40
+                      wlan_name: examplenet-iot
+                    to_endpoint:
+                      band: ng
+                      channel: 6
+                      channel_width: 20
+                      device_mac: '00:00:5e:00:53:02'
+                      device_model: U7MSH
+                      device_name: AP-Garden
+                      device_tags: [7a1d9c40-2e5b-4f83-b6a0-91c4d8e2f310]
+                      rssi: -58
+                      wlan_id: 0b8e4f2a-6c1d-4a93-8f57-2e9d3c7b1a40
+                      wlan_name: examplenet-iot
+                  - id: 9d2b7e60-1f4a-4c38-a5e9-6b0c3d8f7a12
+                    time: 1792277624743
+                    type: SUCCESS_ROAMING
+                    client:
+                      mac: '00:00:5e:00:53:3a'
+                      groups: []
+                    from_endpoint:
+                      band: na
+                      channel: 40
+                      channel_width: 80
+                      device_mac: '00:00:5e:00:53:01'
+                      device_model: U7PG2
+                      device_name: AP-Office
+                      device_tags: [7a1d9c40-2e5b-4f83-b6a0-91c4d8e2f310]
+                      rssi: -69
+                      wlan_id: 5e3a8d1c-9b72-4f06-a4c8-1d7e2b9f6c53
+                      wlan_name: example-wlan
+                    to_endpoint:
+                      band: na
+                      channel: 100
+                      channel_width: 80
+                      device_mac: '00:00:5e:00:53:02'
+                      device_model: U7MSH
+                      device_name: AP-Garden
+                      device_tags: [7a1d9c40-2e5b-4f83-b6a0-91c4d8e2f310]
+                      rssi: -60
+                      wlan_id: 5e3a8d1c-9b72-4f06-a4c8-1d7e2b9f6c53
+                      wlan_name: example-wlan
+                has_next: false
+                last_event_cursor: 1792277624743
+                total_element_count: 110
+                total_page_count: 2
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '500': {$ref: '#/components/responses/LegacyServerError'}
 
@@ -6429,14 +6847,13 @@ components:
         API key sent in the `X-API-KEY` header. Used by the official APIs on both servers, but each server has its own key:
         - **Local console (Integration API):** created in *Network > Settings > Control Plane > Integrations*.
         - **Cloud (Site Manager):** created at <https://unifi.ui.com/settings/api-keys>. Limits: 10,000 requests/minute on `/v1`, 100 requests/minute on `/ea`.
-
-        Store both in a password manager.
     ControllerSession:
       type: apiKey
       in: cookie
       name: TOKEN
       description: |
-        Session cookie for the undocumented controller and UniFi OS APIs, set by `localLogin`. Send it on every call.
+        Session cookie for the undocumented controller and UniFi OS APIs, set by `localLogin`
+        (username/password in the request body). Send it on every call.
     CsrfToken:
       type: apiKey
       in: header
@@ -10796,6 +11213,313 @@ components:
         uptime: {type: integer, description: 'seconds'}
         tx_bytes: {type: integer}
         rx_bytes: {type: integer}
+    WifiConnectivityQuery:
+      type: object
+      description: All filter arrays are optional; empty means "any". Timestamps are Unix epoch milliseconds.
+      required: [timestampFrom, timestampTo, pageNumber, pageSize]
+      properties:
+        wlanIds: {type: array, items: {type: string}, description: 'WLAN IDs'}
+        clientMacs: {type: array, items: {type: string}}
+        clientGroups: {type: array, items: {type: string}}
+        clientVendors: {type: array, items: {type: string}}
+        sourceDeviceMacs: {type: array, items: {type: string}, description: 'AP the client left'}
+        destinationDeviceMacs: {type: array, items: {type: string}, description: 'AP the client joined'}
+        deviceTags: {type: array, items: {type: string}, description: 'Device tag IDs'}
+        sourceRadioBands: {type: array, items: {$ref: '#/components/schemas/WifiRadioBand'}}
+        destinationRadioBands: {type: array, items: {$ref: '#/components/schemas/WifiRadioBand'}}
+        sourceChannelWidths: {type: array, items: {type: integer}, description: 'MHz'}
+        destinationChannelWidths: {type: array, items: {type: integer}, description: 'MHz'}
+        sourceSignalMin: {type: integer, description: 'dBm', default: -120}
+        sourceSignalMax: {type: integer, description: 'dBm', default: 0}
+        destinationSignalMin: {type: integer, description: 'dBm', default: -120}
+        destinationSignalMax: {type: integer, description: 'dBm', default: 0}
+        eventTypes: {type: array, items: {$ref: '#/components/schemas/WifiConnectivityEventType'}}
+        fastRoaming: {type: boolean, description: 'Only 802.11r (fast BSS transition) roams when true'}
+        triggeredByRoamingAssistant: {type: boolean, description: 'Only roams forced by Roaming Assistant when true'}
+        triggeredByMinimalRssi: {type: boolean, description: 'Only roams forced by the Minimum RSSI setting when true'}
+        timestampFrom: {type: integer, description: 'Window start (epoch ms)'}
+        timestampTo: {type: integer, description: 'Window end (epoch ms)'}
+        pageNumber: {type: integer, minimum: 0, description: 'Zero-based'}
+        pageSize: {type: integer, examples: [100]}
+        lastEventCursor: {type: integer, description: '`last_event_cursor` from the previous page; omit on the first page'}
+    WifiRadioBand:
+      type: string
+      description: '`ng` = 2.4 GHz, `na` = 5 GHz, `6e` = 6 GHz'
+      enum: [ng, na, 6e]
+    WifiConnectivityEventType:
+      type: string
+      enum: [SUCCESS_ROAMING, FAILED_ROAMING, FAILED_CONNECTION]
+    WifiConnectivityEndpoint:
+      type: object
+      description: The AP and radio at one end of a roam (or the AP of a failed connection).
+      properties:
+        band: {$ref: '#/components/schemas/WifiRadioBand'}
+        channel: {type: integer}
+        channel_width: {type: integer, description: 'MHz'}
+        device_mac: {type: string}
+        device_model: {type: string, examples: [U7PG2]}
+        device_name: {type: string}
+        device_tags: {type: array, items: {type: string}, description: 'Device tag IDs'}
+        rssi: {type: integer, description: 'dBm'}
+        wlan_id: {type: string}
+        wlan_name: {type: string, description: 'SSID'}
+    WifiConnectivityEvent:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        time: {type: integer, description: 'Epoch ms'}
+        type: {$ref: '#/components/schemas/WifiConnectivityEventType'}
+        client:
+          type: object
+          description: '`hostname`, `ip`, `name` and `fingerprint` are missing for clients the console has not identified.'
+          properties:
+            mac: {type: string}
+            name: {type: string}
+            hostname: {type: string}
+            ip: {type: string}
+            groups: {type: array, items: {type: string}}
+            fingerprint: {type: object, additionalProperties: true, description: 'Device fingerprint IDs (`dev_cat`, `dev_vendor`, `os_name` and so on)'}
+        from_endpoint: {$ref: '#/components/schemas/WifiConnectivityEndpoint'}
+        to_endpoint: {$ref: '#/components/schemas/WifiConnectivityEndpoint'}
+    WifiConnectivityPage:
+      type: object
+      properties:
+        data: {type: array, items: {$ref: '#/components/schemas/WifiConnectivityEvent'}}
+        has_next: {type: boolean}
+        last_event_cursor: {type: integer, description: 'Pass as `lastEventCursor` to fetch the next page'}
+        total_element_count: {type: integer}
+        total_page_count: {type: integer}
+    SettingRadioAi:
+      type: object
+      description: '*Channel AI Optimization* (Scheduled Operations). Setting group `radio_ai`.'
+      required: [key]
+      additionalProperties: true
+      properties:
+        key: {type: string, enum: [radio_ai]}
+        _id: {type: string}
+        site_id: {type: string}
+        enabled: {type: boolean, description: 'The Channel AI Optimization switch'}
+        radios: {type: array, items: {$ref: '#/components/schemas/WifiRadioBand'}, description: 'The Bands checkboxes'}
+        cron_expr: {type: string, description: '*Starts at*, as a cron expression (daily)', examples: ['0 3 * * *']}
+        optimize: {type: array, items: {type: string}, examples: [[channel]]}
+        setting_preference: {type: string, examples: [auto]}
+        default: {type: boolean}
+        auto_enabled: {type: boolean}
+        auto_channel_presets_type: {type: string, examples: [maximum_speed]}
+        auto_adjust_channels_to_country: {type: boolean}
+        channels_ng: {type: array, items: {type: string}, description: 'Channels allowed on 2.4 GHz (as strings)'}
+        channels_na: {type: array, items: {type: string}, description: 'Channels allowed on 5 GHz (as strings)'}
+        channels_6e: {type: array, items: {type: string}, description: 'Channels allowed on 6 GHz (as strings)'}
+        ht_modes_ng: {type: array, items: {type: string}, description: 'Channel widths allowed on 2.4 GHz, MHz (as strings)'}
+        ht_modes_na: {type: array, items: {type: string}, description: 'Channel widths allowed on 5 GHz, MHz (as strings)'}
+        channels_blacklist:
+          type: array
+          items:
+            type: object
+            properties:
+              radio: {$ref: '#/components/schemas/WifiRadioBand'}
+              channel: {type: string}
+              channel_width: {type: string}
+        radios_configuration:
+          type: array
+          items:
+            type: object
+            properties:
+              radio: {$ref: '#/components/schemas/WifiRadioBand'}
+              channel_width: {type: integer, description: 'Maximum width, MHz'}
+              dfs: {type: boolean, description: 'Allow DFS channels'}
+        high_priority_devices: {type: array, items: {type: string}}
+        exclude_devices: {type: array, items: {type: string}}
+    SettingTestAndCommit:
+      type: object
+      description: '*Test & Confirm* and *Management VLAN Rollback* (Connectivity Safeguards). Setting group `test_and_commit`.'
+      required: [key]
+      additionalProperties: true
+      properties:
+        key: {type: string, enum: [test_and_commit]}
+        _id: {type: string}
+        site_id: {type: string}
+        enabled: {type: boolean, description: 'The Test & Confirm switch'}
+        mode: {type: string, enum: [auto, custom], description: 'Auto or Custom'}
+        pages:
+          type: object
+          description: 'Which settings pages Test & Confirm covers in Custom mode'
+          properties:
+            internet: {type: boolean}
+            network_settings: {type: boolean}
+            vpn: {type: boolean}
+        device_vlan_testing: {type: boolean, description: 'The Management VLAN Rollback switch'}
+    SettingDeviceSupervision:
+      type: object
+      description: '*Device Auto-Recovery* (Self-Healing & Recovery). Setting group `device_supervision`.'
+      required: [key]
+      additionalProperties: true
+      properties:
+        key: {type: string, enum: [device_supervision]}
+        _id: {type: string}
+        site_id: {type: string}
+        global_supervision_enabled: {type: boolean, description: 'The Device Auto-Recovery switch'}
+        heartbeat_interval_seconds: {type: integer, description: 'Heartbeat (the UI shows minutes)', examples: [60]}
+        silence_threshold_seconds: {type: integer, description: 'Silence Threshold (the UI shows minutes)', examples: [900]}
+        power_off_duration_seconds: {type: integer, description: 'How long power stays off during a restart; not shown in the UI', examples: [120]}
+    SettingGlobalSwitch:
+      type: object
+      description: |
+        Switch-wide settings. Setting group `global_switch`. The Control Plane page sets *Power Port Sequencing*
+        (`poe_staging_delay_msec`), *Auto STP Edge* (`auto_stp_edge_detection_enabled`) and *Link Debounce* (`link_debounce`);
+        the other fields are set elsewhere in the UI and must be sent back unchanged.
+      required: [key]
+      additionalProperties: true
+      properties:
+        key: {type: string, enum: [global_switch]}
+        _id: {type: string}
+        site_id: {type: string}
+        auto_stp_edge_detection_enabled: {type: boolean, description: 'The Auto STP Edge switch'}
+        poe_staging_delay_msec: {type: integer, description: 'Power Port Sequencing delay between PoE ports, ms (the UI shows seconds)', examples: [200]}
+        link_debounce: {type: integer, description: 'Link Debounce delay, ms', examples: [300]}
+        stp_version: {type: string, examples: [rstp]}
+        flowctrl_enabled: {type: boolean}
+        jumboframe_enabled: {type: boolean}
+        forward_unknown_mcast_router_ports: {type: boolean}
+        flood_known_protocols: {type: boolean}
+        dhcp_snoop: {type: boolean}
+        dot1x_portctrl_enabled: {type: boolean}
+        dot1x_fallback_networkconf_id: {type: string, description: 'Network `_id` for 802.1X fallback'}
+        radiusprofile_id: {type: string}
+        switch_exclusions: {type: array, items: {$ref: '#/components/schemas/MacAddress'}, description: 'Switches these settings do not apply to'}
+        acl_device_isolation: {type: array, items: {type: object, additionalProperties: true}}
+        acl_l3_isolation: {type: array, items: {type: object, additionalProperties: true}}
+    WifiConnectivitySummary:
+      type: object
+      properties:
+        attempts:
+          type: object
+          description: Success ratios are percentages.
+          properties:
+            total_attempts: {type: integer}
+            failed_client_connections: {type: integer}
+            success_ratio: {type: number}
+            association_ratio: {type: number}
+            authentication_ratio: {type: number}
+            dhcp_ratio: {type: number}
+            dns_ratio: {type: number}
+        latencies:
+          type: object
+          description: Average latency per connection stage (apparently microseconds).
+          properties:
+            association_latency: {type: integer}
+            authentication_latency: {type: integer}
+            dhcp_latency: {type: integer}
+            traffic_latency: {type: integer}
+            total_latency: {type: integer}
+        total_clients: {type: integer}
+        event_groups: {type: array, items: {$ref: '#/components/schemas/WifiConnectionGroup'}}
+    WifiConnectionGroup:
+      type: object
+      properties:
+        start_time: {type: integer, description: 'Newest attempt in the group (epoch ms)'}
+        failure_stage: {type: string, enum: [SUCCESS, ASSOCIATION, AUTHENTICATION, DHCP, DNS], description: 'Seen so far: `SUCCESS`, `DHCP`, `DNS`; the others are inferred from the `attempts` ratios'}
+        latency_avg: {type: integer}
+        ap_macs: {type: array, items: {$ref: '#/components/schemas/MacAddress'}}
+        client:
+          type: object
+          properties:
+            mac: {$ref: '#/components/schemas/MacAddress'}
+            name: {type: string, description: 'Alias, generated name, or the MAC for unidentified clients'}
+            hostname: {type: string}
+            oui: {type: string, description: 'Vendor from the MAC; empty for randomised MACs'}
+            is_wired: {type: boolean}
+            wlanconf_id: {type: string, description: 'WLAN `_id`'}
+            fingerprint: {type: object, additionalProperties: true, description: 'Device fingerprint IDs (`dev_cat`, `dev_vendor`, `os_name` and so on)'}
+            ai_icon: {type: object, additionalProperties: true, description: 'Generated device icon URLs on `image.icon-gen.svc.ui.com` (some clients only)'}
+        events:
+          type: array
+          items:
+            type: object
+            properties:
+              ap_mac: {$ref: '#/components/schemas/MacAddress'}
+              start_time: {type: integer, description: 'Epoch ms'}
+              latency: {type: integer}
+              failure_reason: {type: string, examples: [SUCCESS, DHCP_TIMEOUT, DNS_TIMEOUT, DNS_RESPONSE_NOT_SEEN]}
+    WifiRadioStats:
+      type: object
+      properties:
+        device_mac: {$ref: '#/components/schemas/MacAddress'}
+        radio_name: {type: string, examples: [wifi0, wifi1]}
+        bytes: {type: number, description: 'Total traffic in the window (sent as a float)'}
+        client_signal_avg: {type: number, description: 'dBm'}
+        utilization_avg: {type: number, description: 'Channel utilisation, percent'}
+        interference_avg: {type: number, description: 'Percent'}
+        tx_retries_percentage: {type: number}
+    RadioIsolationMatrix:
+      type: object
+      properties:
+        ap_radio_neighbours:
+          type: array
+          items:
+            type: object
+            properties:
+              radio: {$ref: '#/components/schemas/WifiRadioBand'}
+              ap_neighbours:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    device:
+                      type: object
+                      properties:
+                        mac: {$ref: '#/components/schemas/MacAddress'}
+                        name: {type: string}
+                        model: {type: string}
+                        type: {type: string, examples: [uap]}
+                        channel: {type: integer}
+                        channel_width: {type: integer, description: 'MHz'}
+                        state: {type: integer, description: '1 = connected'}
+                        supports_neighbour_scan: {type: boolean}
+                    channel_neighbours:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          channel: {type: integer}
+                          neighbours:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                channel_width: {type: integer, description: 'MHz'}
+                                device:
+                                  type: object
+                                  properties:
+                                    mac: {$ref: '#/components/schemas/MacAddress'}
+                                    name: {type: string}
+                                    model: {type: string}
+                                    type: {type: string}
+                                scan: {type: object, properties: {signal: {type: integer, description: 'dBm'}}}
+        ap_radio_isolation:
+          type: array
+          items:
+            type: object
+            properties:
+              radio: {$ref: '#/components/schemas/WifiRadioBand'}
+              ap_interference:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    device:
+                      type: object
+                      properties:
+                        mac: {$ref: '#/components/schemas/MacAddress'}
+                        last_scan_band: {$ref: '#/components/schemas/WifiRadioBand'}
+                        last_scan_width: {type: integer, description: 'MHz'}
+                    channel_interference: {type: array, items: {type: object, additionalProperties: true}, description: 'Empty in every capture so far'}
+        optimization_status:
+          type: object
+          description: Whether a Radio AI channel optimisation is running.
+          properties:
+            in_progress: {type: boolean}
+            in_progress_in_site: {type: boolean}
     UserCertificate:
       type: object
       description: A TLS certificate installed on the console (metadata only).

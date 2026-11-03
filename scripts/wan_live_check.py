@@ -13,6 +13,7 @@ SAFETY
   * One step runs with the safety net forced to fail, which proves the automatic restore.
   * A finally block puts `report_wan_event` back to its original value if anything left it changed.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -75,8 +76,11 @@ def _h(obj: Any) -> str:
 async def snapshot(engine: WriteEngine) -> dict[str, dict[str, str]]:
     nets = {str(r["_id"]): _h({k: v for k, v in r.items() if k not in VOLATILE}) for r in await engine._rows(SPEC)}
     wlans = {str(r["_id"]): _h(r) for r in await engine._read_list("listWlanConfigLegacy")}
-    ports = {str(r["_id"]): _h(sorted(r.get("port_overrides") or [], key=lambda e: e.get("port_idx", 0)))
-             for r in await engine._read_list("listDevicesDetailed") if r.get("type") == "usw"}
+    ports = {
+        str(r["_id"]): _h(sorted(r.get("port_overrides") or [], key=lambda e: e.get("port_idx", 0)))
+        for r in await engine._read_list("listDevicesDetailed")
+        if r.get("type") == "usw"
+    }
     return {"networks": nets, "ssids": wlans, "switch ports": ports}
 
 
@@ -117,7 +121,11 @@ async def main(run: bool, transport: Any = None) -> int:
         gw = await gateway(engine)
         if gw.get("state") != 1:
             problems.append("the gateway is not connected")
-        down = [str(d.get("name") or d.get("mac")) for d in await engine._read_list("listDevicesBasic") if d.get("adopted", True) and d.get("state") != 1]
+        down = [
+            str(d.get("name") or d.get("mac"))
+            for d in await engine._read_list("listDevicesBasic")
+            if d.get("adopted", True) and d.get("state") != 1
+        ]
         if down:
             problems.append("devices not connected: " + ", ".join(down))
         for h in await engine._read_list("getSiteHealth"):
@@ -132,8 +140,15 @@ async def main(run: bool, transport: Any = None) -> int:
             print("STOP: " + "; ".join(problems) + ". Nothing was changed.")
             return 1
         wan = wans[0]
-        state.update(snap=await snapshot(engine), name=wan["name"], original=bool(wan.get("report_wan_event")), prov=gw.get("provisioned_at"))
-        print(f"    {wan['name']}: report_wan_event={state['original']}; gateway provisioned_at={state['prov']}; internet, DNS and all devices ok")
+        state.update(
+            snap=await snapshot(engine),
+            name=wan["name"],
+            original=bool(wan.get("report_wan_event")),
+            prov=gw.get("provisioned_at"),
+        )
+        print(
+            f"    {wan['name']}: report_wan_event={state['original']}; gateway provisioned_at={state['prov']}; internet, DNS and all devices ok"
+        )
         return 0
 
     if await with_client(base, transport, baseline):
@@ -145,11 +160,31 @@ async def main(run: bool, transport: Any = None) -> int:
         bad = 0
         print("\n[2] refusals (previews only)")
         cases: list[tuple[str, str, dict[str, Any], str]] = [
-            ("identity without acknowledgement", TOOL, {"target": name, "mac_override_enabled": False}, "Identity stop"),
+            (
+                "identity without acknowledgement",
+                TOOL,
+                {"target": name, "mac_override_enabled": False},
+                "Identity stop",
+            ),
             ("manual DNS with no server", TOOL, {"target": name, "dns_preference": "manual"}, "first server"),
-            ("a LAN network on the WAN tool", TOOL, {"target": "LAN_Private", "report_wan_event": True}, "unifi_console_network"),
-            ("delete the WAN (network tool)", "unifi_console_network", {"action": "delete", "target": name}, "cannot be deleted"),
-            ("disable the WAN (network tool)", "unifi_console_network", {"action": "disable", "target": name}, "unifi_console_wan"),
+            (
+                "a LAN network on the WAN tool",
+                TOOL,
+                {"target": "LAN_Private", "report_wan_event": True},
+                "unifi_console_network",
+            ),
+            (
+                "delete the WAN (network tool)",
+                "unifi_console_network",
+                {"action": "delete", "target": name},
+                "cannot be deleted",
+            ),
+            (
+                "disable the WAN (network tool)",
+                "unifi_console_network",
+                {"action": "disable", "target": name},
+                "unifi_console_wan",
+            ),
             ("unknown field", TOOL, {"target": name, "x_uplink_password": "a"}, "Extra inputs"),
             ("create", TOOL, {"action": "create", "target": name}, "update"),
         ]
@@ -169,10 +204,21 @@ async def main(run: bool, transport: Any = None) -> int:
         now = await the_wan(engine)
         gw = await gateway(engine)
         g = out.get("guard") or {}
-        print(f"  applied={out['applied']} verified={out['verified']} report_wan_event={now and now.get('report_wan_event')} guard={g.get('probe_after')} "
-              f"gateway_state={gw.get('state')} provisioned_at={gw.get('provisioned_at')} took={took:.0f}s diff={json.dumps(out['diff'])}")
-        return int(not (out["applied"] and out["verified"] and g.get("probe_after") == "ok" and now and bool(now.get("report_wan_event")) is want
-                        and gw.get("state") == 1 and set(out["diff"]) == {"report_wan_event"}))
+        print(
+            f"  applied={out['applied']} verified={out['verified']} report_wan_event={now and now.get('report_wan_event')} guard={g.get('probe_after')} "
+            f"gateway_state={gw.get('state')} provisioned_at={gw.get('provisioned_at')} took={took:.0f}s diff={json.dumps(out['diff'])}"
+        )
+        return int(
+            not (
+                out["applied"]
+                and out["verified"]
+                and g.get("probe_after") == "ok"
+                and now
+                and bool(now.get("report_wan_event")) is want
+                and gw.get("state") == 1
+                and set(out["diff"]) == {"report_wan_event"}
+            )
+        )
 
     async def forced(client: Client, engine: WriteEngine) -> int:
         print("\n[5] flip with the safety net forced to fail")
@@ -181,11 +227,22 @@ async def main(run: bool, transport: Any = None) -> int:
         g = out.get("guard") or {}
         now = await the_wan(engine)
         gw = await gateway(engine)
-        print(f"  applied={out['applied']} auto_restored={g.get('auto_restored')} restore_verified={g.get('restore_verified')} "
-              f"probe_after_restore={g.get('probe_after_restore')} report_wan_event_now={now and now.get('report_wan_event')} "
-              f"gateway_state={gw.get('state')} took={time.monotonic() - t0:.0f}s")
-        return int(not (out["applied"] is False and g.get("auto_restored") and g.get("restore_verified") and g.get("probe_after_restore") == "ok"
-                        and now and bool(now.get("report_wan_event")) is original and gw.get("state") == 1))
+        print(
+            f"  applied={out['applied']} auto_restored={g.get('auto_restored')} restore_verified={g.get('restore_verified')} "
+            f"probe_after_restore={g.get('probe_after_restore')} report_wan_event_now={now and now.get('report_wan_event')} "
+            f"gateway_state={gw.get('state')} took={time.monotonic() - t0:.0f}s"
+        )
+        return int(
+            not (
+                out["applied"] is False
+                and g.get("auto_restored")
+                and g.get("restore_verified")
+                and g.get("probe_after_restore") == "ok"
+                and now
+                and bool(now.get("report_wan_event")) is original
+                and gw.get("state") == 1
+            )
+        )
 
     async def finish(client: Client, engine: WriteEngine) -> dict[str, dict[str, str]]:
         now = await the_wan(engine)
@@ -194,13 +251,21 @@ async def main(run: bool, transport: Any = None) -> int:
             try:
                 await apply(client, {"target": name, "report_wan_event": original})
             except Exception as exc:  # noqa: BLE001
-                print(f"  RESTORE FAILED: {exc}\n  Set the WAN event reporting back by hand in the UI (Settings, Internet).")
+                print(
+                    f"  RESTORE FAILED: {exc}\n  Set the WAN event reporting back by hand in the UI (Settings, Internet)."
+                )
         return await snapshot(engine)
 
     try:
         failures += await with_client(base, transport, refusals)
-        failures += await with_client(base, transport, lambda c, e: flip(c, e, not original, f"[3] flip report_wan_event to {not original} (safety net on)"))
-        failures += await with_client(base, transport, lambda c, e: flip(c, e, original, f"[4] flip it back to {original}"))
+        failures += await with_client(
+            base,
+            transport,
+            lambda c, e: flip(c, e, not original, f"[3] flip report_wan_event to {not original} (safety net on)"),
+        )
+        failures += await with_client(
+            base, transport, lambda c, e: flip(c, e, original, f"[4] flip it back to {original}")
+        )
         failures += await with_client(dataclasses.replace(base, dns_probe_force_fail=True), transport, forced)
     except Exception as exc:  # noqa: BLE001 - report (an ExceptionGroup is unpacked), then clean up below
         failures += 1

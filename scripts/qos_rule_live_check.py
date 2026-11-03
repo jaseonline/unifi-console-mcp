@@ -12,6 +12,7 @@ SAFETY
   * Existing rules are never edited or deleted; before and after, the script compares every other rule. Leftovers named
     zz-qosrule-check* are removed first, and the rule is deleted in a finally block, also when a step fails.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -96,19 +97,44 @@ async def main(run: bool, transport: Any = None) -> int:
 
             try:
                 print("\n[2] create (PRIORITIZE, switched off)")
-                out = await apply(client, {"action": "create", "name": PREFIX, "wan_network": WAN, "source_clients": [HUB],
-                                           "destination_apps": APPS, "objective": "PRIORITIZE"})
+                out = await apply(
+                    client,
+                    {
+                        "action": "create",
+                        "name": PREFIX,
+                        "wan_network": WAN,
+                        "source_clients": [HUB],
+                        "destination_apps": APPS,
+                        "objective": "PRIORITIZE",
+                    },
+                )
                 rid = out["id"]
                 row = next((r for r in await stored() if r["_id"] == rid), {})
-                print(f"  verified={out['verified']} id={rid} http={out['http_status']} keys={sorted(row)} mismatches={out.get('mismatches')}")
-                print(f"  stored source={row.get('source')} destination={row.get('destination')} schedule={row.get('schedule')}")
+                print(
+                    f"  verified={out['verified']} id={rid} http={out['http_status']} keys={sorted(row)} mismatches={out.get('mismatches')}"
+                )
+                print(
+                    f"  stored source={row.get('source')} destination={row.get('destination')} schedule={row.get('schedule')}"
+                )
                 failures += not out["verified"] or row.get("enabled") is not False or out["http_status"] != 201
 
                 print("\n[3] LIMIT with bursts")
-                out = await apply(client, {"action": "update", "target": rid, "objective": "LIMIT", "download_limit": 20000,
-                                           "upload_limit": 5000, "download_burst": "LONG", "upload_burst": "LONG"})
+                out = await apply(
+                    client,
+                    {
+                        "action": "update",
+                        "target": rid,
+                        "objective": "LIMIT",
+                        "download_limit": 20000,
+                        "upload_limit": 5000,
+                        "download_burst": "LONG",
+                        "upload_burst": "LONG",
+                    },
+                )
                 row = next((r for r in await stored() if r["_id"] == rid), {})
-                print(f"  verified={out['verified']} diff keys={sorted(out['diff'])} stored limits={row.get('download_limit_kbps')}/{row.get('upload_limit_kbps')}")
+                print(
+                    f"  verified={out['verified']} diff keys={sorted(out['diff'])} stored limits={row.get('download_limit_kbps')}/{row.get('upload_limit_kbps')}"
+                )
                 failures += not out["verified"] or row.get("enabled") is not False
 
                 print("\n[4] rename")
@@ -123,7 +149,9 @@ async def main(run: bool, transport: Any = None) -> int:
                 rollback = out["rollback"]
 
                 print("\n[6] replay the rollback")
-                out = await apply(client, {"action": rollback["action"], "target": rollback["target"], **rollback["changes"]})
+                out = await apply(
+                    client, {"action": rollback["action"], "target": rollback["target"], **rollback["changes"]}
+                )
                 row = next((r for r in await stored() if r["_id"] == rid), {})
                 print(f"  verified={out['verified']} app_ids={(row.get('destination') or {}).get('app_ids')}")
                 failures += not out["verified"] or (row.get("destination") or {}).get("app_ids") != APPS

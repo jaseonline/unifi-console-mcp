@@ -13,6 +13,7 @@ SAFETY
   * Journal lines go to the normal journal folder (UNIFI_CONSOLE_JOURNAL_DIR or ~/.unifi-console-mcp/journal).
   * Uses the same account and settings as the MCP server. Prints field names and short values only.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -56,8 +57,8 @@ async def apply(client: Client, args: dict[str, Any]) -> dict[str, Any]:
 
 
 async def rules(api: Any) -> list[dict[str, Any]]:
-    from unifi_console_mcp.writes import WriteEngine
     from unifi_console_mcp.entities.port_forward import SPEC
+    from unifi_console_mcp.writes import WriteEngine
 
     return await WriteEngine(api)._rows(SPEC)
 
@@ -77,7 +78,11 @@ async def main(run: bool, transport: Any = None) -> int:
     try:
         async with Client(mcp) as client:
             before = await rules(api)
-            others_before = sorted((r["_id"], r.get("name"), r.get("enabled")) for r in before if not str(r.get("name", "")).startswith(PREFIX))
+            others_before = sorted(
+                (r["_id"], r.get("name"), r.get("enabled"))
+                for r in before
+                if not str(r.get("name", "")).startswith(PREFIX)
+            )
             print(f"\n[1] {len(before)} existing rule(s); {len(others_before)} are not ours")
 
             for r in before:
@@ -88,7 +93,9 @@ async def main(run: bool, transport: Any = None) -> int:
             created_id: str | None = None
             try:
                 print("\n[2] create (disabled)")
-                out = await apply(client, {"action": "create", "name": PREFIX, "dst_port": "58699", "fwd": "192.0.2.15"})
+                out = await apply(
+                    client, {"action": "create", "name": PREFIX, "dst_port": "58699", "fwd": "192.0.2.15"}
+                )
                 created_id = out["id"]
                 print(f"  verified={out['verified']} id={created_id} rollback={out['rollback']}")
                 failures += not out["verified"]
@@ -123,7 +130,11 @@ async def main(run: bool, transport: Any = None) -> int:
                         print(f"  CLEANUP FAILED, remove '{PREFIX}*' by hand: {exc}")
 
             after = await rules(api)
-            others_after = sorted((r["_id"], r.get("name"), r.get("enabled")) for r in after if not str(r.get("name", "")).startswith(PREFIX))
+            others_after = sorted(
+                (r["_id"], r.get("name"), r.get("enabled"))
+                for r in after
+                if not str(r.get("name", "")).startswith(PREFIX)
+            )
             leftovers = [r.get("name") for r in after if str(r.get("name", "")).startswith(PREFIX)]
             print(f"\n[6] other rules unchanged: {others_before == others_after}; leftovers: {leftovers or 'none'}")
             failures += others_before != others_after or bool(leftovers)

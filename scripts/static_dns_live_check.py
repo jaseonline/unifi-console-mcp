@@ -14,6 +14,7 @@ SAFETY
   * The record "zz.example.home" (192.0.2.100, disabled) that is on the console already is NOT ours and is left alone.
   * Journal lines go to the normal journal folder. Prints field names and short values only.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -64,8 +65,11 @@ async def apply(client: Client, args: dict[str, Any]) -> dict[str, Any]:
 
 
 def snapshot(rows: list[dict[str, Any]]) -> list[tuple]:
-    return sorted((r["_id"], r.get("key"), r.get("record_type"), str(r.get("value")), bool(r.get("enabled")), r.get("ttl"))
-                  for r in rows if not str(r.get("key", "")).startswith(PREFIX))
+    return sorted(
+        (r["_id"], r.get("key"), r.get("record_type"), str(r.get("value")), bool(r.get("enabled")), r.get("ttl"))
+        for r in rows
+        if not str(r.get("key", "")).startswith(PREFIX)
+    )
 
 
 async def main(run: bool, transport: Any = None) -> int:
@@ -99,16 +103,24 @@ async def main(run: bool, transport: Any = None) -> int:
 
             try:
                 print("\n[2] create the A record (disabled)")
-                out = await step("create A", {"action": "create", "record_type": "A", "key": A_KEY, "value": "192.0.2.77", "enabled": False})
-                a_id = out["id"]; made.append(a_id)
+                out = await step(
+                    "create A",
+                    {"action": "create", "record_type": "A", "key": A_KEY, "value": "192.0.2.77", "enabled": False},
+                )
+                a_id = out["id"]
+                made.append(a_id)
                 print(f"  id={a_id} rollback={out['rollback']} warnings={out['_preview']['warnings']}")
 
                 print("\n[3] update the value (whole-object PUT)")
                 await step("value", {"action": "update", "target": a_id, "value": "192.0.2.78"}, {"value"})
 
                 print("\n[4] create the CNAME (disabled)")
-                out = await step("create CNAME", {"action": "create", "record_type": "CNAME", "key": C_KEY, "value": A_KEY, "enabled": False})
-                c_id = out["id"]; made.append(c_id)
+                out = await step(
+                    "create CNAME",
+                    {"action": "create", "record_type": "CNAME", "key": C_KEY, "value": A_KEY, "enabled": False},
+                )
+                c_id = out["id"]
+                made.append(c_id)
 
                 print("\n[5] preview deleting the A record (not applied)")
                 pre = await tool(client, {"action": "delete", "target": a_id})
@@ -121,13 +133,15 @@ async def main(run: bool, transport: Any = None) -> int:
                 await step("disable", {"action": "disable", "target": a_id}, {"enabled"})
 
                 print("\n[7] delete the CNAME, then the A record")
-                await step("delete CNAME", {"action": "delete", "target": c_id}); made.remove(c_id)
-                await step("delete A", {"action": "delete", "target": a_id}); made.remove(a_id)
+                await step("delete CNAME", {"action": "delete", "target": c_id})
+                made.remove(c_id)
+                await step("delete A", {"action": "delete", "target": a_id})
+                made.remove(a_id)
             except Exception as exc:  # report, then fall through to cleanup
                 failures += 1
                 print(f"  ERROR: {type(exc).__name__}: {exc}")
             finally:
-                for ident in list(made):
+                for ident in made:
                     try:
                         out = await apply(client, {"action": "delete", "target": ident})
                         print(f"  cleanup delete {ident}: verified={out['verified']}")
@@ -137,7 +151,9 @@ async def main(run: bool, transport: Any = None) -> int:
 
             after = await engine._rows(SPEC)
             leftovers = [r.get("key") for r in after if str(r.get("key", "")).startswith(PREFIX)]
-            print(f"\n[8] other records unchanged: {snapshot(after) == others_before}; leftovers: {leftovers or 'none'}")
+            print(
+                f"\n[8] other records unchanged: {snapshot(after) == others_before}; leftovers: {leftovers or 'none'}"
+            )
             failures += snapshot(after) != others_before or bool(leftovers)
     finally:
         await api.client.aclose()

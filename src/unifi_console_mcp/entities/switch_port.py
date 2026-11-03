@@ -41,17 +41,62 @@ from ..writes import EntitySpec, Findings, Guard, Plan, WriteEngine, covers, sam
 
 KEY = "switch_port"
 TOOL = "unifi_console_switch_port"
-FRIENDLY = ("port", "name", "poe_mode", "native_network", "blocked_networks", "isolation", "bpdu_guard", "flow_control",
-            "storm_control", "keepalive", "lldpmed", "reset")
+FRIENDLY = (
+    "port",
+    "name",
+    "poe_mode",
+    "native_network",
+    "blocked_networks",
+    "isolation",
+    "bpdu_guard",
+    "flow_control",
+    "storm_control",
+    "keepalive",
+    "lldpmed",
+    "reset",
+)
 STORM = {"broadcast": "bcast", "multicast": "mcast", "unicast": "ucast"}
-RISKY = frozenset({"poe_mode", "native_networkconf_id", "excluded_networkconf_ids", "isolation", "stp_bpdu_guard_enabled",
-                   "flow_control_enabled", "stormctrl_bcast_enabled", "stormctrl_mcast_enabled", "stormctrl_ucast_enabled",
-                   "stormctrl_bcast_rate", "stormctrl_mcast_rate", "stormctrl_ucast_rate"})
+RISKY = frozenset(
+    {
+        "poe_mode",
+        "native_networkconf_id",
+        "excluded_networkconf_ids",
+        "isolation",
+        "stp_bpdu_guard_enabled",
+        "flow_control_enabled",
+        "stormctrl_bcast_enabled",
+        "stormctrl_mcast_enabled",
+        "stormctrl_ucast_enabled",
+        "stormctrl_bcast_rate",
+        "stormctrl_mcast_rate",
+        "stormctrl_ucast_rate",
+    }
+)
 MAX_RATE = 100000
-GUARD_TEXT = ("Safety net: every adopted device that is connected now must still be connected after the change; if one is not, the "
-              "previous port settings are put back automatically, once, and the result says so.")
-IGNORE = frozenset({"site_id", "attr_hidden_id", "attr_no_delete", "attr_no_edit", "port_overrides", "port_table", "uplink",
-                    "last_seen", "uptime", "state", "sys_stats", "system-stats", "stat", "tx_bytes", "rx_bytes", "bytes"})
+GUARD_TEXT = (
+    "Safety net: every adopted device that is connected now must still be connected after the change; if one is not, the "
+    "previous port settings are put back automatically, once, and the result says so."
+)
+IGNORE = frozenset(
+    {
+        "site_id",
+        "attr_hidden_id",
+        "attr_no_delete",
+        "attr_no_edit",
+        "port_overrides",
+        "port_table",
+        "uplink",
+        "last_seen",
+        "uptime",
+        "state",
+        "sys_stats",
+        "system-stats",
+        "stat",
+        "tx_bytes",
+        "rx_bytes",
+        "bytes",
+    }
+)
 
 
 # ----------------------------------------------------------------------------------------------- helpers
@@ -64,7 +109,9 @@ def changed_ports(before: dict[str, Any] | None, after: dict[str, Any] | None) -
     return sorted(i for i in set(b) | set(a) if i not in b or i not in a or not same(b[i], a[i]))
 
 
-def focus(before: dict[str, Any] | None, after: dict[str, Any] | None) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+def focus(
+    before: dict[str, Any] | None, after: dict[str, Any] | None
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     ports = changed_ports(before, after)
     b, a = _entry_map((before or {}).get("port_overrides")), _entry_map((after or {}).get("port_overrides"))
     if len(ports) == 1:
@@ -93,7 +140,11 @@ def _default_native(device: dict[str, Any], nets: list[dict[str, Any]]) -> str |
         return None
     for n in nets:
         try:
-            if n.get("ip_subnet") and n.get("purpose") != "wan" and addr in ipaddress.ip_interface(n["ip_subnet"]).network:
+            if (
+                n.get("ip_subnet")
+                and n.get("purpose") != "wan"
+                and addr in ipaddress.ip_interface(n["ip_subnet"]).network
+            ):
                 return str(n["_id"])
         except ValueError:
             continue
@@ -104,10 +155,21 @@ def new_entry(idx: int, device: dict[str, Any], native: str) -> dict[str, Any]:
     """The entry for a port that has none yet: what the UI saves for an ordinary client port."""
     row = _port_row(device, idx) or {}
     entry: dict[str, Any] = {
-        "setting_preference": "manual", "port_idx": idx, "name": row.get("name") or f"Port {idx}", "forward": "all",
-        "native_networkconf_id": native, "voice_networkconf_id": "", "tagged_vlan_mgmt": "auto", "isolation": False,
-        "autoneg": True, "flow_control_enabled": True, "stp_port_mode": True, "lldpmed_enabled": True,
-        "port_keepalive_enabled": False, "egress_rate_limit_kbps_enabled": False, "port_security_enabled": False,
+        "setting_preference": "manual",
+        "port_idx": idx,
+        "name": row.get("name") or f"Port {idx}",
+        "forward": "all",
+        "native_networkconf_id": native,
+        "voice_networkconf_id": "",
+        "tagged_vlan_mgmt": "auto",
+        "isolation": False,
+        "autoneg": True,
+        "flow_control_enabled": True,
+        "stp_port_mode": True,
+        "lldpmed_enabled": True,
+        "port_keepalive_enabled": False,
+        "egress_rate_limit_kbps_enabled": False,
+        "port_security_enabled": False,
         "port_security_mac_address": [],
     }
     if int(row.get("poe_caps") or 0) > 0:
@@ -115,31 +177,58 @@ def new_entry(idx: int, device: dict[str, Any], native: str) -> dict[str, Any]:
     return entry
 
 
-def classify(device: dict[str, Any], idx: int, others: list[dict[str, Any]], clients: list[dict[str, Any]],
-             console_ip: str | None) -> tuple[str, str]:
+def classify(
+    device: dict[str, Any],
+    idx: int,
+    others: list[dict[str, Any]],
+    clients: list[dict[str, Any]],
+    console_ip: str | None,
+) -> tuple[str, str]:
     """(kind, what): uplink, infrastructure, client or unused."""
     row = _port_row(device, idx) or {}
     mac = str(device.get("mac") or "").lower()
-    if row.get("is_uplink") or int((device.get("uplink") or {}).get("port_idx") or 0) == idx and (device.get("uplink") or {}).get("type") == "wire":
+    if (
+        row.get("is_uplink")
+        or int((device.get("uplink") or {}).get("port_idx") or 0) == idx
+        and (device.get("uplink") or {}).get("type") == "wire"
+    ):
         up = device.get("uplink") or {}
         return "uplink", f"uplink to {up.get('uplink_device_name') or 'the upstream device'}"
     for d in others:
         up = d.get("uplink") or {}
-        if str(up.get("uplink_mac") or "").lower() == mac and int(up.get("uplink_remote_port") or 0) == idx and d.get("type") != "uap" or \
-           (d.get("type") == "uap" and str(up.get("uplink_mac") or "").lower() == mac and int(up.get("uplink_remote_port") or 0) == idx):
+        if (
+            str(up.get("uplink_mac") or "").lower() == mac
+            and int(up.get("uplink_remote_port") or 0) == idx
+            and d.get("type") != "uap"
+            or (
+                d.get("type") == "uap"
+                and str(up.get("uplink_mac") or "").lower() == mac
+                and int(up.get("uplink_remote_port") or 0) == idx
+            )
+        ):
             return "infrastructure", f"{d.get('name') or d.get('mac')} ({d.get('type')})"
     for c in clients:
-        if str(c.get("sw_mac") or "").lower() == mac and int(c.get("sw_port") or 0) == idx and console_ip and c.get("ip") == console_ip:
+        if (
+            str(c.get("sw_mac") or "").lower() == mac
+            and int(c.get("sw_port") or 0) == idx
+            and console_ip
+            and c.get("ip") == console_ip
+        ):
             return "infrastructure", "the console (this server reaches it through this port)"
     if row.get("up"):
-        who = [str(c.get("name") or c.get("hostname") or c.get("mac")) for c in clients
-               if str(c.get("sw_mac") or "").lower() == mac and int(c.get("sw_port") or 0) == idx]
+        who = [
+            str(c.get("name") or c.get("hostname") or c.get("mac"))
+            for c in clients
+            if str(c.get("sw_mac") or "").lower() == mac and int(c.get("sw_port") or 0) == idx
+        ]
         return "client", ", ".join(who[:3]) or "a device with link"
     return "unused", "no link"
 
 
 # ----------------------------------------------------------------------------------------------- prepare
-def prepare_ctx(action: str, before: dict[str, Any] | None, changes: dict[str, Any], ctx: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+def prepare_ctx(
+    action: str, before: dict[str, Any] | None, changes: dict[str, Any], ctx: dict[str, list[dict[str, Any]]]
+) -> dict[str, Any]:
     if action != "update" or before is None:
         raise UniFiError("Only update exists for switch ports: there is nothing to create or delete.")
     bad = set(changes) - set(FRIENDLY)
@@ -152,7 +241,9 @@ def prepare_ctx(action: str, before: dict[str, Any] | None, changes: dict[str, A
     idx = int(changes["port"])
     table = _port_row(before, idx)
     if table is None:
-        raise UniFiError(f"{before.get('name')} has no port {idx}. Ports: {', '.join(str(p.get('port_idx')) for p in before.get('port_table') or [])}.")
+        raise UniFiError(
+            f"{before.get('name')} has no port {idx}. Ports: {', '.join(str(p.get('port_idx')) for p in before.get('port_table') or [])}."
+        )
     nets = [n for n in ctx.get("networks", []) if n.get("purpose") != "wan"]
     arr = copy.deepcopy(before.get("port_overrides") or [])
     pos = next((i for i, e in enumerate(arr) if int(e.get("port_idx", -1)) == idx), None)
@@ -165,7 +256,9 @@ def prepare_ctx(action: str, before: dict[str, Any] | None, changes: dict[str, A
         native = arr[pos].get("native_networkconf_id") or ""
         pristine = {k: v for k, v in new_entry(idx, before, native).items() if k != "name"}
         if {k: v for k, v in arr[pos].items() if k != "name"} != pristine:
-            raise UniFiError(f"Port {idx} has settings beyond what this tool creates, so it is not reset here. Use the UI's reset on that port.")
+            raise UniFiError(
+                f"Port {idx} has settings beyond what this tool creates, so it is not reset here. Use the UI's reset on that port."
+            )
         del arr[pos]
         return {"port_overrides": arr}
     if not wanted:
@@ -177,7 +270,9 @@ def prepare_ctx(action: str, before: dict[str, Any] | None, changes: dict[str, A
             native = str(n["_id"]) if n else None
         native = native or _default_native(before, nets)
         if not native:
-            raise UniFiError(f"Port {idx} has no saved settings yet and the switch's own network could not be worked out; pass native_network.")
+            raise UniFiError(
+                f"Port {idx} has no saved settings yet and the switch's own network could not be worked out; pass native_network."
+            )
         arr.append(new_entry(idx, before, native))
         pos = len(arr) - 1
     e = arr[pos]
@@ -195,12 +290,16 @@ def prepare_ctx(action: str, before: dict[str, Any] | None, changes: dict[str, A
     if "native_network" in wanted:
         n = _net(nets, str(wanted["native_network"]))
         if not n:
-            raise UniFiError(f"native_network '{wanted['native_network']}' is not a network on this console (names are matched exactly).")
+            raise UniFiError(
+                f"native_network '{wanted['native_network']}' is not a network on this console (names are matched exactly)."
+            )
         e["native_networkconf_id"] = str(n["_id"])
     if "blocked_networks" in wanted:
         if e.get("forward") != "customize":
-            raise UniFiError(f"blocked_networks only applies to a port whose forwarding mode is 'customize' (port {idx} is '{e.get('forward')}'); "
-                             "the forwarding mode itself is not changed here.")
+            raise UniFiError(
+                f"blocked_networks only applies to a port whose forwarding mode is 'customize' (port {idx} is '{e.get('forward')}'); "
+                "the forwarding mode itself is not changed here."
+            )
         ids = []
         for ref in wanted["blocked_networks"]:
             n = _net(nets, str(ref))
@@ -208,8 +307,13 @@ def prepare_ctx(action: str, before: dict[str, Any] | None, changes: dict[str, A
                 raise UniFiError(f"blocked_networks: '{ref}' is not a network on this console.")
             ids.append(str(n["_id"]))
         e["excluded_networkconf_ids"] = ids
-    for k_in, k_out in (("isolation", "isolation"), ("bpdu_guard", "stp_bpdu_guard_enabled"), ("flow_control", "flow_control_enabled"),
-                        ("keepalive", "port_keepalive_enabled"), ("lldpmed", "lldpmed_enabled")):
+    for k_in, k_out in (
+        ("isolation", "isolation"),
+        ("bpdu_guard", "stp_bpdu_guard_enabled"),
+        ("flow_control", "flow_control_enabled"),
+        ("keepalive", "port_keepalive_enabled"),
+        ("lldpmed", "lldpmed_enabled"),
+    ):
         if k_in in wanted:
             e[k_out] = bool(wanted[k_in])
     if "storm_control" in wanted:
@@ -233,8 +337,13 @@ def prepare_ctx(action: str, before: dict[str, Any] | None, changes: dict[str, A
 
 # ----------------------------------------------------------------------------------------------- validation
 def make_validate(ack: bool, console_ip: str | None):
-    def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], others: list[dict[str, Any]],
-                 ctx: dict[str, list[dict[str, Any]]]) -> Findings:
+    def validate(
+        action: str,
+        before: dict[str, Any] | None,
+        after: dict[str, Any],
+        others: list[dict[str, Any]],
+        ctx: dict[str, list[dict[str, Any]]],
+    ) -> Findings:
         f = Findings()
         b = before or {}
         ports = changed_ports(b, after)
@@ -246,31 +355,62 @@ def make_validate(ack: bool, console_ip: str | None):
         kind, what = classify(b, idx, others, ctx.get("clients", []), console_ip)
         row = _port_row(b, idx) or {}
         keys = sorted({k for k in set(be or {}) | set(ae or {}) if not same((be or {}).get(k), (ae or {}).get(k))})
-        f.warnings.append(f"{b.get('name')} port {idx} ({row.get('name')}): {kind}, {what}. Changing: {', '.join(keys) or 'nothing'}.")
+        f.warnings.append(
+            f"{b.get('name')} port {idx} ({row.get('name')}): {kind}, {what}. Changing: {', '.join(keys) or 'nothing'}."
+        )
         risky = [k for k in keys if k in RISKY]
         if ae is None:
-            f.warnings.append("Reset: the port's saved settings are removed and the port returns to the switch defaults.")
+            f.warnings.append(
+                "Reset: the port's saved settings are removed and the port returns to the switch defaults."
+            )
         elif be is None:
-            f.warnings.append("This port has no saved settings yet; a new entry is added with the values the UI uses for a client port.")
+            f.warnings.append(
+                "This port has no saved settings yet; a new entry is added with the values the UI uses for a client port."
+            )
         if risky and kind in ("uplink", "infrastructure"):
             if not ack:
-                f.errors.append(f"Infrastructure stop: port {idx} is {what}. Changing {', '.join(risky)} could strand it (and possibly the "
-                                "console). Only the name can be changed here without acknowledge_infrastructure=true.")
+                f.errors.append(
+                    f"Infrastructure stop: port {idx} is {what}. Changing {', '.join(risky)} could strand it (and possibly the "
+                    "console). Only the name can be changed here without acknowledge_infrastructure=true."
+                )
             else:
                 f.warnings.append(f"Acknowledged: changing {', '.join(risky)} on {what}.")
         if kind == "client" and risky:
-            f.warnings.append(f"The port has link ({what}); the change takes effect at once and may drop that device briefly.")
+            f.warnings.append(
+                f"The port has link ({what}); the change takes effect at once and may drop that device briefly."
+            )
         if (ae or {}).get("poe_mode") == "off" and (be or {}).get("poe_mode") != "off" and row.get("poe_enable"):
-            f.warnings.append(f"PoE is being switched off on a port that is delivering {row.get('poe_power')} W to {what}.")
+            f.warnings.append(
+                f"PoE is being switched off on a port that is delivering {row.get('poe_power')} W to {what}."
+            )
         if "native_networkconf_id" in keys and kind in ("client", "infrastructure", "uplink"):
-            old = next((n.get("name") for n in ctx.get("networks", []) if n.get("_id") == (be or {}).get("native_networkconf_id")), "?")
-            new = next((n.get("name") for n in ctx.get("networks", []) if n.get("_id") == (ae or {}).get("native_networkconf_id")), "?")
+            old = next(
+                (
+                    n.get("name")
+                    for n in ctx.get("networks", [])
+                    if n.get("_id") == (be or {}).get("native_networkconf_id")
+                ),
+                "?",
+            )
+            new = next(
+                (
+                    n.get("name")
+                    for n in ctx.get("networks", [])
+                    if n.get("_id") == (ae or {}).get("native_networkconf_id")
+                ),
+                "?",
+            )
             f.warnings.append(f"The native VLAN moves from {old} to {new}: the device on this port changes network.")
         if "stp_bpdu_guard_enabled" in keys and (ae or {}).get("stp_bpdu_guard_enabled") and kind != "unused":
-            f.warnings.append("BPDU guard shuts the port down if it receives spanning-tree frames; do not enable it on a port that leads to another switch.")
+            f.warnings.append(
+                "BPDU guard shuts the port down if it receives spanning-tree frames; do not enable it on a port that leads to another switch."
+            )
         if any(k.startswith("stormctrl_") and k.endswith("_rate") for k in keys):
-            f.warnings.append("Storm-control rate units are not confirmed on this console (existing values are 100 to 1000); check the result in the UI.")
+            f.warnings.append(
+                "Storm-control rate units are not confirmed on this console (existing values are 100 to 1000); check the result in the UI."
+            )
         return f
+
     return validate
 
 
@@ -344,7 +484,11 @@ def make_guard() -> Guard:
 
     async def states(engine: Any) -> dict[str, tuple[str, bool]]:
         rows = await engine._read_list("listDevicesBasic")
-        return {str(r.get("mac")).lower(): (str(r.get("name") or r.get("mac")), r.get("state") == 1) for r in rows if r.get("adopted", True)}
+        return {
+            str(r.get("mac")).lower(): (str(r.get("name") or r.get("mac")), r.get("state") == 1)
+            for r in rows
+            if r.get("adopted", True)
+        }
 
     async def before(engine: Any) -> str | None:
         baseline.clear()
@@ -375,10 +519,23 @@ def make_guard() -> Guard:
 
 # ----------------------------------------------------------------------------------------------- spec and tool
 SPEC = EntitySpec(
-    key=KEY, label="switch", tier="C", list_op="listDevicesDetailed", update_op="updateDeviceSettings", whole_object=False,
-    name_field="name", match_fields=("mac",), ignore=IGNORE, body_keys=("port_overrides",), prepare_ctx=prepare_ctx,
+    key=KEY,
+    label="switch",
+    tier="C",
+    list_op="listDevicesDetailed",
+    update_op="updateDeviceSettings",
+    whole_object=False,
+    name_field="name",
+    match_fields=("mac",),
+    ignore=IGNORE,
+    body_keys=("port_overrides",),
+    prepare_ctx=prepare_ctx,
     context_ops=(("networks", "listNetworkConfig"), ("clients", "listActiveClientsLegacy")),
-    focus=focus, verify=verify, restore_ok=restore_ok, rollback=rollback, guard=None,
+    focus=focus,
+    verify=verify,
+    restore_ok=restore_ok,
+    rollback=rollback,
+    guard=None,
 )
 
 
@@ -404,18 +561,30 @@ class SwitchPortInput(BaseModel):
     name: str | None = Field(default=None, description="The port's label.")
     poe_mode: Literal["auto", "off"] | None = None
     native_network: str | None = Field(default=None, description="Native VLAN: network name or id.")
-    blocked_networks: list[str] | None = Field(default=None, description="Networks blocked on a port in customize mode (replaces the list).")
+    blocked_networks: list[str] | None = Field(
+        default=None, description="Networks blocked on a port in customize mode (replaces the list)."
+    )
     isolation: bool | None = None
     bpdu_guard: bool | None = None
     flow_control: bool | None = None
     storm_control: StormControl | None = None
     keepalive: bool | None = None
     lldpmed: bool | None = None
-    reset: bool = Field(default=False, description="Remove the saved settings of a port this tool added (only if still untouched).")
-    acknowledge_infrastructure: bool = Field(default=False, description="Accept risky changes on an uplink, gateway, switch, AP or console port.")
-    approval_note: str | None = Field(default=None, description="Required with confirm=true: where the approval for this tier C change was given.")
-    confirm: bool = Field(default=False, description="false (default) returns a read-only preview. true applies and needs fingerprint.")
-    fingerprint: str | None = Field(default=None, description="From the preview of exactly this change; required with confirm=true.")
+    reset: bool = Field(
+        default=False, description="Remove the saved settings of a port this tool added (only if still untouched)."
+    )
+    acknowledge_infrastructure: bool = Field(
+        default=False, description="Accept risky changes on an uplink, gateway, switch, AP or console port."
+    )
+    approval_note: str | None = Field(
+        default=None, description="Required with confirm=true: where the approval for this tier C change was given."
+    )
+    confirm: bool = Field(
+        default=False, description="false (default) returns a read-only preview. true applies and needs fingerprint."
+    )
+    fingerprint: str | None = Field(
+        default=None, description="From the preview of exactly this change; required with confirm=true."
+    )
 
     def changes(self) -> dict[str, Any]:
         out: dict[str, Any] = {"port": self.port}
@@ -432,8 +601,13 @@ class SwitchPortInput(BaseModel):
 def register(mcp: MCPServer, engine: WriteEngine) -> None:
     @mcp.tool(
         name=TOOL,
-        annotations={"title": "Change one switch port", "readOnlyHint": False, "destructiveHint": True,
-                     "idempotentHint": True, "openWorldHint": False},
+        annotations={
+            "title": "Change one switch port",
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": True,
+            "openWorldHint": False,
+        },
     )
     async def unifi_console_switch_port(params: SwitchPortInput) -> str:
         """Preview, then apply, a change to ONE port of ONE switch. Tier C: a wrong setting on an uplink, AP or console port can strand it.
@@ -454,10 +628,17 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
                 console_ip = socket.gethostbyname(engine.api.settings.host)
             except OSError:
                 pass
-            spec = replace(SPEC, validate_ctx=make_validate(params.acknowledge_infrastructure, console_ip), guard=make_guard())
+            spec = replace(
+                SPEC, validate_ctx=make_validate(params.acknowledge_infrastructure, console_ip), guard=make_guard()
+            )
             result = await engine.execute(
-                spec, action="update", target=params.target, changes=params.changes(),
-                confirm=params.confirm, fingerprint=params.fingerprint, approval_note=params.approval_note,
+                spec,
+                action="update",
+                target=params.target,
+                changes=params.changes(),
+                confirm=params.confirm,
+                fingerprint=params.fingerprint,
+                approval_note=params.approval_note,
             )
             return json.dumps(result, separators=(",", ":"), default=str)
         except Exception as exc:  # noqa: BLE001 - converted to an actionable message

@@ -1,4 +1,5 @@
 """The HAR extractor keeps the earlier read of an object so a write can be shown as a diff."""
+
 from __future__ import annotations
 
 import json
@@ -18,8 +19,12 @@ def cache(rows):
 
 def test_before_and_changed_keys_for_a_put():
     m = mod()
-    c = cache([{"_id": ID, "name": "apple", "wlan_bands": ["2g", "5g"], "x_iapp_key": "s3cret"},
-               {"_id": "f" * 24, "name": "other"}])
+    c = cache(
+        [
+            {"_id": ID, "name": "apple", "wlan_bands": ["2g", "5g"], "x_iapp_key": "s3cret"},
+            {"_id": "f" * 24, "name": "other"},
+        ]
+    )
     path = f"/proxy/network/api/s/default/rest/wlanconf/{ID}"
     body = json.dumps({"name": "apple", "wlan_bands": ["5g"], "x_iapp_key": "changed"})
     ids, before = m.find_before(c, path, body)
@@ -55,4 +60,7 @@ def test_group_endpoint_looks_up_the_rest_collection():
 def test_secrets_are_masked_in_before():
     m = mod()
     assert m._mask({"x_passphrase": "abc", "name": "n", "nested": {"token": "t"}}) == {
-        "x_passphrase": "<redacted>", "name": "n", "nested": {"token": "<redacted>"}}
+        "x_passphrase": "<redacted>",
+        "name": "n",
+        "nested": {"token": "<redacted>"},
+    }

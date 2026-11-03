@@ -45,7 +45,10 @@ def test_every_write_is_blocked_unless_allowlisted(registry):
 
 def test_build_path_defaults_site_and_quotes(registry):
     op = registry.get("getDeviceDetail")
-    assert op.build_path({"mac": "aa:bb:cc:dd:ee:ff"}, "default") == "/proxy/network/api/s/default/stat/device/aa%3Abb%3Acc%3Add%3Aee%3Aff"
+    assert (
+        op.build_path({"mac": "aa:bb:cc:dd:ee:ff"}, "default")
+        == "/proxy/network/api/s/default/stat/device/aa%3Abb%3Acc%3Add%3Aee%3Aff"
+    )
     with pytest.raises(ValueError):
         op.build_path({}, "default")
 
@@ -58,8 +61,14 @@ def test_unknown_operation_suggests(registry):
 
 # ----------------------------------------------------------------- redact
 def test_redact_removes_x_fields_and_secrets():
-    data = {"name": "ap", "x_passphrase": "hunter2", "nested": [{"x_authkey": "abc", "ok": 1}],
-            "wifi_password": "p", "empty": {"x_aes_gcm": ""}, "key": "mgmt"}
+    data = {
+        "name": "ap",
+        "x_passphrase": "hunter2",
+        "nested": [{"x_authkey": "abc", "ok": 1}],
+        "wifi_password": "p",
+        "empty": {"x_aes_gcm": ""},
+        "key": "mgmt",
+    }
     out = redact(data)
     assert out["x_passphrase"] == "[redacted]" and out["wifi_password"] == "[redacted]"
     assert out["nested"][0]["x_authkey"] == "[redacted]"
@@ -152,7 +161,9 @@ async def test_safe_write_needs_flag_and_confirm(settings, console, registry):
 
 async def test_read_only_post_runs_and_redacts(settings, console, registry):
     api = make_api(settings, console, registry)
-    console.routes[("POST", "/proxy/network/v2/api/site/default/system-log/critical")] = [{"x_secret": "s", "event": "E"}]
+    console.routes[("POST", "/proxy/network/v2/api/site/default/system-log/critical")] = [
+        {"x_secret": "s", "event": "E"}
+    ]
     res = await api.run("querySystemLog", body={"severities": ["HIGH"]})
     assert res.data == [{"x_secret": "[redacted]", "event": "E"}]
 
@@ -162,7 +173,10 @@ async def test_download_saves_to_disk_and_requires_confirm(settings, console, re
     with pytest.raises(UniFiError, match="confirm=true"):
         await api.run("downloadBackup")
     console.routes[("GET", "/api/backup/download")] = lambda r: httpx.Response(
-        200, content=b"BACKUPBYTES", headers={"filename": "unifi_os_backup_1_abc.unifi", "content-type": "application/octet-stream"})
+        200,
+        content=b"BACKUPBYTES",
+        headers={"filename": "unifi_os_backup_1_abc.unifi", "content-type": "application/octet-stream"},
+    )
     res = await api.run("downloadBackup", confirm=True)
     assert res.download.path.read_bytes() == b"BACKUPBYTES"
     text = api.render(res)
@@ -178,10 +192,20 @@ async def test_403_message_points_at_permissions(settings, console, registry):
 
 async def test_error_inside_http_200_envelope_is_surfaced(settings, console, registry):
     api = make_api(settings, console, registry)
-    console.routes[("GET", "/proxy/users/api/v2/keys")] = {"code": 403, "codeS": "NO_PERMISSION", "msg": "denied", "error": {}}
+    console.routes[("GET", "/proxy/users/api/v2/keys")] = {
+        "code": 403,
+        "codeS": "NO_PERMISSION",
+        "msg": "denied",
+        "error": {},
+    }
     with pytest.raises(UniFiError, match="NO_PERMISSION.*Control Plane"):
         await api.run("listApiKeys")
-    console.routes[("GET", "/proxy/users/api/v2/keys")] = {"code": 0, "codeS": "SUCCESS", "msg": "success", "data": [{"id": "k"}]}
+    console.routes[("GET", "/proxy/users/api/v2/keys")] = {
+        "code": 0,
+        "codeS": "SUCCESS",
+        "msg": "success",
+        "data": [{"id": "k"}],
+    }
     res = await api.run("listApiKeys")
     assert res.data == [{"id": "k"}]
 
@@ -203,10 +227,25 @@ def test_probed_read_endpoints_are_reads():
     from unifi_console_mcp.registry import Registry
 
     reg = Registry()
-    ids = ["getSelfSites", "listDynamicDns", "listActiveRoutes", "listHotspotVouchers", "getClientRecord",
-           "getSpectrumScan", "listRogueAps", "listMacAclRules", "listNatRules", "listQosRules", "listStaticDns",
-           "listNetworkMemberGroups", "getNetworkMemberGroup", "listIpsCategories", "getTrafficFlowStatistics",
-           "getCyberSecureSummary", "getSystemLogCount"]
+    ids = [
+        "getSelfSites",
+        "listDynamicDns",
+        "listActiveRoutes",
+        "listHotspotVouchers",
+        "getClientRecord",
+        "getSpectrumScan",
+        "listRogueAps",
+        "listMacAclRules",
+        "listNatRules",
+        "listQosRules",
+        "listStaticDns",
+        "listNetworkMemberGroups",
+        "getNetworkMemberGroup",
+        "listIpsCategories",
+        "getTrafficFlowStatistics",
+        "getCyberSecureSummary",
+        "getSystemLogCount",
+    ]
     for op_id in ids:
         assert reg.get(op_id).access == "read", op_id
     assert reg.get("listRogueAps").method == "POST"
@@ -218,14 +257,31 @@ def test_har_derived_reads_are_reads():
 
     reg = Registry()
     ids = [
-        "listTrafficPolicyObjects", "listPortForwardStats", "listStaticDnsDevices", "getPortAnomaliesForPort",
-        "getDohAvailableServerNames", "getDohDefaults", "getIpsSuricataSettings", "getIpsAdvancedFilteringDefaults",
-        "getSslInspectionSetting", "getSslInspectionSettingDefaults", "listSslInspectionCertificates",
-        "getActiveSslInspectionCertificate", "getClient24hrSatisfaction", "getClientApStats",
-        "getClientConnectionLog", "listDeviceWirelessLinks", "listPowerSupervisorLinks",
-        "listDeviceReplacementCandidates", "listFirewallAppBlocks", "listContentFilteringCategories",
-        "getFirewallPolicyDefaults", "getFirewallZoneDefaults", "getGlobalSwitchSettingDefaults",
-        "getPortMacTables", "queryPortSystemLogs",
+        "listTrafficPolicyObjects",
+        "listPortForwardStats",
+        "listStaticDnsDevices",
+        "getPortAnomaliesForPort",
+        "getDohAvailableServerNames",
+        "getDohDefaults",
+        "getIpsSuricataSettings",
+        "getIpsAdvancedFilteringDefaults",
+        "getSslInspectionSetting",
+        "getSslInspectionSettingDefaults",
+        "listSslInspectionCertificates",
+        "getActiveSslInspectionCertificate",
+        "getClient24hrSatisfaction",
+        "getClientApStats",
+        "getClientConnectionLog",
+        "listDeviceWirelessLinks",
+        "listPowerSupervisorLinks",
+        "listDeviceReplacementCandidates",
+        "listFirewallAppBlocks",
+        "listContentFilteringCategories",
+        "getFirewallPolicyDefaults",
+        "getFirewallZoneDefaults",
+        "getGlobalSwitchSettingDefaults",
+        "getPortMacTables",
+        "queryPortSystemLogs",
     ]
     for i in ids:
         assert reg.get(i).access == "read", i
@@ -237,6 +293,14 @@ def test_second_har_reads_are_reads():
     from unifi_console_mcp.registry import Registry
 
     reg = Registry()
-    for i in ["listDdnsServices", "getWanDefaults", "getWanLoadBalancingConfiguration", "getWanLoadBalancingStatus",
-              "getWlanDefaults", "getWlanCapabilities", "listVpnConnections", "getControllerFirewallPolicy"]:
+    for i in [
+        "listDdnsServices",
+        "getWanDefaults",
+        "getWanLoadBalancingConfiguration",
+        "getWanLoadBalancingStatus",
+        "getWlanDefaults",
+        "getWlanCapabilities",
+        "listVpnConnections",
+        "getControllerFirewallPolicy",
+    ]:
         assert reg.get(i).access == "read", i

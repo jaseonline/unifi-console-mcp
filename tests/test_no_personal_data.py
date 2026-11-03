@@ -3,6 +3,7 @@
 Allowed first octets are locally administered or documentation ranges used by the tests and the spec examples.
 A real device MAC in a fixture, script or document fails this test, so it cannot be published by accident.
 """
+
 import re
 from pathlib import Path
 

@@ -16,6 +16,7 @@ SAFETY
     commands (scripts/doh_restore.py --run, or the UI).
   * Prints state, resolver names and short values only.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -91,7 +92,9 @@ async def main(run: bool, transport: Any = None) -> int:
     original = await with_client(base, transport, baseline)
     print(f"\n[1] original: {json.dumps(original)}")
     if original["state"] != "manual" or not original["server_names"]:
-        print("STOP: DoH is not in manual mode with resolvers selected, so this check does not apply. Nothing was changed.")
+        print(
+            "STOP: DoH is not in manual mode with resolvers selected, so this check does not apply. Nothing was changed."
+        )
         return 1
     extended = original["server_names"] + [n for n in EXTRA if n not in original["server_names"]]
     if extended == original["server_names"]:
@@ -110,7 +113,10 @@ async def main(run: bool, transport: Any = None) -> int:
         print("\n[2] refusals")
         cases = [
             ({"state": "manual", "server_names": ["nosuch-resolver"]}, "not a resolver"),
-            ({"state": "custom", "custom_servers": [{"server_name": "x", "sdns_stamp": "https://example.com"}]}, "sdns://"),
+            (
+                {"state": "custom", "custom_servers": [{"server_name": "x", "sdns_stamp": "https://example.com"}]},
+                "sdns://",
+            ),
             ({"state": "off", "server_names": ["google"]}, "only applies when state is manual"),
         ]
         for args, needle in cases:
@@ -122,8 +128,15 @@ async def main(run: bool, transport: Any = None) -> int:
 
         print("\n[3] add google and google-ipv6")
         out = await apply(client, change_args)
-        print(f"  applied={out['applied']} verified={out['verified']} guard={json.dumps(out.get('guard'))} diff={json.dumps(out['diff'])}")
-        bad += not (out["applied"] and out["verified"] and out["guard"].get("probe_after") == "ok" and list(out["diff"]) == ["server_names"])
+        print(
+            f"  applied={out['applied']} verified={out['verified']} guard={json.dumps(out.get('guard'))} diff={json.dumps(out['diff'])}"
+        )
+        bad += not (
+            out["applied"]
+            and out["verified"]
+            and out["guard"].get("probe_after") == "ok"
+            and list(out["diff"]) == ["server_names"]
+        )
 
         print("\n[4] put the original back")
         out = await apply(client, restore_args)
@@ -135,10 +148,18 @@ async def main(run: bool, transport: Any = None) -> int:
         print("\n[5] the same change with the probe forced to fail")
         out = await apply(client, change_args)
         g = out.get("guard") or {}
-        print(f"  applied={out['applied']} auto_restored={g.get('auto_restored')} restore_verified={g.get('restore_verified')} "
-              f"probe_after_restore={g.get('probe_after_restore')}")
-        return int(not (out["applied"] is False and g.get("auto_restored") and g.get("restore_verified")
-                        and g.get("probe_after_restore") == "ok"))
+        print(
+            f"  applied={out['applied']} auto_restored={g.get('auto_restored')} restore_verified={g.get('restore_verified')} "
+            f"probe_after_restore={g.get('probe_after_restore')}"
+        )
+        return int(
+            not (
+                out["applied"] is False
+                and g.get("auto_restored")
+                and g.get("restore_verified")
+                and g.get("probe_after_restore") == "ok"
+            )
+        )
 
     async def cleanup(client: Client, engine: WriteEngine) -> dict[str, Any]:
         now = pick((await engine._rows(SPEC))[0])
@@ -147,7 +168,9 @@ async def main(run: bool, transport: Any = None) -> int:
             try:
                 await apply(client, restore_args)
             except Exception as exc:  # noqa: BLE001
-                print(f"  RESTORE FAILED: {exc}\n  Run: uv run scripts/doh_restore.py --run   (or set it back in the UI)")
+                print(
+                    f"  RESTORE FAILED: {exc}\n  Run: uv run scripts/doh_restore.py --run   (or set it back in the UI)"
+                )
             now = pick((await engine._rows(SPEC))[0])
         return now
 

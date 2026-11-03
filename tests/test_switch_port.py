@@ -1,4 +1,5 @@
 """Switch port settings through the write framework: whole port_overrides array, one port per call, protections, health guard."""
+
 from __future__ import annotations
 
 import contextlib
@@ -8,14 +9,19 @@ import json
 
 import httpx
 import pytest
-from mcp.client import Client
-
 from conftest import make_jwt
+from mcp.client import Client
 from test_writes import Wrapped
+
 from unifi_console_mcp.server import create_server
 
 API = "/proxy/network/api/s/default"
-DEVICES, BASIC, NETS, STA = f"{API}/stat/device", f"{API}/stat/device-basic", f"{API}/rest/networkconf", f"{API}/stat/sta"
+DEVICES, BASIC, NETS, STA = (
+    f"{API}/stat/device",
+    f"{API}/stat/device-basic",
+    f"{API}/rest/networkconf",
+    f"{API}/stat/sta",
+)
 TOOL = "unifi_console_switch_port"
 NOTE = "plan claude/unifi-console-switch-port-plan-2026-10-18.md, approved in chat"
 N_PRIV, N_IOT, N_SON = "n-priv", "n-iot", "n-son"
@@ -24,43 +30,93 @@ GW_MAC, AP_MAC = "aa:00:00:00:00:10", "aa:00:00:00:00:20"
 
 
 def entry(idx, **kw):
-    base = {"port_idx": idx, "name": f"Port {idx}", "forward": "all", "native_networkconf_id": N_PRIV, "isolation": False,
-            "poe_mode": "auto", "stp_port_mode": True, "flow_control_enabled": True, "autoneg": True, "lldpmed_enabled": True}
+    base = {
+        "port_idx": idx,
+        "name": f"Port {idx}",
+        "forward": "all",
+        "native_networkconf_id": N_PRIV,
+        "isolation": False,
+        "poe_mode": "auto",
+        "stp_port_mode": True,
+        "flow_control_enabled": True,
+        "autoneg": True,
+        "lldpmed_enabled": True,
+    }
     return {**base, **kw}
 
 
 def overrides():
     return [
         entry(1, name="Gateway", poe_mode="off", stp_edge_state="auto"),
-        entry(2, name="Sonos Playbar", native_networkconf_id=N_SON, stormctrl_bcast_enabled=True, stormctrl_bcast_rate="300",
-              stormctrl_type="rate"),
+        entry(
+            2,
+            name="Sonos Playbar",
+            native_networkconf_id=N_SON,
+            stormctrl_bcast_enabled=True,
+            stormctrl_bcast_rate="300",
+            stormctrl_type="rate",
+        ),
         entry(3, name="AP", link_debounce_auto=True),
         entry(4, name="Cloud Key"),
         entry(5, name="spare"),
-        entry(7, name="odd", forward="customize", excluded_networkconf_ids=[N_IOT], dot1x_ctrl="force_authorized", port_security_enabled=False),
+        entry(
+            7,
+            name="odd",
+            forward="customize",
+            excluded_networkconf_ids=[N_IOT],
+            dot1x_ctrl="force_authorized",
+            port_security_enabled=False,
+        ),
     ]
 
 
 def port_table():
     rows = []
     for i in range(1, 9):
-        rows.append({"port_idx": i, "name": f"Port {i}", "up": i in (1, 2, 3, 4), "is_uplink": i == 1, "poe_caps": 0 if i == 1 else 7,
-                     "poe_enable": i in (3, 4), "poe_power": "6.5" if i in (3, 4) else "0.00"})
+        rows.append(
+            {
+                "port_idx": i,
+                "name": f"Port {i}",
+                "up": i in (1, 2, 3, 4),
+                "is_uplink": i == 1,
+                "poe_caps": 0 if i == 1 else 7,
+                "poe_enable": i in (3, 4),
+                "poe_power": "6.5" if i in (3, 4) else "0.00",
+            }
+        )
     return rows
 
 
 def switch():
-    return {"_id": SW, "mac": SW_MAC, "name": "Switch A", "type": "usw", "model": "USL16P", "state": 1, "adopted": True,
-            "config_network": {"ip": "192.168.1.3"}, "stp_priority": "4096", "port_overrides": overrides(), "port_table": port_table(),
-            "uplink": {"port_idx": 1, "type": "wire", "uplink_mac": GW_MAC, "uplink_device_name": "Gateway"}}
+    return {
+        "_id": SW,
+        "mac": SW_MAC,
+        "name": "Switch A",
+        "type": "usw",
+        "model": "USL16P",
+        "state": 1,
+        "adopted": True,
+        "config_network": {"ip": "192.168.1.3"},
+        "stp_priority": "4096",
+        "port_overrides": overrides(),
+        "port_table": port_table(),
+        "uplink": {"port_idx": 1, "type": "wire", "uplink_mac": GW_MAC, "uplink_device_name": "Gateway"},
+    }
 
 
 def devices():
     return [
         switch(),
         {"_id": "gw", "mac": GW_MAC, "name": "Gateway", "type": "ugw", "state": 1, "adopted": True, "uplink": {}},
-        {"_id": "ap", "mac": AP_MAC, "name": "AP Pro", "type": "uap", "state": 1, "adopted": True,
-         "uplink": {"uplink_mac": SW_MAC, "uplink_remote_port": 3, "type": "wire"}},
+        {
+            "_id": "ap",
+            "mac": AP_MAC,
+            "name": "AP Pro",
+            "type": "uap",
+            "state": 1,
+            "adopted": True,
+            "uplink": {"uplink_mac": SW_MAC, "uplink_remote_port": 3, "type": "wire"},
+        },
     ]
 
 
@@ -68,7 +124,7 @@ class FakeSwitchNet:
     def __init__(self) -> None:
         self.devs = devices()
         self.log: list[tuple[str, str, object]] = []
-        self.mutate = None                  # fn(overrides) -> overrides, applied on every PUT (a console that alters other entries)
+        self.mutate = None  # fn(overrides) -> overrides, applied on every PUT (a console that alters other entries)
         self.ap_down_on_put = False
         self.fail_after = None
         self.n_writes = 0
@@ -82,22 +138,49 @@ class FakeSwitchNet:
     def __call__(self, request: httpx.Request) -> httpx.Response:
         path, method = request.url.path, request.method
         if path == "/api/auth/login":
-            return httpx.Response(200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"})
-        wrap = lambda x: {"meta": {"rc": "ok"}, "data": x}  # noqa: E731
+            return httpx.Response(
+                200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"}
+            )
+        wrap = lambda x: {"meta": {"rc": "ok"}, "data": x}
         if method == "GET":
             if path == DEVICES:
                 return httpx.Response(200, json=wrap(copy.deepcopy(self.devs)))
             if path == BASIC:
-                return httpx.Response(200, json=wrap([{k: d[k] for k in ("mac", "name", "type", "state", "adopted")} for d in self.devs]))
+                return httpx.Response(
+                    200, json=wrap([{k: d[k] for k in ("mac", "name", "type", "state", "adopted")} for d in self.devs])
+                )
             if path == NETS:
-                return httpx.Response(200, json=wrap([
-                    {"_id": N_PRIV, "name": "LAN_Private", "purpose": "corporate", "ip_subnet": "192.168.1.1/24"},
-                    {"_id": N_IOT, "name": "LAN_IoT", "purpose": "corporate", "ip_subnet": "10.88.1.1/24"},
-                    {"_id": N_SON, "name": "LAN_Sonos", "purpose": "corporate", "ip_subnet": "10.88.2.1/24"}]))
+                return httpx.Response(
+                    200,
+                    json=wrap(
+                        [
+                            {
+                                "_id": N_PRIV,
+                                "name": "LAN_Private",
+                                "purpose": "corporate",
+                                "ip_subnet": "192.168.1.1/24",
+                            },
+                            {"_id": N_IOT, "name": "LAN_IoT", "purpose": "corporate", "ip_subnet": "10.88.1.1/24"},
+                            {"_id": N_SON, "name": "LAN_Sonos", "purpose": "corporate", "ip_subnet": "10.88.2.1/24"},
+                        ]
+                    ),
+                )
             if path == STA:
-                return httpx.Response(200, json=wrap([
-                    {"mac": "c1", "name": "Sonos Playbar", "sw_mac": SW_MAC, "sw_port": 2, "ip": "10.88.2.5"},
-                    {"mac": "c2", "name": "Cloud Key Gen2 Plus", "sw_mac": SW_MAC, "sw_port": 4, "ip": "127.0.0.1"}]))
+                return httpx.Response(
+                    200,
+                    json=wrap(
+                        [
+                            {"mac": "c1", "name": "Sonos Playbar", "sw_mac": SW_MAC, "sw_port": 2, "ip": "10.88.2.5"},
+                            {
+                                "mac": "c2",
+                                "name": "Cloud Key Gen2 Plus",
+                                "sw_mac": SW_MAC,
+                                "sw_port": 4,
+                                "ip": "127.0.0.1",
+                            },
+                        ]
+                    ),
+                )
             return httpx.Response(404, json={})
         body = json.loads(request.content) if request.content else None
         self.log.append((method, path, body))
@@ -123,14 +206,21 @@ def make_session(settings, tmp_path, monkeypatch):
 
     @contextlib.asynccontextmanager
     async def opener(net, *, entities=frozenset({"switch_port"}), writes=True, force_fail=False):
-        s = dataclasses.replace(settings, enable_writes=writes, write_entities=entities, journal_dir=tmp_path / "journal",
-                                dns_probe_window=1.0, dns_probe_force_fail=force_fail)
+        s = dataclasses.replace(
+            settings,
+            enable_writes=writes,
+            write_entities=entities,
+            journal_dir=tmp_path / "journal",
+            dns_probe_window=1.0,
+            dns_probe_force_fail=force_fail,
+        )
         mcp, api = create_server(s, transport=httpx.MockTransport(net))
         try:
             async with Client(mcp) as client:
                 yield Wrapped(client)
         finally:
             await api.client.aclose()
+
     return opener
 
 
@@ -199,16 +289,29 @@ async def test_reset_removes_an_untouched_entry_only(make_session):
         refused = await raw(c, {"target": "Switch A", "port": 7, "reset": True})
         assert "beyond what this tool creates" in refused
         assert "no saved settings" in await raw(c, {"target": "Switch A", "port": 8, "reset": True})
-        assert "reset takes no other fields" in await raw(c, {"target": "Switch A", "port": 6, "reset": True, "name": "q"})
+        assert "reset takes no other fields" in await raw(
+            c, {"target": "Switch A", "port": 6, "reset": True, "name": "q"}
+        )
 
 
 async def test_storm_control_and_native_network_by_name(make_session):
     net = FakeSwitchNet()
     async with make_session(net) as c:
-        await apply(c, {"target": "Switch A", "port": 5, "native_network": "LAN_IoT",
-                        "storm_control": {"unicast": {"enabled": True, "rate": 500}}})
+        await apply(
+            c,
+            {
+                "target": "Switch A",
+                "port": 5,
+                "native_network": "LAN_IoT",
+                "storm_control": {"unicast": {"enabled": True, "rate": 500}},
+            },
+        )
     e = ent(net.ov(), 5)
-    assert e["native_networkconf_id"] == N_IOT and e["stormctrl_ucast_enabled"] is True and e["stormctrl_ucast_rate"] == 500
+    assert (
+        e["native_networkconf_id"] == N_IOT
+        and e["stormctrl_ucast_enabled"] is True
+        and e["stormctrl_ucast_rate"] == 500
+    )
 
 
 async def test_blocked_networks_need_customize_mode(make_session):
@@ -221,15 +324,18 @@ async def test_blocked_networks_need_customize_mode(make_session):
 
 
 # ------------------------------------------------------------------------------------------------ validation
-@pytest.mark.parametrize("args,text", [
-    ({"port": 99, "name": "x"}, "no port 99"),
-    ({"port": 1, "poe_mode": "off", "acknowledge_infrastructure": True}, "not a PoE port"),
-    ({"port": 5, "native_network": "nope"}, "not a network"),
-    ({"port": 5, "storm_control": {"unicast": {"rate": 0}}}, "whole number"),
-    ({"port": 5, "storm_control": {"unicast": {"rate": 10**9}}}, "whole number"),
-    ({"port": 5}, "Nothing to change"),
-    ({"port": 5, "name": " "}, "1 to 64"),
-])
+@pytest.mark.parametrize(
+    "args,text",
+    [
+        ({"port": 99, "name": "x"}, "no port 99"),
+        ({"port": 1, "poe_mode": "off", "acknowledge_infrastructure": True}, "not a PoE port"),
+        ({"port": 5, "native_network": "nope"}, "not a network"),
+        ({"port": 5, "storm_control": {"unicast": {"rate": 0}}}, "whole number"),
+        ({"port": 5, "storm_control": {"unicast": {"rate": 10**9}}}, "whole number"),
+        ({"port": 5}, "Nothing to change"),
+        ({"port": 5, "name": " "}, "1 to 64"),
+    ],
+)
 async def test_bad_requests_are_refused(make_session, args, text):
     net = FakeSwitchNet()
     async with make_session(net) as c:
@@ -250,12 +356,25 @@ async def test_target_must_be_a_switch(make_session):
 async def test_risky_fields_on_infrastructure_ports_are_refused_unless_acknowledged(make_session, port, what):
     net = FakeSwitchNet()
     async with make_session(net) as c:
-        for args in ({"poe_mode": "off"} if port != 1 else {"isolation": True}, {"native_network": "LAN_IoT"}, {"bpdu_guard": True},
-                     {"storm_control": {"broadcast": {"enabled": True}}}):
+        for args in (
+            {"poe_mode": "off"} if port != 1 else {"isolation": True},
+            {"native_network": "LAN_IoT"},
+            {"bpdu_guard": True},
+            {"storm_control": {"broadcast": {"enabled": True}}},
+        ):
             pre = await call(c, {"target": "Switch A", "port": port, **args})
             assert any("Infrastructure stop" in e and what in e for e in pre["errors"]), (port, args, pre["errors"])
-            assert "Infrastructure stop" in await raw(c, {"target": "Switch A", "port": port, **args, "confirm": True,
-                                                          "fingerprint": pre["fingerprint"], "approval_note": NOTE})
+            assert "Infrastructure stop" in await raw(
+                c,
+                {
+                    "target": "Switch A",
+                    "port": port,
+                    **args,
+                    "confirm": True,
+                    "fingerprint": pre["fingerprint"],
+                    "approval_note": NOTE,
+                },
+            )
     assert net.writes() == []
 
 
@@ -264,7 +383,9 @@ async def test_name_is_always_allowed_and_acknowledgement_unlocks_the_rest(make_
     async with make_session(net) as c:
         pre, out = await apply(c, {"target": "Switch A", "port": 1, "name": "Gateway link"})
         assert out["verified"] and ent(net.ov(), 1)["name"] == "Gateway link"
-        pre, out = await apply(c, {"target": "Switch A", "port": 3, "isolation": True, "acknowledge_infrastructure": True})
+        pre, out = await apply(
+            c, {"target": "Switch A", "port": 3, "isolation": True, "acknowledge_infrastructure": True}
+        )
         assert any("Acknowledged" in w for w in pre["warnings"]) and out["verified"]
 
 
@@ -341,12 +462,16 @@ async def test_gates_and_stale_fingerprint(make_session):
         assert (await call(c, args))["apply_blocked_reason"]
     async with make_session(net, entities=frozenset({"port_forward"})) as c:
         pre = await call(c, args)
-        assert "not enabled for writes" in await raw(c, {**args, "confirm": True, "fingerprint": pre["fingerprint"], "approval_note": NOTE})
+        assert "not enabled for writes" in await raw(
+            c, {**args, "confirm": True, "fingerprint": pre["fingerprint"], "approval_note": NOTE}
+        )
     async with make_session(net) as c:
         pre = await call(c, args)
         assert "approval_note" in await raw(c, {**args, "confirm": True, "fingerprint": pre["fingerprint"]})
         net.sw()["port_overrides"].append(entry(8, name="changed meanwhile"))
-        assert "differs from the preview" in await raw(c, {**args, "confirm": True, "fingerprint": pre["fingerprint"], "approval_note": NOTE})
+        assert "differs from the preview" in await raw(
+            c, {**args, "confirm": True, "fingerprint": pre["fingerprint"], "approval_note": NOTE}
+        )
     assert net.writes() == []
 
 
@@ -361,6 +486,13 @@ async def test_no_change_sends_nothing(make_session):
 async def test_generic_tool_refuses_the_device_settings_write(make_session):
     net = FakeSwitchNet()
     async with make_session(net) as c:
-        res = await c.call_tool("unifi_console_call_operation", {"operation_id": "updateDeviceSettings", "confirm": True,
-                                                                  "path_params": {"id": SW}, "body": {"port_overrides": []}})
+        res = await c.call_tool(
+            "unifi_console_call_operation",
+            {
+                "operation_id": "updateDeviceSettings",
+                "confirm": True,
+                "path_params": {"id": SW},
+                "body": {"port_overrides": []},
+            },
+        )
     assert TOOL in res.content[0].text and net.writes() == []

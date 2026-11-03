@@ -1,4 +1,5 @@
 """Client commands (block, unblock, reconnect, forget) through the shared gates, with read-back."""
+
 from __future__ import annotations
 
 import contextlib
@@ -7,10 +8,10 @@ import json
 
 import httpx
 import pytest
-from mcp.client import Client
-
 from conftest import make_jwt
+from mcp.client import Client
 from test_writes import Wrapped
+
 from unifi_console_mcp.server import create_server
 
 BASE = "/proxy/network/api/s/default"
@@ -23,10 +24,15 @@ AP = "02:00:00:00:00:45"
 
 class FakeStamgr:
     def __init__(self) -> None:
-        self.known = {m: {"_id": m, "mac": m, "name": n, "blocked": False, "use_fixedip": False}
-                      for m, n in ((HUB, "Harmony Hub"), (ECHO, "Amazon Echo"), (OLD, "Old phone"))}
+        self.known = {
+            m: {"_id": m, "mac": m, "name": n, "blocked": False, "use_fixedip": False}
+            for m, n in ((HUB, "Harmony Hub"), (ECHO, "Amazon Echo"), (OLD, "Old phone"))
+        }
         self.known[ECHO].update(use_fixedip=True, fixed_ip="10.88.1.44")
-        self.active = [{"mac": HUB, "name": "Harmony Hub", "is_wired": False}, {"mac": ECHO, "name": "Amazon Echo", "is_wired": True}]
+        self.active = [
+            {"mac": HUB, "name": "Harmony Hub", "is_wired": False},
+            {"mac": ECHO, "name": "Amazon Echo", "is_wired": True},
+        ]
         self.devices = [{"mac": AP, "name": "AP"}]
         self.ignore = False
         self.sent: list[dict] = []
@@ -34,8 +40,10 @@ class FakeStamgr:
     def __call__(self, request: httpx.Request) -> httpx.Response:
         path, method = request.url.path, request.method
         if path == "/api/auth/login":
-            return httpx.Response(200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"})
-        wrap = lambda x: {"meta": {"rc": "ok"}, "data": x}  # noqa: E731
+            return httpx.Response(
+                200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"}
+            )
+        wrap = lambda x: {"meta": {"rc": "ok"}, "data": x}
         if path == BASE + "/rest/user":
             return httpx.Response(200, json=wrap(list(self.known.values())))
         if path == BASE + "/stat/sta":
@@ -61,13 +69,16 @@ class FakeStamgr:
 def make_session(settings, tmp_path):
     @contextlib.asynccontextmanager
     async def opener(net: FakeStamgr, *, entities=frozenset({"client"}), writes=True):
-        s = dataclasses.replace(settings, enable_writes=writes, write_entities=entities, journal_dir=tmp_path / "journal")
+        s = dataclasses.replace(
+            settings, enable_writes=writes, write_entities=entities, journal_dir=tmp_path / "journal"
+        )
         mcp, api = create_server(s, transport=httpx.MockTransport(net))
         try:
             async with Client(mcp) as client:
                 yield Wrapped(client)
         finally:
             await api.client.aclose()
+
     return opener
 
 
@@ -118,9 +129,20 @@ async def test_forget_needs_offline_and_the_history_acknowledgement(make_session
         busy = await call(c, {"command": "forget", "target": HUB})
         assert any("connected right now" in e for e in busy["errors"])
         pre = await call(c, {"command": "forget", "target": OLD})
-        refused = await c.call_tool(TOOL, {"command": "forget", "target": OLD, "confirm": True, "fingerprint": pre["fingerprint"]})
+        refused = await c.call_tool(
+            TOOL, {"command": "forget", "target": OLD, "confirm": True, "fingerprint": pre["fingerprint"]}
+        )
         assert "discard_history" in refused.content[0].text and net.sent == []
-        out = await call(c, {"command": "forget", "target": OLD, "confirm": True, "fingerprint": pre["fingerprint"], "discard_history": True})
+        out = await call(
+            c,
+            {
+                "command": "forget",
+                "target": OLD,
+                "confirm": True,
+                "fingerprint": pre["fingerprint"],
+                "discard_history": True,
+            },
+        )
     assert out["verified"] is True and out["rollback"] is None and OLD not in net.known
 
 
@@ -145,7 +167,9 @@ async def test_gates_and_stale_fingerprint(make_session):
     async with make_session(net) as c:
         pre = await call(c, {"command": "block", "target": HUB})
         net.known[HUB]["name"] = "Renamed"
-        res = await c.call_tool(TOOL, {"command": "block", "target": HUB, "confirm": True, "fingerprint": pre["fingerprint"]})
+        res = await c.call_tool(
+            TOOL, {"command": "block", "target": HUB, "confirm": True, "fingerprint": pre["fingerprint"]}
+        )
     assert "differs from the preview" in res.content[0].text and net.sent == []
 
 

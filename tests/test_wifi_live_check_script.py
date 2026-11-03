@@ -1,10 +1,10 @@
 """The Wi-Fi live check only touches its throwaway SSID and always ends on the original state."""
+
 from __future__ import annotations
 
 import copy
 
 import httpx
-
 from test_doh import load_script
 from test_wifi import FakeWifi
 
@@ -12,8 +12,11 @@ from test_wifi import FakeWifi
 def prepare(monkeypatch, tmp_path):
     from unifi_console_mcp.config import Settings
 
-    monkeypatch.setattr(Settings, "from_env", classmethod(lambda cls: cls(
-        host="console.test", username="u", password="p", journal_dir=tmp_path / "journal")))
+    monkeypatch.setattr(
+        Settings,
+        "from_env",
+        classmethod(lambda cls: cls(host="console.test", username="u", password="p", journal_dir=tmp_path / "journal")),
+    )
     return load_script("wifi_live_check")
 
 
@@ -37,6 +40,7 @@ async def test_run_proves_the_tool_and_leaves_nothing_behind(monkeypatch, tmp_pa
     assert not any(p.rsplit("/", 1)[1] in real for m, p in sent if m in ("PUT", "DELETE"))
     assert {m for m, _ in sent} == {"POST", "PUT", "DELETE"}
     import os
+
     assert "UNIFI_WIFI_CHECK_A" not in os.environ and "SENTINEL" not in out
 
 

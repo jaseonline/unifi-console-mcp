@@ -15,6 +15,7 @@ SAFETY
     change, which proves the automatic restore without any real outage.
   * A finally block puts both ports back if anything was left changed.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -33,8 +34,8 @@ from unifi_console_mcp.writes import WriteEngine
 TOOL = "unifi_console_switch_port"
 NOTE = "switch port live check, approved in chat 2026-10-18 (claude/unifi-console-switch-port-plan-2026-10-18.md)"
 SWITCH = "Switch 16 PoE"
-ADD_PORT, EDIT_PORT = 12, 14                    # unused, link down; 12 has no saved settings, 14 has
-UPLINK_PORT, AP_PORT, CONSOLE_PORT = 1, 6, 8    # refusal previews only
+ADD_PORT, EDIT_PORT = 12, 14  # unused, link down; 12 has no saved settings, 14 has
+UPLINK_PORT, AP_PORT, CONSOLE_PORT = 1, 6, 8  # refusal previews only
 TEST_NAME = "zz-portcheck"
 
 PLAN = f"""\
@@ -67,8 +68,13 @@ async def apply(client: Client, args: dict[str, Any]) -> dict[str, Any]:
 
 
 def snapshot(rows: list[dict[str, Any]]) -> dict[str, str]:
-    return {str(r["_id"]): json.dumps(sorted(r.get("port_overrides") or [], key=lambda e: e.get("port_idx", 0)), sort_keys=True)
-            for r in rows if r.get("type") == "usw"}
+    return {
+        str(r["_id"]): json.dumps(
+            sorted(r.get("port_overrides") or [], key=lambda e: e.get("port_idx", 0)), sort_keys=True
+        )
+        for r in rows
+        if r.get("type") == "usw"
+    }
 
 
 async def with_client(settings: Settings, transport: Any, fn: Any) -> Any:
@@ -106,6 +112,7 @@ async def main(run: bool, transport: Any = None) -> int:
             return 1
         ctx = await engine._context(SPEC)
         import socket
+
         try:
             console_ip = socket.gethostbyname(engine.api.settings.host)
         except OSError:
@@ -113,13 +120,17 @@ async def main(run: bool, transport: Any = None) -> int:
         others = [r for r in rows if r["_id"] != sw["_id"]]
         for idx in (ADD_PORT, EDIT_PORT):
             row = next((p for p in sw.get("port_table") or [] if p.get("port_idx") == idx), None)
-            kind, what = classify(sw, idx, others, ctx.get("clients", []), console_ip) if row else ("missing", "no such port")
+            kind, what = (
+                classify(sw, idx, others, ctx.get("clients", []), console_ip) if row else ("missing", "no such port")
+            )
             print(f"    port {idx}: {kind} ({what})")
             if kind != "unused":
                 print(f"STOP: port {idx} must be unused (no link). Nothing was changed.")
                 return 1
         if entry(sw, ADD_PORT) is not None or entry(sw, EDIT_PORT) is None:
-            print(f"STOP: port {ADD_PORT} must have no saved settings and port {EDIT_PORT} must have some. Nothing was changed.")
+            print(
+                f"STOP: port {ADD_PORT} must have no saved settings and port {EDIT_PORT} must have some. Nothing was changed."
+            )
             return 1
         state.update(snap=snapshot(rows), sw_id=sw["_id"], edit0=entry(sw, EDIT_PORT))
         basic = await engine._read_list("listDevicesBasic")
@@ -152,12 +163,22 @@ async def main(run: bool, transport: Any = None) -> int:
         print(f"\n[3] rename port {ADD_PORT}, then reset it")
         out = await apply(client, {**ref, "port": ADD_PORT, "name": TEST_NAME})
         sw = find(await engine._rows(SPEC))
-        print(f"  rename: applied={out['applied']} verified={out['verified']} entry={'present' if entry(sw, ADD_PORT) else 'MISSING'}")
-        bad += not (out["applied"] and out["verified"] and entry(sw, ADD_PORT) and entry(sw, ADD_PORT)["name"] == TEST_NAME
-                    and "guard" in out and out["guard"].get("probe_after") == "ok")
+        print(
+            f"  rename: applied={out['applied']} verified={out['verified']} entry={'present' if entry(sw, ADD_PORT) else 'MISSING'}"
+        )
+        bad += not (
+            out["applied"]
+            and out["verified"]
+            and entry(sw, ADD_PORT)
+            and entry(sw, ADD_PORT)["name"] == TEST_NAME
+            and "guard" in out
+            and out["guard"].get("probe_after") == "ok"
+        )
         out = await apply(client, {**ref, "port": ADD_PORT, "reset": True})
         sw = find(await engine._rows(SPEC))
-        print(f"  reset: applied={out['applied']} verified={out['verified']} entry={'still present' if entry(sw, ADD_PORT) else 'gone'}")
+        print(
+            f"  reset: applied={out['applied']} verified={out['verified']} entry={'still present' if entry(sw, ADD_PORT) else 'gone'}"
+        )
         bad += not (out["applied"] and out["verified"] and entry(sw, ADD_PORT) is None)
 
         print(f"\n[4] isolation on, then off, for port {EDIT_PORT}")
@@ -176,10 +197,19 @@ async def main(run: bool, transport: Any = None) -> int:
         out = await apply(client, {**ref, "port": EDIT_PORT, "isolation": not was})
         g = out.get("guard") or {}
         now = entry(find(await engine._rows(SPEC)), EDIT_PORT)
-        print(f"  applied={out['applied']} auto_restored={g.get('auto_restored')} restore_verified={g.get('restore_verified')} "
-              f"probe_after_restore={g.get('probe_after_restore')} isolation_now={now.get('isolation')}")
-        return int(not (out["applied"] is False and g.get("auto_restored") and g.get("restore_verified")
-                        and g.get("probe_after_restore") == "ok" and bool(now.get("isolation")) == was))
+        print(
+            f"  applied={out['applied']} auto_restored={g.get('auto_restored')} restore_verified={g.get('restore_verified')} "
+            f"probe_after_restore={g.get('probe_after_restore')} isolation_now={now.get('isolation')}"
+        )
+        return int(
+            not (
+                out["applied"] is False
+                and g.get("auto_restored")
+                and g.get("restore_verified")
+                and g.get("probe_after_restore") == "ok"
+                and bool(now.get("isolation")) == was
+            )
+        )
 
     async def finish(client: Client, engine: WriteEngine) -> list[dict[str, Any]]:
         sw = find(await engine._rows(SPEC))
@@ -189,14 +219,18 @@ async def main(run: bool, transport: Any = None) -> int:
             try:
                 await apply(client, {**ref, "port": ADD_PORT, "reset": True})
             except Exception as exc:  # noqa: BLE001
-                print(f"  RESET FAILED for port {ADD_PORT}: {exc}\n  Fix it in the UI: {SWITCH}, port {ADD_PORT}, remove any override.")
+                print(
+                    f"  RESET FAILED for port {ADD_PORT}: {exc}\n  Fix it in the UI: {SWITCH}, port {ADD_PORT}, remove any override."
+                )
         was = bool(state["edit0"].get("isolation"))
         if e14 is not None and bool(e14.get("isolation")) != was:
             print(f"\n  cleanup: port {EDIT_PORT} isolation is not as found; putting it back")
             try:
                 await apply(client, {**ref, "port": EDIT_PORT, "isolation": was})
             except Exception as exc:  # noqa: BLE001
-                print(f"  RESTORE FAILED for port {EDIT_PORT}: {exc}\n  Fix it in the UI: {SWITCH}, port {EDIT_PORT}, isolation {was}.")
+                print(
+                    f"  RESTORE FAILED for port {EDIT_PORT}: {exc}\n  Fix it in the UI: {SWITCH}, port {EDIT_PORT}, isolation {was}."
+                )
         return await engine._rows(SPEC)
 
     try:

@@ -28,6 +28,7 @@ SAFETY
     can put them back with the switch port tool or in the UniFi UI.
   * remove and adopt are never part of the default stages. The same device cannot be both --ap and --device in one run.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -51,8 +52,19 @@ AP_STAGES = ("locate", "rename", "led", "disable", "restart")
 LIFECYCLE = ("remove", "adopt", "remove-adopt")
 ALL_STAGES = AP_STAGES + LIFECYCLE
 SUFFIX = "-check"
-KEEP = ("name", "led_override", "snmp_contact", "snmp_location", "stp_priority", "mgmt_network_id", "config_network", "port_overrides",
-        "model", "type", "mac")
+KEEP = (
+    "name",
+    "led_override",
+    "snmp_contact",
+    "snmp_location",
+    "stp_priority",
+    "mgmt_network_id",
+    "config_network",
+    "port_overrides",
+    "model",
+    "type",
+    "mac",
+)
 RESTORABLE = ("name", "led_override", "snmp_contact", "snmp_location", "stp_priority")
 
 PLAN = """\
@@ -83,11 +95,13 @@ async def apply(client: Client, args: dict[str, Any], *, approve: bool = False) 
     if not out.get("ok"):
         raise RuntimeError(f"apply failed: {out.get('error')}")
     out["_preview"] = pre
-    out.setdefault("verified", out.get("applied") is False)      # "already in the requested state" sends nothing and counts as fine
+    out.setdefault(
+        "verified", out.get("applied") is False
+    )  # "already in the requested state" sends nothing and counts as fine
     return out
 
 
-async def _pause(seconds: float) -> None:       # a seam for tests
+async def _pause(seconds: float) -> None:  # a seam for tests
     await asyncio.sleep(seconds)
 
 
@@ -119,7 +133,12 @@ async def wait_pending(engine: WriteEngine, mac: str, seconds: int = 240) -> boo
 def pick(rows: list[dict[str, Any]], ref: str) -> dict[str, Any] | None:
     ref_l = ref.strip().lower()
     ref_mac = ref_l.replace("-", ":")
-    hits = [r for r in rows if ref_l in (str(r.get("_id")).lower(), str(r.get("name", "")).lower()) or ref_mac == str(r.get("mac", "")).lower()]
+    hits = [
+        r
+        for r in rows
+        if ref_l in (str(r.get("_id")).lower(), str(r.get("name", "")).lower())
+        or ref_mac == str(r.get("mac", "")).lower()
+    ]
     return hits[0] if len(hits) == 1 else None
 
 
@@ -128,8 +147,12 @@ def behind_of(rows: list[dict[str, Any]], mac: str) -> list[dict[str, Any]]:
 
 
 def suitable(row: dict[str, Any], rows: list[dict[str, Any]]) -> bool:
-    return (row.get("type") in ("uap", "usw") and row.get("state") == 1 and not row.get("disabled")
-            and not behind_of(rows, str(row.get("mac", "")).lower()))
+    return (
+        row.get("type") in ("uap", "usw")
+        and row.get("state") == 1
+        and not row.get("disabled")
+        and not behind_of(rows, str(row.get("mac", "")).lower())
+    )
 
 
 def snapshot_dir(settings: Settings) -> Path:
@@ -150,7 +173,11 @@ def load_snapshot(settings: Settings, mac: str) -> dict[str, Any] | None:
 
 
 def entry_map(row: dict[str, Any]) -> dict[int, dict[str, Any]]:
-    return {int(e["port_idx"]): e for e in row.get("port_overrides") or [] if isinstance(e, dict) and e.get("port_idx") is not None}
+    return {
+        int(e["port_idx"]): e
+        for e in row.get("port_overrides") or []
+        if isinstance(e, dict) and e.get("port_idx") is not None
+    }
 
 
 def not_restored(snap: dict[str, Any], row: dict[str, Any]) -> list[str]:
@@ -163,7 +190,11 @@ def not_restored(snap: dict[str, Any], row: dict[str, Any]) -> list[str]:
     a, b = entry_map(snap), entry_map(row)
     ports = sorted(i for i in set(a) | set(b) if a.get(i) != b.get(i))
     if ports:
-        left.append("port settings for port(s) " + ", ".join(str(i) for i in ports) + " (the saved copy is in the snapshot file)")
+        left.append(
+            "port settings for port(s) "
+            + ", ".join(str(i) for i in ports)
+            + " (the saved copy is in the snapshot file)"
+        )
     return left
 
 
@@ -215,25 +246,35 @@ async def ap_stages(client: Client, engine: WriteEngine, row: dict[str, Any], st
         failures += 1
         print(f"  ERROR: {type(exc).__name__}: {exc}")
     finally:
-        for label, args in (("locate off", {"action": "unlocate", "target": mac}),
-                            ("name", {"action": "update", "target": mac, "name": name0}),
-                            ("LED", {"action": "update", "target": mac, "led_override": led0}),
-                            ("enabled", {"action": "enable", "target": mac})):
+        for label, args in (
+            ("locate off", {"action": "unlocate", "target": mac}),
+            ("name", {"action": "update", "target": mac, "name": name0}),
+            ("LED", {"action": "update", "target": mac, "led_override": led0}),
+            ("enabled", {"action": "enable", "target": mac}),
+        ):
             try:
                 out = await apply(client, args)
-                print(f"  restore {label}: {'already as it was' if out.get('applied') is False else 'put back'}, verified={out['verified']}")
+                print(
+                    f"  restore {label}: {'already as it was' if out.get('applied') is False else 'put back'}, verified={out['verified']}"
+                )
                 failures += not out["verified"]
             except Exception as exc:  # noqa: BLE001
                 failures += 1
-                print(f"  RESTORE {label} FAILED: {exc}. Put it back by hand in the UniFi UI (name '{name0}', LED '{led0}').")
+                print(
+                    f"  RESTORE {label} FAILED: {exc}. Put it back by hand in the UniFi UI (name '{name0}', LED '{led0}')."
+                )
     after = pick(await engine._read_list("listDevicesDetailed"), mac)
     ok = bool(after) and after.get("name") == name0 and not after.get("locating") and not after.get("disabled")
-    print(f"\n[9] final: name='{(after or {}).get('name')}' locating={bool((after or {}).get('locating'))} "
-          f"disabled={bool((after or {}).get('disabled'))} state={(after or {}).get('state')} -> {'as it was' if ok else 'CHECK THE UI'}")
+    print(
+        f"\n[9] final: name='{(after or {}).get('name')}' locating={bool((after or {}).get('locating'))} "
+        f"disabled={bool((after or {}).get('disabled'))} state={(after or {}).get('state')} -> {'as it was' if ok else 'CHECK THE UI'}"
+    )
     return failures + (not ok)
 
 
-async def lifecycle(client: Client, engine: WriteEngine, settings: Settings, device: str, stages: tuple[str, ...]) -> int:
+async def lifecycle(
+    client: Client, engine: WriteEngine, settings: Settings, device: str, stages: tuple[str, ...]
+) -> int:
     failures = 0
     want_remove = "remove" in stages or "remove-adopt" in stages
     want_adopt = "adopt" in stages or "remove-adopt" in stages
@@ -247,12 +288,18 @@ async def lifecycle(client: Client, engine: WriteEngine, settings: Settings, dev
             return 1
         print(f"\n[7] remove {row.get('name')} ({mac}) type={row.get('type')} state={row.get('state')}")
         if not suitable(row, rows):
-            print("  Not suitable: it must be a connected, enabled access point or switch with no other UniFi device behind it. Nothing was changed.")
+            print(
+                "  Not suitable: it must be a connected, enabled access point or switch with no other UniFi device behind it. Nothing was changed."
+            )
             return 1
         path = save_snapshot(settings, row)
         snap = json.loads(path.read_text(encoding="utf-8"))
-        print(f"  snapshot saved: {path}  (name, LED, SNMP, STP priority, management network and address, {len(entry_map(row))} port setting(s))")
-        out = await apply(client, {"action": "remove", "target": mac, "acknowledge_removal": True, "wait_seconds": 120}, approve=True)
+        print(
+            f"  snapshot saved: {path}  (name, LED, SNMP, STP priority, management network and address, {len(entry_map(row))} port setting(s))"
+        )
+        out = await apply(
+            client, {"action": "remove", "target": mac, "acknowledge_removal": True, "wait_seconds": 120}, approve=True
+        )
         print(f"  remove: verified={out['verified']}")
         failures += not out["verified"]
         if want_adopt:
@@ -263,18 +310,32 @@ async def lifecycle(client: Client, engine: WriteEngine, settings: Settings, dev
         if snap is None:
             print("  note: no snapshot found for this device, so nothing will be restored afterwards")
         if not await wait_pending(engine, mac):
-            print("  The console does not list it as waiting to be adopted yet. Check that it is powered and on the network "
-                  "(a removed device may need a minute, or a factory reset), then run the adopt stage again.")
+            print(
+                "  The console does not list it as waiting to be adopted yet. Check that it is powered and on the network "
+                "(a removed device may need a minute, or a factory reset), then run the adopt stage again."
+            )
             return failures + 1
         out = await apply(client, {"action": "adopt", "target": mac, "wait_seconds": 300})
         print(f"  adopt: verified={out['verified']} new id={out.get('new_id')}")
         failures += not out["verified"]
         if out["verified"] and snap:
             now = pick(await engine._read_list("listDevicesDetailed"), mac) or {}
-            todo = {k: snap[k] for k in RESTORABLE if snap.get(k) not in (None, "") and snap[k] != now.get(k)
-                    and not (k == "stp_priority" and now.get("type") != "usw")}
+            todo = {
+                k: snap[k]
+                for k in RESTORABLE
+                if snap.get(k) not in (None, "")
+                and snap[k] != now.get(k)
+                and not (k == "stp_priority" and now.get("type") != "usw")
+            }
             if todo:
-                out = await apply(client, {"action": "update", "target": mac, **{k: (int(v) if k == "stp_priority" else v) for k, v in todo.items()}})
+                out = await apply(
+                    client,
+                    {
+                        "action": "update",
+                        "target": mac,
+                        **{k: (int(v) if k == "stp_priority" else v) for k, v in todo.items()},
+                    },
+                )
                 print(f"  restored {', '.join(todo)}: verified={out['verified']}")
                 failures += not out["verified"]
             else:
@@ -289,8 +350,13 @@ async def lifecycle(client: Client, engine: WriteEngine, settings: Settings, dev
     return failures
 
 
-async def main(run: bool, transport: Any = None, ap: str | None = None, stages: tuple[str, ...] = DEFAULT_STAGES,
-               spare: str | None = None) -> int:
+async def main(
+    run: bool,
+    transport: Any = None,
+    ap: str | None = None,
+    stages: tuple[str, ...] = DEFAULT_STAGES,
+    spare: str | None = None,
+) -> int:
     print("Plan:\n" + PLAN)
     bad = [s for s in stages if s not in ALL_STAGES]
     if bad:
@@ -325,11 +391,15 @@ async def main(run: bool, transport: Any = None, ap: str | None = None, stages: 
                     print(f"\nNo single device matches '{ap}'. Nothing was changed.")
                     return 2
                 mac = str(row["mac"]).lower()
-                print(f"\n[1] {row.get('name')} ({mac}) type={row.get('type')} state={row.get('state')} disabled={bool(row.get('disabled'))} "
-                      f"led_override={row.get('led_override')} devices behind it={len(behind_of(rows, mac))}")
+                print(
+                    f"\n[1] {row.get('name')} ({mac}) type={row.get('type')} state={row.get('state')} disabled={bool(row.get('disabled'))} "
+                    f"led_override={row.get('led_override')} devices behind it={len(behind_of(rows, mac))}"
+                )
                 if not suitable(row, rows):
-                    print("  Not suitable: it must be a connected, enabled access point or switch with no other UniFi device behind it. "
-                          "Nothing was changed.")
+                    print(
+                        "  Not suitable: it must be a connected, enabled access point or switch with no other UniFi device behind it. "
+                        "Nothing was changed."
+                    )
                     return 2
             if life_wanted:
                 other, chosen = pick(rows, spare), (pick(rows, ap) if ap else None)
@@ -354,8 +424,12 @@ def parse(argv: list[str]) -> dict[str, Any]:
         return None
 
     stages = value("--stages")
-    return {"run": "--run" in argv, "ap": value("--ap"), "spare": value("--device", "--spare"),
-            "stages": tuple(s.strip() for s in stages.split(",") if s.strip()) if stages else DEFAULT_STAGES}
+    return {
+        "run": "--run" in argv,
+        "ap": value("--ap"),
+        "spare": value("--device", "--spare"),
+        "stages": tuple(s.strip() for s in stages.split(",") if s.strip()) if stages else DEFAULT_STAGES,
+    }
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
- <img src="https://github.com/jaseonline/unifi-console-mcp/blob/016d94faec2f535740060fd28a8b1c2e86446fdc/.github/gh-social.png" alt="unifi-console-mcp" title="unifi-console-mcp" align="center" />
+<img src=".github/gh-social.png" alt="unifi-console-mcp" title="unifi-console-mcp" align="center" />
 
 An [MCP](https://modelcontextprotocol.io) server for the **undocumented** UniFi OS and Network console APIs, with
 typed, gated write tools. Most UniFi MCP servers use the supported Integration API or a fixed set of legacy calls.
@@ -20,7 +20,8 @@ cover.
 |---|---|
 | `unifi_console_list_operations` | Search the spec by words, tag or access level |
 | `unifi_console_describe_operation` | Parameters, body schema and the spec's own warnings |
-| `unifi_console_call_operation` | Call one operation (reads and read-only queries; refuses configuration writes) |
+| `unifi_console_read_operation` | Run one read operation (including the read-only POST queries). Annotated read-only, so a client can allow it without prompting |
+| `unifi_console_call_operation` | File downloads and gated safe writes (generate a backup or support file). Still runs reads, but is annotated as able to write; refuses configuration writes |
 
 **Curated read tools** for areas other servers skip: `unifi_console_session_status`, `unifi_console_system_log`,
 `unifi_console_firewall_policy_hits` (find unused rules), `unifi_console_poe_overview`,
@@ -75,12 +76,17 @@ to your MCP client. Claude Desktop example (`claude_desktop_config.json`):
 
 More in [docs/getting-started.md](docs/getting-started.md).
 
+**Claude Desktop extension.** Instead of editing `claude_desktop_config.json`, you can build an MCP Bundle
+(`uv run mcpb/build.py`) and install the `.mcpb` with a double-click: Claude Desktop shows a settings form and keeps the
+password and API key in the operating system's secure storage. Blank form fields fall back to the environment variables
+below. See [mcpb/README.md](mcpb/README.md).
+
 ## Configuration
 
 | Variable | Meaning |
 |---|---|
 | `UNIFI_LOCAL_HOST` | Console address, e.g. `192.168.1.2` |
-| `UNIFI_NETWORK_PORT` / `UNIFI_NETWORK_SITE` | HTTPS port (default 443) / site name (default `default`) |
+| `UNIFI_LOCAL_PORT` / `UNIFI_DEFAULT_SITE` | HTTPS port (default 443) / site name (default `default`); `UNIFI_NETWORK_PORT` / `UNIFI_NETWORK_SITE` are also read |
 | `UNIFI_MCP_USERNAME` / `UNIFI_MCP_PASSWORD` | Dedicated local account (no MFA) |
 | `UNIFI_MCP_API_KEY` | Integration API key (only for Integration operations) |
 | `UNIFI_CONSOLE_CERT_SHA256` | Pin the console certificate by SHA-256 fingerprint (preferred) |
@@ -94,6 +100,11 @@ More in [docs/getting-started.md](docs/getting-started.md).
 | `UNIFI_CONSOLE_INTERNET_PROBE` | TCP endpoints the WAN safety net must reach (default `1.1.1.1:443,9.9.9.9:443`) |
 | `UNIFI_CONSOLE_MAX_CHARS` | Response size budget (default 40000) |
 | `UNIFI_CONSOLE_SPEC_PATH` | Use a spec file other than the bundled one |
+| `UNIFI_CONSOLE_LOG_LEVEL` | Server log level: `DEBUG`, `INFO` (default), `WARNING`, `ERROR` or `CRITICAL`. Logs go to stderr, which the client writes to its MCP log, never to the chat |
+
+On Windows, a variable missing from the server's own environment is also read from your persistent user and then system
+environment variables (the registry), so values set with `setx` or System Properties work even when the client did not
+pass them on.
 
 Secrets for Wi-Fi passphrases and Dynamic DNS tokens come from `UNIFI_WIFI_<NAME>` and `UNIFI_DDNS_<NAME>`
 environment variables only; they are never accepted as tool arguments and never appear in previews or the journal.
@@ -105,6 +116,7 @@ environment variables only; they are never accepted as tool arguments and never 
 * [Write tools](docs/write-tools.md): what each typed tool edits and what it leaves alone
 * [Verified behaviours](docs/verified-behaviours.md): console quirks found by live testing
 * [Adding an entity](docs/adding-an-entity.md): capture, spec, build, test
+* [MCP Bundle](mcpb/README.md): building and installing the Claude Desktop extension, and its settings form
 
 ## Status
 

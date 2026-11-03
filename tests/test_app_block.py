@@ -1,4 +1,5 @@
 """Application blocks (Simple App Blocking, v2 `firewall-app-blocks`): the whole set is replaced on every write."""
+
 from __future__ import annotations
 
 import contextlib
@@ -9,12 +10,12 @@ import uuid
 
 import httpx
 import pytest
-from mcp.client import Client
-
 from conftest import make_jwt
+from mcp.client import Client
 from test_writes import Wrapped
-from unifi_console_mcp.entities.app_block import build_blocks, normalise_schedule
+
 from unifi_console_mcp.client import UniFiError
+from unifi_console_mcp.entities.app_block import build_blocks, normalise_schedule
 from unifi_console_mcp.server import create_server
 
 BASE = "/proxy/network/v2/api/site/default"
@@ -24,15 +25,27 @@ NETWORKS = "/proxy/network/api/s/default/rest/networkconf"
 DEVICES = "/proxy/network/api/s/default/stat/device-basic"
 TOOL = "unifi_console_app_block"
 PRIVATE, GUEST = "5a1c0000-0000-4000-8000-000000000001", "5a1c0000-0000-4000-8000-000000000002"
-NETS = [{"_id": PRIVATE, "name": "LAN_Private", "purpose": "corporate"}, {"_id": GUEST, "name": "LAN_Guest", "purpose": "guest"}]
+NETS = [
+    {"_id": PRIVATE, "name": "LAN_Private", "purpose": "corporate"},
+    {"_id": GUEST, "name": "LAN_Guest", "purpose": "guest"},
+]
 MAC = "02:00:00:00:00:31"
 AP_MAC = "02:00:00:00:00:32"
 DAILY = {"mode": "EVERY_DAY", "time_range_start": "09:00", "time_range_end": "12:00"}
 
 
 def make_block(ident="b1", name="Existing", *, mac=MAC, apps=(852009,), schedule=None):
-    return {"_id": ident, "name": name, "type": "DEVICE", "target_type": "APP_ID", "app_ids": list(apps),
-            "app_category_ids": [], "client_macs": [mac], "network_ids": [], "schedule": schedule or dict(DAILY)}
+    return {
+        "_id": ident,
+        "name": name,
+        "type": "DEVICE",
+        "target_type": "APP_ID",
+        "app_ids": list(apps),
+        "app_category_ids": [],
+        "client_macs": [mac],
+        "network_ids": [],
+        "schedule": schedule or dict(DAILY),
+    }
 
 
 class FakeBlocks:
@@ -44,7 +57,9 @@ class FakeBlocks:
     def __call__(self, request: httpx.Request) -> httpx.Response:
         path, method = request.url.path, request.method
         if path == "/api/auth/login":
-            return httpx.Response(200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"})
+            return httpx.Response(
+                200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"}
+            )
         body = json.loads(request.content) if request.content else None
         self.log.append((method, path, body))
         if path == NETWORKS:
@@ -52,7 +67,9 @@ class FakeBlocks:
         if path == DEVICES:
             return httpx.Response(200, json={"meta": {"rc": "ok"}, "data": [{"mac": AP_MAC, "name": "AP"}]})
         if path == POLICIES:
-            return httpx.Response(200, json=[{"origin_type": "simple_app_block", "origin_id": b["_id"]} for b in self.items])
+            return httpx.Response(
+                200, json=[{"origin_type": "simple_app_block", "origin_id": b["_id"]} for b in self.items]
+            )
         if path == BLOCKS and method == "GET":
             return httpx.Response(200, json=copy.deepcopy(self.items))
         if path == BLOCKS and method == "POST":
@@ -77,6 +94,7 @@ def make_session(settings, tmp_path):
                 yield Wrapped(client)
         finally:
             await api.client.aclose()
+
     return opener
 
 
@@ -103,19 +121,46 @@ def create_op(**kw):
 def test_schedule_shapes_match_the_capture():
     assert normalise_schedule({"mode": "ALWAYS"}) == {"mode": "ALWAYS"}
     assert normalise_schedule({"mode": "EVERY_DAY", "time_range_start": "09:00", "time_range_end": "12:00"}) == DAILY
-    assert normalise_schedule({"mode": "EVERY_WEEK", "repeat_on_days": ["mon", "wed"], "time_range_start": "09:00", "time_range_end": "12:00"}) == {
-        "mode": "EVERY_WEEK", "repeat_on_days": ["mon", "wed"], "time_all_day": False, "time_range_start": "09:00", "time_range_end": "12:00"}
-    assert normalise_schedule({"mode": "ONE_TIME_ONLY", "date": "2026-10-27", "time_range_start": "09:00", "time_range_end": "12:00"}) == {
-        "mode": "ONE_TIME_ONLY", "date": "2026-10-27", "time_range_start": "09:00", "time_range_end": "12:00"}
-    assert normalise_schedule({"mode": "CUSTOM", "date_start": "2026-10-18", "date_end": "2026-10-18", "time_all_day": True, "repeat_on_days": ["sat"]}) == {
-        "mode": "CUSTOM", "date_start": "2026-10-18", "date_end": "2026-10-18", "repeat_on_days": ["sat"], "time_all_day": True}
+    assert normalise_schedule(
+        {"mode": "EVERY_WEEK", "repeat_on_days": ["mon", "wed"], "time_range_start": "09:00", "time_range_end": "12:00"}
+    ) == {
+        "mode": "EVERY_WEEK",
+        "repeat_on_days": ["mon", "wed"],
+        "time_all_day": False,
+        "time_range_start": "09:00",
+        "time_range_end": "12:00",
+    }
+    assert normalise_schedule(
+        {"mode": "ONE_TIME_ONLY", "date": "2026-10-27", "time_range_start": "09:00", "time_range_end": "12:00"}
+    ) == {"mode": "ONE_TIME_ONLY", "date": "2026-10-27", "time_range_start": "09:00", "time_range_end": "12:00"}
+    assert normalise_schedule(
+        {
+            "mode": "CUSTOM",
+            "date_start": "2026-10-18",
+            "date_end": "2026-10-18",
+            "time_all_day": True,
+            "repeat_on_days": ["sat"],
+        }
+    ) == {
+        "mode": "CUSTOM",
+        "date_start": "2026-10-18",
+        "date_end": "2026-10-18",
+        "repeat_on_days": ["sat"],
+        "time_all_day": True,
+    }
 
 
-@pytest.mark.parametrize("bad", [
-    {"mode": "EVERY_DAY"}, {"mode": "EVERY_WEEK", "time_range_start": "09:00", "time_range_end": "10:00"},
-    {"mode": "EVERY_WEEK", "repeat_on_days": ["mon", "mon"], "time_all_day": True}, {"mode": "ONE_TIME_ONLY", "time_range_start": "09:00", "time_range_end": "10:00"},
-    {"mode": "CUSTOM", "date_start": "2026-10-18", "repeat_on_days": ["sat"], "time_all_day": True}, {"mode": "SOMETIMES"},
-])
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"mode": "EVERY_DAY"},
+        {"mode": "EVERY_WEEK", "time_range_start": "09:00", "time_range_end": "10:00"},
+        {"mode": "EVERY_WEEK", "repeat_on_days": ["mon", "mon"], "time_all_day": True},
+        {"mode": "ONE_TIME_ONLY", "time_range_start": "09:00", "time_range_end": "10:00"},
+        {"mode": "CUSTOM", "date_start": "2026-10-18", "repeat_on_days": ["sat"], "time_all_day": True},
+        {"mode": "SOMETIMES"},
+    ],
+)
 def test_incomplete_schedules_are_refused(bad):
     with pytest.raises(UniFiError):
         normalise_schedule(bad)
@@ -123,11 +168,21 @@ def test_incomplete_schedules_are_refused(bad):
 
 def test_build_blocks_creates_updates_and_deletes_in_one_pass():
     live = [make_block("a", "A"), make_block("b", "B"), make_block("c", "C")]
-    new = build_blocks(live, [create_op(name="D"), {"op": "update", "target": "A", "apps": [5]}, {"op": "delete", "target": "c"}], NETS)
+    new = build_blocks(
+        live, [create_op(name="D"), {"op": "update", "target": "A", "apps": [5]}, {"op": "delete", "target": "c"}], NETS
+    )
     assert [b["name"] for b in new] == ["A", "B", "D"]
     assert new[0]["_id"] == "a" and new[0]["app_ids"] == [5] and new[2].get("_id") is None
-    assert new[2] == {"name": "D", "app_ids": [1114144], "client_macs": [MAC], "network_ids": [], "type": "DEVICE", "target_type": "APP_ID",
-                      "app_category_ids": [], "schedule": {"mode": "ALWAYS"}}
+    assert new[2] == {
+        "name": "D",
+        "app_ids": [1114144],
+        "client_macs": [MAC],
+        "network_ids": [],
+        "type": "DEVICE",
+        "target_type": "APP_ID",
+        "app_category_ids": [],
+        "schedule": {"mode": "ALWAYS"},
+    }
     assert live[0]["app_ids"] == [852009], "the live copy is not modified"
 
 
@@ -141,12 +196,19 @@ def test_switching_to_a_network_clears_client_macs_and_resolves_names():
     assert new[0]["type"] == "NETWORK" and new[0]["network_ids"] == [GUEST] and new[0]["client_macs"] == []
 
 
-@pytest.mark.parametrize("op, text", [
-    (create_op(clients=None), "exactly one of clients"), (create_op(apps=None), "exactly one of apps"),
-    (create_op(schedule=None), "explicit schedule"), (create_op(name=None), "needs a name"),
-    ({"op": "delete", "target": "nope"}, "No application block"), ({"op": "update", "target": "A", "clients": ["zz"]}, "not a MAC"),
-    ({"op": "update", "target": "A", "networks": ["Nowhere"]}, "match 'Nowhere'"), ({"op": "update", "target": "A", "applies_to": "networks"}, "needs networks"),
-])
+@pytest.mark.parametrize(
+    "op, text",
+    [
+        (create_op(clients=None), "exactly one of clients"),
+        (create_op(apps=None), "exactly one of apps"),
+        (create_op(schedule=None), "explicit schedule"),
+        (create_op(name=None), "needs a name"),
+        ({"op": "delete", "target": "nope"}, "No application block"),
+        ({"op": "update", "target": "A", "clients": ["zz"]}, "not a MAC"),
+        ({"op": "update", "target": "A", "networks": ["Nowhere"]}, "match 'Nowhere'"),
+        ({"op": "update", "target": "A", "applies_to": "networks"}, "needs networks"),
+    ],
+)
 def test_bad_changes_say_which_one_and_why(op, text):
     with pytest.raises(UniFiError, match=text):
         build_blocks([make_block("a", "A")], [op], NETS)
@@ -160,7 +222,9 @@ async def test_create_sends_the_complete_array_and_verifies(make_session):
     assert pre["request"]["method"] == "POST" and pre["request"]["path"] == BLOCKS
     assert len(net.bodies) == 1 and [b["name"] for b in net.bodies[0]] == ["A", "B"]
     assert net.bodies[0][0]["_id"] == "a" and "_id" not in net.bodies[0][1]
-    assert out["applied"] and out["verified"] is True and out["summary"] == {"create": ["B"], "update": [], "delete": []}
+    assert (
+        out["applied"] and out["verified"] is True and out["summary"] == {"create": ["B"], "update": [], "delete": []}
+    )
     assert out["generated_policies"] == {"checked": True, "blocks": 2, "with_generated_policy": 2, "missing": []}
     assert out["rollback"]["replace_all"] == [make_block("a", "A")]
 
@@ -168,7 +232,16 @@ async def test_create_sends_the_complete_array_and_verifies(make_session):
 async def test_several_changes_are_one_request(make_session):
     net = FakeBlocks([make_block("a", "A"), make_block("b", "B")])
     async with make_session(net) as c:
-        _, out = await apply(c, {"changes": [create_op(name="C"), {"op": "update", "target": "A", "apps": [9]}, {"op": "delete", "target": "B"}]})
+        _, out = await apply(
+            c,
+            {
+                "changes": [
+                    create_op(name="C"),
+                    {"op": "update", "target": "A", "apps": [9]},
+                    {"op": "delete", "target": "B"},
+                ]
+            },
+        )
     assert len(net.writes()) == 1 and out["verified"] is True
     assert out["summary"] == {"create": ["C"], "update": ["A"], "delete": ["B"]}
 
@@ -204,7 +277,9 @@ async def test_a_stale_preview_is_refused_when_another_block_changed(make_sessio
         pre = await call(c, {"changes": [create_op(name="C")]})
         net.items[1]["apps"] = None
         net.items[1]["app_ids"] = [1]
-        res = await c.call_tool(TOOL, {"changes": [create_op(name="C")], "confirm": True, "fingerprint": pre["fingerprint"]})
+        res = await c.call_tool(
+            TOOL, {"changes": [create_op(name="C")], "confirm": True, "fingerprint": pre["fingerprint"]}
+        )
     assert "differs from the preview" in res.content[0].text and net.writes() == []
 
 
@@ -215,14 +290,27 @@ async def test_no_change_sends_nothing(make_session):
     assert out["applied"] is False and net.writes() == []
 
 
-@pytest.mark.parametrize("op, text", [
-    (create_op(name="A"), "Two blocks are called"),
-    (create_op(clients=[AP_MAC]), "UniFi device"),
-    (create_op(clients=None, networks=["LAN_Guest"], apps=None, categories=[8]), None),
-    (create_op(apps=[0]), "positive whole numbers"),
-    (create_op(schedule={"mode": "ONE_TIME_ONLY", "date": "2026-13-40", "time_range_start": "09:00", "time_range_end": "10:00"}), "not a date"),
-    (create_op(schedule={"mode": "EVERY_DAY", "time_range_start": "9am", "time_range_end": "10:00"}), "HH:MM"),
-])
+@pytest.mark.parametrize(
+    "op, text",
+    [
+        (create_op(name="A"), "Two blocks are called"),
+        (create_op(clients=[AP_MAC]), "UniFi device"),
+        (create_op(clients=None, networks=["LAN_Guest"], apps=None, categories=[8]), None),
+        (create_op(apps=[0]), "positive whole numbers"),
+        (
+            create_op(
+                schedule={
+                    "mode": "ONE_TIME_ONLY",
+                    "date": "2026-13-40",
+                    "time_range_start": "09:00",
+                    "time_range_end": "10:00",
+                }
+            ),
+            "not a date",
+        ),
+        (create_op(schedule={"mode": "EVERY_DAY", "time_range_start": "9am", "time_range_end": "10:00"}), "HH:MM"),
+    ],
+)
 async def test_validation(make_session, op, text):
     net = FakeBlocks([make_block("a", "A")])
     async with make_session(net) as c:
@@ -267,6 +355,7 @@ async def test_a_console_that_stores_something_else_is_reported(make_session):
             if request.method == "POST" and request.url.path == BLOCKS:
                 self.items = [{**b, "app_ids": []} for b in self.items]
             return resp
+
     net = Lossy()
     async with make_session(net) as c:
         _, out = await apply(c, {"changes": [create_op()]})

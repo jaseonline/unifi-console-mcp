@@ -16,6 +16,7 @@ SAFETY
     leftovers named zz-groupcheck* are removed first.
   * Journal lines go to the normal journal folder. Prints field names and short values only.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -68,8 +69,11 @@ async def apply(client: Client, args: dict[str, Any]) -> dict[str, Any]:
 
 
 def snapshot(rows: list[dict[str, Any]]) -> list[tuple]:
-    return sorted((r["id"], r.get("name"), r.get("type"), tuple(r.get("members") or []))
-                  for r in rows if not str(r.get("name", "")).startswith(PREFIX))
+    return sorted(
+        (r["id"], r.get("name"), r.get("type"), tuple(r.get("members") or []))
+        for r in rows
+        if not str(r.get("name", "")).startswith(PREFIX)
+    )
 
 
 async def main(run: bool, transport: Any = None) -> int:
@@ -97,7 +101,9 @@ async def main(run: bool, transport: Any = None) -> int:
                 print("\n[2] create")
                 out = await apply(client, {"action": "create", "name": PREFIX, "members": [F1, F2]})
                 created_id = out["id"]
-                print(f"  verified={out['verified']} id={created_id} http={out['http_status']} rollback={out['rollback']}")
+                print(
+                    f"  verified={out['verified']} id={created_id} http={out['http_status']} rollback={out['rollback']}"
+                )
                 failures += not out["verified"]
 
                 print("\n[3] rename")
@@ -106,7 +112,9 @@ async def main(run: bool, transport: Any = None) -> int:
                 failures += not out["verified"] or list(out["diff"]) != ["name"]
 
                 print("\n[4] add one member, remove one")
-                out = await apply(client, {"action": "update", "target": created_id, "add_members": [F3], "remove_members": [F1]})
+                out = await apply(
+                    client, {"action": "update", "target": created_id, "add_members": [F3], "remove_members": [F1]}
+                )
                 print(f"  verified={out['verified']} diff={json.dumps(out['diff'])}")
                 failures += not out["verified"] or out["diff"].get("members", {}).get("to") != [F2, F3]
 

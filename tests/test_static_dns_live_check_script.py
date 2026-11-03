@@ -1,11 +1,11 @@
 """The static DNS live check must only touch zz-dnscheck records and leave the fake console as it found it."""
+
 from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
 
 import httpx
-
 from test_network_list_live_check_script import patch_settings
 from test_static_dns import ALIAS, NAS, OFF, V6, FakeDns, rec
 
@@ -27,7 +27,7 @@ async def test_dry_run_touches_nothing(capsys):
 async def test_run_creates_edits_deletes_and_leaves_real_records_alone(monkeypatch, tmp_path, capsys):
     patch_settings(monkeypatch, tmp_path)
     net = FakeDns()
-    net.items["old"] = rec("old", "zz-dnscheck.example.home", "A", "192.0.2.1")        # earlier aborted run
+    net.items["old"] = rec("old", "zz-dnscheck.example.home", "A", "192.0.2.1")  # earlier aborted run
     real = {r["_id"]: dict(r) for r in (NAS, ALIAS, V6, OFF)}
     code = await load().main(True, httpx.MockTransport(net))
     out = capsys.readouterr().out

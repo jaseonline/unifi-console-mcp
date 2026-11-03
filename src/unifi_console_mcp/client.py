@@ -163,8 +163,12 @@ class UniFiClient:
             claims = _decode_jwt_claims(self._http.cookies.get("TOKEN") or "")
             iat, exp = claims.get("iat"), claims.get("exp")
             if iat and exp:
-                info.update(token_issued_at=iat, token_expires_at=exp, token_lifetime_s=exp - iat,
-                            token_remaining_s=int(exp - time.time()))
+                info.update(
+                    token_issued_at=iat,
+                    token_expires_at=exp,
+                    token_lifetime_s=exp - iat,
+                    token_remaining_s=int(exp - time.time()),
+                )
         return info
 
     # ---------------------------------------------------------------- request
@@ -220,8 +224,9 @@ class UniFiClient:
             return resp
         return resp  # pragma: no cover - loop always returns
 
-    async def download(self, path: str, params: dict[str, Any] | None, dest_dir: Path, fallback_name: str,
-                       needs_session: bool = True) -> DownloadResult:
+    async def download(
+        self, path: str, params: dict[str, Any] | None, dest_dir: Path, fallback_name: str, needs_session: bool = True
+    ) -> DownloadResult:
         """Stream a binary response to disk. Never returns file content."""
         if needs_session and not self.logged_in:
             async with self._login_lock:
@@ -231,8 +236,12 @@ class UniFiClient:
         http = await self._client()
         dest_dir.mkdir(parents=True, exist_ok=True)
         for attempt in (1, 2):
-            async with http.stream("GET", path, params=_clean_params(params),
-                                   headers=self._headers("GET", needs_session, {"Accept": "*/*"})) as resp:
+            async with http.stream(
+                "GET",
+                path,
+                params=_clean_params(params),
+                headers=self._headers("GET", needs_session, {"Accept": "*/*"}),
+            ) as resp:
                 self._absorb(resp)
                 if resp.status_code == 401 and needs_session and attempt == 1:
                     async with self._login_lock:
@@ -242,9 +251,11 @@ class UniFiClient:
                 if resp.status_code != 200:
                     body = (await resp.aread())[:300].decode("utf-8", "replace")
                     raise UniFiError(explain_status(resp.status_code, path, body))
-                name = (resp.headers.get("filename")
-                        or _filename_from_disposition(resp.headers.get("content-disposition", ""))
-                        or fallback_name)
+                name = (
+                    resp.headers.get("filename")
+                    or _filename_from_disposition(resp.headers.get("content-disposition", ""))
+                    or fallback_name
+                )
                 target = dest_dir / _safe_filename(name)
                 digest = hashlib.sha256()
                 size = 0
@@ -273,7 +284,7 @@ def _clean_params(params: dict[str, Any] | None) -> dict[str, Any] | None:
 
 
 def _filename_from_disposition(value: str) -> str:
-    match = re.search(r'filename\*?=(?:UTF-8\'\')?"?([^";]+)"?', value, re.I)
+    match = re.search(r'filename\*?=(?:UTF-8\'\')?"?([^";]+)"?', value, re.IGNORECASE)
     return match.group(1) if match else ""
 
 
@@ -283,12 +294,16 @@ def explain_status(status: int, path: str, body: str = "") -> str:
     if status == 401:
         return "401 Unauthorized even after re-login. Check the account credentials / API key."
     if status == 403:
-        return (f"403 Forbidden for {path}. The MCP account probably lacks the permission. Console-level calls "
-                "(backups, support files, API keys) need Control Plane = Admin; Network calls need Network admin "
-                "or view access.")
+        return (
+            f"403 Forbidden for {path}. The MCP account probably lacks the permission. Console-level calls "
+            "(backups, support files, API keys) need Control Plane = Admin; Network calls need Network admin "
+            "or view access."
+        )
     if status == 404:
-        return (f"404 Not Found for {path}. The endpoint may not exist on this firmware (the spec was captured on "
-                "Network 11.0.81), or an id in the path is wrong.")
+        return (
+            f"404 Not Found for {path}. The endpoint may not exist on this firmware (the spec was captured on "
+            "Network 11.0.81), or an id in the path is wrong."
+        )
     if status == 429:
         return "429 Too Many Requests. Wait a minute before retrying."
     if status >= 500:

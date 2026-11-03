@@ -14,6 +14,7 @@ SAFETY
     which proves the automatic restore for this entity without any real outage.
   * A finally block deletes any leftover zz-fwcheck-* policy.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -31,7 +32,9 @@ from unifi_console_mcp.server import create_server
 from unifi_console_mcp.writes import WriteEngine
 
 TOOL = "unifi_console_firewall_policy"
-NOTE = "firewall policy live check, approved in chat 2026-10-18 (claude/unifi-console-firewall-policy-plan-2026-10-18.md)"
+NOTE = (
+    "firewall policy live check, approved in chat 2026-10-18 (claude/unifi-console-firewall-policy-plan-2026-10-18.md)"
+)
 A, B = "zz-fwcheck-a", "zz-fwcheck-b"
 VOLATILE = ("hits", "last_hit")
 
@@ -84,7 +87,11 @@ def mine(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def order(rows: list[dict[str, Any]], z_src: str, z_dst: str) -> list[str]:
-    g = [r for r in rows if not r.get("predefined") and r["source"]["zone_id"] == z_src and r["destination"]["zone_id"] == z_dst]
+    g = [
+        r
+        for r in rows
+        if not r.get("predefined") and r["source"]["zone_id"] == z_src and r["destination"]["zone_id"] == z_dst
+    ]
     return [str(r["name"]) for r in sorted(g, key=lambda r: r["index"])]
 
 
@@ -117,22 +124,61 @@ async def main(run: bool, transport: Any = None) -> int:
     if stop:
         return 1
     dmz, vpn, rows0 = state["dmz"], state["vpn"], state["rows"]
-    a_args = {"name": A, "policy_action": "ALLOW", "protocol": "tcp", "allow_return": False, "logging": False,
-              "source": {"zone": "Dmz"}, "destination": {"zone": "Vpn", "ports": "65000"}}
+    a_args = {
+        "name": A,
+        "policy_action": "ALLOW",
+        "protocol": "tcp",
+        "allow_return": False,
+        "logging": False,
+        "source": {"zone": "Dmz"},
+        "destination": {"zone": "Vpn", "ports": "65000"},
+    }
     b_args = {**a_args, "name": B}
 
     async def steps(client: Client, engine: WriteEngine) -> int:
         bad = 0
         print("\n[2] refusals")
-        sysrow = next((r for r in rows0 if r.get("predefined") and r["source"]["zone_id"] == dmz and r["destination"]["zone_id"] == vpn), None)
+        sysrow = next(
+            (
+                r
+                for r in rows0
+                if r.get("predefined") and r["source"]["zone_id"] == dmz and r["destination"]["zone_id"] == vpn
+            ),
+            None,
+        )
         ret = next((r for r in rows0 if r.get("origin_type") == "custom_firewall_rule"), None)
         cases: list[tuple[dict[str, Any], str]] = [
             ({"action": "update", "target": (sysrow or {}).get("_id", "x"), "description": "x"}, "system-defined"),
             ({"action": "update", "target": (ret or {}).get("_id", "x"), "description": "x"}, "system-defined"),
-            ({"action": "create", "name": "zz-fwcheck-open", "policy_action": "ALLOW", "enabled": True,
-              "source": {"zone": "External"}, "destination": {"zone": "Internal"}}, "Exposure stop"),
-            ({"action": "create", "name": "zz-fwcheck-x", "source": {"zone": "Nowhere"}, "destination": {"zone": "Vpn"}}, "not a zone"),
-            ({"action": "create", **{**a_args, "name": "zz-fwcheck-x", "destination": {"zone": "Vpn", "ports": "99999"}}}, "ports"),
+            (
+                {
+                    "action": "create",
+                    "name": "zz-fwcheck-open",
+                    "policy_action": "ALLOW",
+                    "enabled": True,
+                    "source": {"zone": "External"},
+                    "destination": {"zone": "Internal"},
+                },
+                "Exposure stop",
+            ),
+            (
+                {
+                    "action": "create",
+                    "name": "zz-fwcheck-x",
+                    "source": {"zone": "Nowhere"},
+                    "destination": {"zone": "Vpn"},
+                },
+                "not a zone",
+            ),
+            (
+                {
+                    "action": "create",
+                    **a_args,
+                    "name": "zz-fwcheck-x",
+                    "destination": {"zone": "Vpn", "ports": "99999"},
+                },
+                "ports",
+            ),
         ]
         for args, needle in cases:
             res = await client.call_tool(TOOL, {"params": args})
@@ -141,7 +187,7 @@ async def main(run: bool, transport: Any = None) -> int:
             print(f"  {needle!r}: {'refused' if ok else 'NOT refused: ' + text[:140]}")
             bad += not ok
         if sysrow is None or ret is None:
-            print("  (no system policy in Dmz -> Vpn, or no \"(Return)\" policy, to test against)")
+            print('  (no system policy in Dmz -> Vpn, or no "(Return)" policy, to test against)')
             bad += 1
 
         print("\n[3] create a")
@@ -180,10 +226,19 @@ async def main(run: bool, transport: Any = None) -> int:
         out = await apply(client, {"action": "enable", "target": A})
         g = out.get("guard") or {}
         now = next(r for r in await engine._rows(SPEC) if r["name"] == A)
-        print(f"  applied={out['applied']} auto_restored={g.get('auto_restored')} restore_verified={g.get('restore_verified')} "
-              f"probe_after_restore={g.get('probe_after_restore')} enabled_now={now['enabled']}")
-        return int(not (out["applied"] is False and g.get("auto_restored") and g.get("restore_verified")
-                        and g.get("probe_after_restore") == "ok" and now["enabled"] is False))
+        print(
+            f"  applied={out['applied']} auto_restored={g.get('auto_restored')} restore_verified={g.get('restore_verified')} "
+            f"probe_after_restore={g.get('probe_after_restore')} enabled_now={now['enabled']}"
+        )
+        return int(
+            not (
+                out["applied"] is False
+                and g.get("auto_restored")
+                and g.get("restore_verified")
+                and g.get("probe_after_restore") == "ok"
+                and now["enabled"] is False
+            )
+        )
 
     async def finish(client: Client, engine: WriteEngine) -> list[dict[str, Any]]:
         print("\n[8] delete both")
@@ -193,7 +248,9 @@ async def main(run: bool, transport: Any = None) -> int:
                     out = await apply(client, {"action": "delete", "target": name})
                     print(f"  {name}: applied={out['applied']} verified={out['verified']}")
                 except Exception as exc:  # noqa: BLE001
-                    print(f"  DELETE FAILED for {name}: {exc}\n  Delete it in the UI: Settings > Policy Table, zone pair Dmz -> Vpn.")
+                    print(
+                        f"  DELETE FAILED for {name}: {exc}\n  Delete it in the UI: Settings > Policy Table, zone pair Dmz -> Vpn."
+                    )
         return await engine._rows(SPEC)
 
     try:
@@ -212,7 +269,9 @@ async def main(run: bool, transport: Any = None) -> int:
         gone = sorted(set(state["snap"]) - set(final))
         added = sorted(set(final) - set(state["snap"]))
         changed = sorted(k for k in set(final) & set(state["snap"]) if final[k] != state["snap"][k])
-        print(f"  policies before={len(state['snap'])} after={len(final)} missing={gone} extra={added} changed={changed}")
+        print(
+            f"  policies before={len(state['snap'])} after={len(final)} missing={gone} extra={added} changed={changed}"
+        )
         failures += bool(gone or added or changed)
     print("\nRESULT:", "all checks passed" if not failures else f"{failures} check(s) FAILED")
     return 1 if failures else 0

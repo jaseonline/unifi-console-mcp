@@ -27,16 +27,16 @@ PROBE_ZONES = ("google.com", "amazon.com", "ubuntu.com", "iana.org")
 
 
 def build_query(name: str, qid: int) -> bytes:
-    header = struct.pack(">HHHHHH", qid, 0x0100, 1, 0, 0, 0)       # recursion desired, one question
+    header = struct.pack(">HHHHHH", qid, 0x0100, 1, 0, 0, 0)  # recursion desired, one question
     qname = b"".join(bytes([len(p)]) + p.encode("ascii") for p in name.split(".")) + b"\x00"
-    return header + qname + struct.pack(">HH", 1, 1)               # type A, class IN
+    return header + qname + struct.pack(">HH", 1, 1)  # type A, class IN
 
 
 def reply_ok(data: bytes, qid: int) -> bool:
     if len(data) < 12:
         return False
     rid, flags = struct.unpack(">HH", data[:4])
-    return rid == qid and bool(flags & 0x8000) and (flags & 0x000F) in (0, 3)    # a reply, NOERROR or NXDOMAIN
+    return rid == qid and bool(flags & 0x8000) and (flags & 0x000F) in (0, 3)  # a reply, NOERROR or NXDOMAIN
 
 
 def _ask(host: str, port: int, timeout: float) -> bool:
@@ -87,8 +87,10 @@ async def run_probe(engine: Any, *, window: float, attempts: int | None = None, 
     """None when DNS works, else a short reason. Retries until `window` seconds pass (or `attempts` tries)."""
     server = await resolve_server(engine)
     if server is None:
-        return ("could not work out which DNS server to test (the console's own network was not found). "
-                "Set UNIFI_CONSOLE_DNS_PROBE_SERVER to the gateway address, for example 192.168.1.1")
+        return (
+            "could not work out which DNS server to test (the console's own network was not found). "
+            "Set UNIFI_CONSOLE_DNS_PROBE_SERVER to the gateway address, for example 192.168.1.1"
+        )
     host, port = server
     deadline = time.monotonic() + max(window, 0.0)
     tries = 0
@@ -105,7 +107,11 @@ async def run_probe(engine: Any, *, window: float, attempts: int | None = None, 
 def make_guard(describe: str) -> Guard:
     async def before(engine: Any) -> str | None:
         problem = await run_probe(engine, window=min(engine.api.settings.dns_probe_window, 6.0), attempts=3)
-        return f"DNS is not working before the change ({problem}). Fix that first; the change was not attempted." if problem else None
+        return (
+            f"DNS is not working before the change ({problem}). Fix that first; the change was not attempted."
+            if problem
+            else None
+        )
 
     async def after(engine: Any, phase: str) -> str | None:
         settings = engine.api.settings

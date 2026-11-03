@@ -1,10 +1,10 @@
 """The switch port live check only touches two unused ports and always ends on the original state."""
+
 from __future__ import annotations
 
 import copy
 
 import httpx
-
 from test_doh import load_script
 from test_switch_port import FakeSwitchNet
 
@@ -12,8 +12,15 @@ from test_switch_port import FakeSwitchNet
 def prepare(monkeypatch, tmp_path):
     from unifi_console_mcp.config import Settings
 
-    monkeypatch.setattr(Settings, "from_env", classmethod(lambda cls: cls(
-        host="console.test", username="u", password="p", journal_dir=tmp_path / "journal", dns_probe_window=1.0)))
+    monkeypatch.setattr(
+        Settings,
+        "from_env",
+        classmethod(
+            lambda cls: cls(
+                host="console.test", username="u", password="p", journal_dir=tmp_path / "journal", dns_probe_window=1.0
+            )
+        ),
+    )
     monkeypatch.setattr("unifi_console_mcp.entities.switch_port.socket.gethostbyname", lambda host: "127.0.0.1")
     monkeypatch.setattr("socket.gethostbyname", lambda host: "127.0.0.1")
     mod = load_script("switch_port_live_check")
@@ -43,7 +50,7 @@ async def test_run_proves_the_tool_and_leaves_nothing_behind(monkeypatch, tmp_pa
 async def test_it_stops_when_a_test_port_has_link(monkeypatch, tmp_path, capsys):
     mod = prepare(monkeypatch, tmp_path)
     net = FakeSwitchNet()
-    mod.ADD_PORT = 2          # Sonos port, link up
+    mod.ADD_PORT = 2  # Sonos port, link up
     assert await mod.main(True, httpx.MockTransport(net)) == 1
     assert "must be unused" in capsys.readouterr().out and net.writes() == []
 
@@ -58,9 +65,10 @@ async def test_a_failure_midway_still_cleans_up(monkeypatch, tmp_path, capsys):
     def flaky(request):
         if request.method == "PUT":
             state["n"] += 1
-            if state["n"] == 3:          # the isolation-on write is rejected
+            if state["n"] == 3:  # the isolation-on write is rejected
                 return httpx.Response(500, json={"message": "boom"})
         return orig(request)
+
     code = await mod.main(True, httpx.MockTransport(flaky))
     assert code == 1 and "FAILED" in capsys.readouterr().out
     assert sorted(net.ov(), key=lambda e: e["port_idx"]) == sorted(before, key=lambda e: e["port_idx"])

@@ -1,4 +1,5 @@
 """Firewall policies through the write framework: tier C, five different endpoints, DNS safety net with per-action restore."""
+
 from __future__ import annotations
 
 import contextlib
@@ -9,11 +10,11 @@ import uuid
 
 import httpx
 import pytest
-from mcp.client import Client
-
 from conftest import make_jwt
+from mcp.client import Client
 from test_doh import FakeDns
 from test_writes import Wrapped
+
 from unifi_console_mcp.server import create_server
 
 BASE = "/proxy/network/v2/api/site/default"
@@ -29,15 +30,42 @@ MAC = "02:00:00:00:00:43"
 
 
 def ep(zone, **kw):
-    return {"zone_id": Z[zone], "matching_target": "ANY", "port_matching_type": "ANY", "match_opposite_ports": False, **kw}
+    return {
+        "zone_id": Z[zone],
+        "matching_target": "ANY",
+        "port_matching_type": "ANY",
+        "match_opposite_ports": False,
+        **kw,
+    }
 
 
 def policy(pid, name, src, dst, index, **kw):
-    return {"_id": pid, "name": name, "description": "", "enabled": False, "action": "ALLOW", "index": index, "predefined": False,
-            "ip_version": "BOTH", "protocol": "all", "connection_state_type": "ALL", "connection_states": [],
-            "create_allow_respond": True, "logging": False, "report_flow": True, "match_ip_sec": False,
-            "match_opposite_protocol": False, "icmp_typename": "ANY", "icmp_v6_typename": "ANY", "schedule": {"mode": "ALWAYS"},
-            "source": src, "destination": dst, "hits": 0, "last_hit": None, **kw}
+    return {
+        "_id": pid,
+        "name": name,
+        "description": "",
+        "enabled": False,
+        "action": "ALLOW",
+        "index": index,
+        "predefined": False,
+        "ip_version": "BOTH",
+        "protocol": "all",
+        "connection_state_type": "ALL",
+        "connection_states": [],
+        "create_allow_respond": True,
+        "logging": False,
+        "report_flow": True,
+        "match_ip_sec": False,
+        "match_opposite_protocol": False,
+        "icmp_typename": "ANY",
+        "icmp_v6_typename": "ANY",
+        "schedule": {"mode": "ALWAYS"},
+        "source": src,
+        "destination": dst,
+        "hits": 0,
+        "last_hit": None,
+        **kw,
+    }
 
 
 def seed():
@@ -45,11 +73,27 @@ def seed():
         policy("p-a", "zz-a", ep("Dmz"), ep("Vpn"), 10000),
         policy("p-b", "zz-b", ep("Dmz"), ep("Vpn"), 10001),
         policy("p-c", "zz-c", ep("Dmz"), ep("Vpn"), 10002),
-        policy("p-on", "iot-to-int", ep("IoT", matching_target="NETWORK", network_ids=[N_IOT]), ep("Internal"), 10000,
-               enabled=True, hits=7, last_hit=1700000000),
+        policy(
+            "p-on",
+            "iot-to-int",
+            ep("IoT", matching_target="NETWORK", network_ids=[N_IOT]),
+            ep("Internal"),
+            10000,
+            enabled=True,
+            hits=7,
+            last_hit=1700000000,
+        ),
         policy("sys-block", "Block All Traffic", ep("Dmz"), ep("Vpn"), 2147483647, predefined=True, action="BLOCK"),
         policy("sys-ret", "Allow Return Traffic", ep("Dmz"), ep("Vpn"), 30000, predefined=True),
-        policy("ret-1", "iot-to-int (Return)", ep("Internal"), ep("IoT"), 10000, predefined=True, origin_type="custom_firewall_rule"),
+        policy(
+            "ret-1",
+            "iot-to-int (Return)",
+            ep("Internal"),
+            ep("IoT"),
+            10000,
+            predefined=True,
+            origin_type="custom_firewall_rule",
+        ),
     ]
 
 
@@ -59,29 +103,47 @@ class FakeFw:
         self.rows = seed()
         self.log: list[tuple[str, str, object]] = []
         self.break_dns = lambda method, path, body: False
-        self.fail_after = None          # let N writes succeed, then 500
+        self.fail_after = None  # let N writes succeed, then 500
         self.n_writes = 0
 
     def by(self, pid):
         return next((r for r in self.rows if r["_id"] == pid), None)
 
     def pair(self, s, d):
-        return sorted([r for r in self.rows if r["source"]["zone_id"] == s and r["destination"]["zone_id"] == d], key=lambda r: r["index"])
+        return sorted(
+            [r for r in self.rows if r["source"]["zone_id"] == s and r["destination"]["zone_id"] == d],
+            key=lambda r: r["index"],
+        )
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         path, method = request.url.path, request.method
         if path == "/api/auth/login":
-            return httpx.Response(200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"})
+            return httpx.Response(
+                200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"}
+            )
         body = json.loads(request.content) if request.content else None
-        wrap = lambda x: {"meta": {"rc": "ok"}, "data": x}  # noqa: E731
+        wrap = lambda x: {"meta": {"rc": "ok"}, "data": x}
         if method == "GET":
             if path == POLICIES:
                 return httpx.Response(200, json=copy.deepcopy(self.rows))
             if path == ZONES:
-                return httpx.Response(200, json=[{"_id": v, "name": k, "network_ids": {"Internal": [N_PRIV], "IoT": [N_IOT]}.get(k, [])} for k, v in Z.items()])
+                return httpx.Response(
+                    200,
+                    json=[
+                        {"_id": v, "name": k, "network_ids": {"Internal": [N_PRIV], "IoT": [N_IOT]}.get(k, [])}
+                        for k, v in Z.items()
+                    ],
+                )
             if path == NETS:
-                return httpx.Response(200, json=wrap([{"_id": N_PRIV, "name": "LAN_Private", "purpose": "corporate", "ip_subnet": "127.0.0.1/8"},
-                                                      {"_id": N_IOT, "name": "LAN_IoT", "purpose": "corporate", "ip_subnet": "10.88.1.1/24"}]))
+                return httpx.Response(
+                    200,
+                    json=wrap(
+                        [
+                            {"_id": N_PRIV, "name": "LAN_Private", "purpose": "corporate", "ip_subnet": "127.0.0.1/8"},
+                            {"_id": N_IOT, "name": "LAN_IoT", "purpose": "corporate", "ip_subnet": "10.88.1.1/24"},
+                        ]
+                    ),
+                )
             if path == CLIENTS:
                 return httpx.Response(200, json=wrap([{"mac": MAC, "name": "ha"}]))
             return httpx.Response(404, json={})
@@ -139,14 +201,21 @@ def make_session(settings, tmp_path, monkeypatch):
 
     @contextlib.asynccontextmanager
     async def opener(net: FakeFw, *, entities=frozenset({"firewall_policy"}), writes=True):
-        s = dataclasses.replace(settings, enable_writes=writes, write_entities=entities, journal_dir=tmp_path / "journal",
-                                dns_probe_server=f"127.0.0.1:{net.dns.port}", dns_probe_window=1.0)
+        s = dataclasses.replace(
+            settings,
+            enable_writes=writes,
+            write_entities=entities,
+            journal_dir=tmp_path / "journal",
+            dns_probe_server=f"127.0.0.1:{net.dns.port}",
+            dns_probe_window=1.0,
+        )
         mcp, api = create_server(s, transport=httpx.MockTransport(net))
         try:
             async with Client(mcp) as client:
                 yield Wrapped(client)
         finally:
             await api.client.aclose()
+
     return opener
 
 
@@ -166,8 +235,14 @@ async def apply(c, args, note=NOTE):
     return pre, await call(c, {**args, "confirm": True, "fingerprint": pre["fingerprint"], "approval_note": note})
 
 
-NEW = {"action": "create", "name": "zz-new", "policy_action": "ALLOW", "protocol": "tcp",
-       "source": {"zone": "Dmz"}, "destination": {"zone": "Vpn", "ports": "65000"}}
+NEW = {
+    "action": "create",
+    "name": "zz-new",
+    "policy_action": "ALLOW",
+    "protocol": "tcp",
+    "source": {"zone": "Dmz"},
+    "destination": {"zone": "Vpn", "ports": "65000"},
+}
 
 
 # ------------------------------------------------------------------------------------------------ create
@@ -179,8 +254,13 @@ async def test_create_starts_disabled_sends_captured_shape_and_skips_the_probe(m
     assert (method, path) == ("POST", POLICIES)
     assert body["enabled"] is False and body["action"] == "ALLOW" and body["protocol"] == "tcp"
     assert body["source"]["zone_id"] == Z["Dmz"] and body["destination"] == {
-        "zone_id": Z["Vpn"], "matching_target": "ANY", "matching_target_type": "SPECIFIC", "port_matching_type": "SPECIFIC",
-        "match_opposite_ports": False, "port": "65000"}
+        "zone_id": Z["Vpn"],
+        "matching_target": "ANY",
+        "matching_target_type": "SPECIFIC",
+        "port_matching_type": "SPECIFIC",
+        "match_opposite_ports": False,
+        "port": "65000",
+    }
     assert "hits" not in body and "predefined" not in body and "_id" not in body
     assert out["applied"] is True and out["verified"] is True and out["http_status"] == 201
     assert out["rollback"]["arguments"]["action"] == "delete" and dns.queries == 0
@@ -215,7 +295,12 @@ async def test_update_sends_whole_object_without_hits_and_diffs_only_the_change(
     async with make_session(net) as c:
         _, out = await apply(c, {"action": "update", "target": "zz-a", "description": "d", "logging": True})
     method, path, body = net.writes()[0]
-    assert (method, path) == ("PUT", f"{POLICIES}/p-a") and body["_id"] == "p-a" and body["index"] == 10000 and "source" in body
+    assert (
+        (method, path) == ("PUT", f"{POLICIES}/p-a")
+        and body["_id"] == "p-a"
+        and body["index"] == 10000
+        and "source" in body
+    )
     assert set(out["diff"]) == {"description", "logging"} and out["verified"]
     assert out["rollback"]["arguments"]["target"] == "p-a"
 
@@ -259,10 +344,27 @@ async def test_move_sends_reorder_and_verifies_order(make_session, dns):
     net = FakeFw(dns)
     async with make_session(net) as c:
         pre, out = await apply(c, {"action": "move", "target": "zz-c", "position": "before", "relative_to": "zz-a"})
-    assert net.writes()[0] == ("PUT", f"{POLICIES}/batch-reorder", {
-        "before_predefined_ids": ["p-c", "p-a", "p-b"], "after_predefined_ids": [], "source_zone_id": Z["Dmz"], "destination_zone_id": Z["Vpn"]})
-    assert out["verified"] and [r["_id"] for r in net.pair(Z["Dmz"], Z["Vpn"]) if not r["predefined"]] == ["p-c", "p-a", "p-b"]
-    assert out["rollback"]["arguments"] == {"action": "move", "target": "p-c", "position": "after", "relative_to": "p-b"}
+    assert net.writes()[0] == (
+        "PUT",
+        f"{POLICIES}/batch-reorder",
+        {
+            "before_predefined_ids": ["p-c", "p-a", "p-b"],
+            "after_predefined_ids": [],
+            "source_zone_id": Z["Dmz"],
+            "destination_zone_id": Z["Vpn"],
+        },
+    )
+    assert out["verified"] and [r["_id"] for r in net.pair(Z["Dmz"], Z["Vpn"]) if not r["predefined"]] == [
+        "p-c",
+        "p-a",
+        "p-b",
+    ]
+    assert out["rollback"]["arguments"] == {
+        "action": "move",
+        "target": "p-c",
+        "position": "after",
+        "relative_to": "p-b",
+    }
 
 
 async def test_move_without_change_and_bad_reference(make_session, dns):
@@ -270,19 +372,24 @@ async def test_move_without_change_and_bad_reference(make_session, dns):
     async with make_session(net) as c:
         pre = await call(c, {"action": "move", "target": "zz-a", "position": "first"})
         assert pre["note"].startswith("Already")
-        assert "relative_to" in await raw(c, {"action": "move", "target": "zz-a", "position": "after", "relative_to": "nope"})
+        assert "relative_to" in await raw(
+            c, {"action": "move", "target": "zz-a", "position": "after", "relative_to": "nope"}
+        )
     assert net.writes() == []
 
 
 # ------------------------------------------------------------------------------------------------ protections
-@pytest.mark.parametrize("args", [
-    {"action": "update", "target": "sys-block", "description": "x"},
-    {"action": "enable", "target": "sys-ret"},
-    {"action": "delete", "target": "sys-block"},
-    {"action": "update", "target": "ret-1", "logging": True},
-    {"action": "delete", "target": "ret-1"},
-    {"action": "move", "target": "sys-block", "position": "first"},
-])
+@pytest.mark.parametrize(
+    "args",
+    [
+        {"action": "update", "target": "sys-block", "description": "x"},
+        {"action": "enable", "target": "sys-ret"},
+        {"action": "delete", "target": "sys-block"},
+        {"action": "update", "target": "ret-1", "logging": True},
+        {"action": "delete", "target": "ret-1"},
+        {"action": "move", "target": "sys-block", "position": "first"},
+    ],
+)
 async def test_system_and_return_policies_are_never_changed(make_session, dns, args):
     net = FakeFw(dns)
     async with make_session(net) as c:
@@ -298,12 +405,20 @@ async def test_system_and_return_policies_are_never_changed(make_session, dns, a
 
 async def test_exposure_stop(make_session, dns):
     net = FakeFw(dns)
-    args = {"action": "create", "name": "open", "policy_action": "ALLOW", "enabled": True,
-            "source": {"zone": "External"}, "destination": {"zone": "Internal"}}
+    args = {
+        "action": "create",
+        "name": "open",
+        "policy_action": "ALLOW",
+        "enabled": True,
+        "source": {"zone": "External"},
+        "destination": {"zone": "Internal"},
+    }
     async with make_session(net) as c:
         pre = await call(c, args)
         assert any("Exposure stop" in e for e in pre["errors"])
-        assert "Refused" in await raw(c, {**args, "confirm": True, "fingerprint": pre["fingerprint"], "approval_note": NOTE})
+        assert "Refused" in await raw(
+            c, {**args, "confirm": True, "fingerprint": pre["fingerprint"], "approval_note": NOTE}
+        )
         ok = await call(c, {**args, "acknowledge_exposure": True})
         assert not ok["errors"]
         off = await call(c, {**args, "enabled": False})
@@ -313,8 +428,15 @@ async def test_exposure_stop(make_session, dns):
 
 async def test_outage_stop(make_session, dns):
     net = FakeFw(dns)
-    args = {"action": "create", "name": "cut-dns", "policy_action": "BLOCK", "enabled": True, "protocol": "udp",
-            "source": {"zone": "Internal"}, "destination": {"zone": "Gateway", "ports": "53"}}
+    args = {
+        "action": "create",
+        "name": "cut-dns",
+        "policy_action": "BLOCK",
+        "enabled": True,
+        "protocol": "udp",
+        "source": {"zone": "Internal"},
+        "destination": {"zone": "Gateway", "ports": "53"},
+    }
     async with make_session(net) as c:
         pre = await call(c, args)
         assert any("Outage stop" in e for e in pre["errors"])
@@ -334,22 +456,38 @@ async def test_gates(make_session, dns):
         assert pre["apply_blocked_reason"]
     async with make_session(net, entities=frozenset({"port_forward"})) as c:
         pre = await call(c, NEW)
-        assert "not enabled for writes" in await raw(c, {**NEW, "confirm": True, "fingerprint": pre["fingerprint"], "approval_note": NOTE})
+        assert "not enabled for writes" in await raw(
+            c, {**NEW, "confirm": True, "fingerprint": pre["fingerprint"], "approval_note": NOTE}
+        )
     async with make_session(net) as c:
         pre = await call(c, NEW)
         assert "approval_note" in await raw(c, {**NEW, "confirm": True, "fingerprint": pre["fingerprint"]})
         net.rows[0]["description"] = "changed meanwhile"
         pre = await call(c, {"action": "update", "target": "zz-a", "logging": True})
         net.rows[0]["logging"] = True
-        assert "differs from the preview" in await raw(c, {"action": "update", "target": "zz-a", "logging": True, "confirm": True,
-                                                            "fingerprint": pre["fingerprint"], "approval_note": NOTE})
+        assert "differs from the preview" in await raw(
+            c,
+            {
+                "action": "update",
+                "target": "zz-a",
+                "logging": True,
+                "confirm": True,
+                "fingerprint": pre["fingerprint"],
+                "approval_note": NOTE,
+            },
+        )
     assert net.writes() == []
 
 
 async def test_generic_tool_and_integration_ops_are_refused(make_session, dns):
     net = FakeFw(dns)
     async with make_session(net) as c:
-        for op in ("batchDeleteFirewallPolicies", "reorderFirewallPolicies", "createControllerFirewallPolicy", "deleteFirewallPolicy"):
+        for op in (
+            "batchDeleteFirewallPolicies",
+            "reorderFirewallPolicies",
+            "createControllerFirewallPolicy",
+            "deleteFirewallPolicy",
+        ):
             res = await c.call_tool("unifi_console_call_operation", {"operation_id": op, "confirm": True, "body": []})
             assert TOOL in res.content[0].text, (op, res.content[0].text)
     assert net.writes() == []
@@ -420,5 +558,5 @@ async def test_probe_failing_before_refuses_enabled_change(make_session, dns):
         pre = await call(c, {"action": "enable", "target": "zz-a"})
         assert any("Safety probe" in e for e in pre["errors"])
         pre2 = await call(c, {"action": "update", "target": "zz-a", "description": "x"})
-        assert not pre2["errors"]          # disabled before and after: no probe needed
+        assert not pre2["errors"]  # disabled before and after: no probe needed
     assert net.writes() == []

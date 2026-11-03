@@ -22,6 +22,14 @@ Set `UNIFI_CONSOLE_CERT_SHA256` to the fingerprint without colons.
 Put the variables from the README in the `env` block of your MCP client's server entry, not in a shell session (a
 value in a terminal does not reach a server started by a desktop app). Restart the client after changes.
 
+On Windows you can instead set them as persistent user variables (`setx` or System Properties): the server reads the
+user, then system, environment from the registry for any variable its own environment lacks.
+
+**Using the Claude Desktop extension instead?** Build and install the bundle as described in
+[mcpb/README.md](../mcpb/README.md) and fill in its settings form. A filled field wins; a blank field falls back to the
+same environment variables, so you can keep secrets out of the form and in your environment if you prefer. The form's
+**Log level** field (or `UNIFI_CONSOLE_LOG_LEVEL`) set to `DEBUG` adds detail to the client's MCP log.
+
 ## 4. Check read access first
 Ask the client to run `unifi_console_session_status`, then `unifi_console_list_operations`. If these work, reads are
 configured correctly.

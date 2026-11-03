@@ -12,7 +12,7 @@ from typing import Any
 
 from .client import DownloadResult, UniFiClient, UniFiError, explain_status
 from .config import Settings
-from .redact import fit, filter_text, page, project_fields, redact, unwrap
+from .redact import filter_text, fit, page, project_fields, redact, unwrap
 from .registry import EMPTY_BODY_POSTS, NULL_BODY_POSTS, TYPED_WRITE_TOOLS, Operation, Registry
 
 
@@ -94,20 +94,28 @@ class Api:
         for p in op.params:
             if p.location == "query" and p.required and (query or {}).get(p.name) is None:
                 raise UniFiError(f"Missing required query parameter '{p.name}'. See unifi_console_describe_operation.")
-        if op.method != "GET" and op.body_required and body is None and op.operation_id not in (
-            EMPTY_BODY_POSTS | NULL_BODY_POSTS
+        if (
+            op.method != "GET"
+            and op.body_required
+            and body is None
+            and op.operation_id not in (EMPTY_BODY_POSTS | NULL_BODY_POSTS)
         ):
             raise UniFiError(f"{op.operation_id} requires a JSON body. See unifi_console_describe_operation.")
 
         if op.is_download:
             result = await self.client.download(
-                path, query, self.settings.download_dir, fallback_name=f"{op.operation_id}.bin",
+                path,
+                query,
+                self.settings.download_dir,
+                fallback_name=f"{op.operation_id}.bin",
                 needs_session=op.needs_session,
             )
             return RunResult(op.operation_id, 200, None, result)
 
         send_body = op.operation_id not in EMPTY_BODY_POSTS and (
-            body is not None or op.operation_id in NULL_BODY_POSTS or (op.method != "GET" and op.body_schema is not None)
+            body is not None
+            or op.operation_id in NULL_BODY_POSTS
+            or (op.method != "GET" and op.body_schema is not None)
         )
         resp = await self.client.request(
             op.method, path, params=query, json_body=body, needs_session=op.needs_session, send_body=send_body
@@ -148,7 +156,10 @@ class Api:
         if result.download is not None:
             d = result.download
             envelope["saved_file"] = {
-                "path": str(d.path), "bytes": d.size, "sha256": d.sha256, "content_type": d.content_type,
+                "path": str(d.path),
+                "bytes": d.size,
+                "sha256": d.sha256,
+                "content_type": d.content_type,
                 "warning": "Contains secrets in plain text. Store in a password manager or encrypted storage; do not share.",
             }
             envelope.update(extra or {})
@@ -173,11 +184,17 @@ def error_text(exc: Exception) -> str:
     if isinstance(exc, UniFiError):
         return json.dumps({"ok": False, "error": str(exc)})
     if isinstance(exc, httpx.ConnectError):
-        return json.dumps({"ok": False, "error": "Could not connect to the console. Check UNIFI_LOCAL_HOST / "
-                           "UNIFI_NETWORK_PORT and that the console is reachable from this machine "
-                           "(or, if the certificate is self-signed, set UNIFI_LOCAL_VERIFY_SSL=false or pin it "
-                           "with UNIFI_CONSOLE_CERT_SHA256)."})
+        return json.dumps(
+            {
+                "ok": False,
+                "error": "Could not connect to the console. Check UNIFI_LOCAL_HOST / "
+                "UNIFI_NETWORK_PORT and that the console is reachable from this machine "
+                "(or, if the certificate is self-signed, set UNIFI_LOCAL_VERIFY_SSL=false or pin it "
+                "with UNIFI_CONSOLE_CERT_SHA256).",
+            }
+        )
     if isinstance(exc, httpx.TimeoutException):
-        return json.dumps({"ok": False, "error": "The console timed out. Retry once; large queries may need a "
-                           "narrower time window."})
+        return json.dumps(
+            {"ok": False, "error": "The console timed out. Retry once; large queries may need a narrower time window."}
+        )
     return json.dumps({"ok": False, "error": f"Unexpected {type(exc).__name__}: {exc}"})

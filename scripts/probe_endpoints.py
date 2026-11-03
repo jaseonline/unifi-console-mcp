@@ -21,8 +21,23 @@ from typing import Any
 from unifi_console_mcp.client import UniFiClient, UniFiError
 from unifi_console_mcp.config import Settings
 
-ENUM_KEYS = {"type", "status", "state", "mode", "category", "severity", "action", "direction", "protocol",
-             "origin", "key", "version", "subsystem", "kind", "enabled"}
+ENUM_KEYS = {
+    "type",
+    "status",
+    "state",
+    "mode",
+    "category",
+    "severity",
+    "action",
+    "direction",
+    "protocol",
+    "origin",
+    "key",
+    "version",
+    "subsystem",
+    "kind",
+    "enabled",
+}
 OUT = Path(__file__).resolve().parent.parent / "probe_out" / "endpoints.json"
 
 
@@ -57,8 +72,15 @@ def shape(value: Any, key: str = "", depth: int = 0) -> Any:
     return type(value).__name__
 
 
-async def hit(client: UniFiClient, results: list[dict], label: str, method: str, path: str,
-              body: Any = None, query: dict | None = None) -> Any:
+async def hit(
+    client: UniFiClient,
+    results: list[dict],
+    label: str,
+    method: str,
+    path: str,
+    body: Any = None,
+    query: dict | None = None,
+) -> Any:
     started = time.perf_counter()
     rec: dict[str, Any] = {"label": label, "method": method, "path": path}
     if body is not None:
@@ -84,7 +106,9 @@ async def hit(client: UniFiClient, results: list[dict], label: str, method: str,
         if resp.status_code >= 400:
             rec["error_text"] = resp.text[:200]
     if resp.status_code >= 400 and isinstance(parsed, dict):
-        rec["error_text"] = json.dumps({k: v for k, v in parsed.items() if k in ("code", "codeS", "msg", "message", "meta")})[:300]
+        rec["error_text"] = json.dumps(
+            {k: v for k, v in parsed.items() if k in ("code", "codeS", "msg", "message", "meta")}
+        )[:300]
     results.append(rec)
     print(f"{label:34} {method:4} HTTP {resp.status_code} {ms:5}ms {len(resp.content):8}B")
     return parsed
@@ -136,8 +160,7 @@ async def main() -> None:
         await hit(client, results, "stat spectrum-scan/{ap}", "GET", f"{v1}/stat/spectrum-scan/{ap}")
 
     # ---- v1 read-only POST queries (bodies are guesses; each attempt is recorded)
-    for i, body in enumerate(({"start": now - day, "end": now, "_limit": 5},
-                              {"_limit": 5}), 1):
+    for i, body in enumerate(({"start": now - day, "end": now, "_limit": 5}, {"_limit": 5}), 1):
         await hit(client, results, f"ips event (body {i})", "POST", f"{v1}/stat/ips/event", body)
     for i, body in enumerate(({"within": 24, "_limit": 5}, {}), 1):
         await hit(client, results, f"rogueap (body {i})", "POST", f"{v1}/stat/rogueap", body)
@@ -145,25 +168,49 @@ async def main() -> None:
     await hit(client, results, "stat event POST (sirkirby)", "POST", f"{v1}/stat/event", {"_limit": 3})
 
     # ---- v2 reads
-    for name in ("acl-rules", "cybersecure/summary", "nat", "network-members-groups", "qos-rules",
-                 "settings/ips/available-categories", "static-dns", "traffic-flow-latest-statistics",
-                 "firewall/zones", "firewall/zone"):
+    for name in (
+        "acl-rules",
+        "cybersecure/summary",
+        "nat",
+        "network-members-groups",
+        "qos-rules",
+        "settings/ips/available-categories",
+        "static-dns",
+        "traffic-flow-latest-statistics",
+        "firewall/zones",
+        "firewall/zone",
+    ):
         parsed = await hit(client, results, f"v2 {name}", "GET", f"{v2}/{name}")
         if name == "network-members-groups":
             gid = first(parsed, "id") or first(parsed, "_id")
             if gid:
                 await hit(client, results, "v2 network-members-group/{id}", "GET", f"{v2}/network-members-group/{gid}")
 
-    base = {"searchText": "", "type": "GENERAL", "timestampFrom": now - 7 * day, "timestampTo": now,
-            "severities": ["LOW", "MEDIUM", "HIGH", "VERY_HIGH"], "clientDeviceMacs": [], "adminIds": []}
+    base = {
+        "searchText": "",
+        "type": "GENERAL",
+        "timestampFrom": now - 7 * day,
+        "timestampTo": now,
+        "severities": ["LOW", "MEDIUM", "HIGH", "VERY_HIGH"],
+        "clientDeviceMacs": [],
+        "adminIds": [],
+    }
     await hit(client, results, "system-log/count (body 1)", "POST", f"{v2}/system-log/count", base)
-    await hit(client, results, "system-log/count (body 2)", "POST", f"{v2}/system-log/count",
-              {"timestampFrom": now - 7 * day, "timestampTo": now})
+    await hit(
+        client,
+        results,
+        "system-log/count (body 2)",
+        "POST",
+        f"{v2}/system-log/count",
+        {"timestampFrom": now - 7 * day, "timestampTo": now},
+    )
 
     await client.aclose()
     OUT.parent.mkdir(exist_ok=True)
-    OUT.write_text(json.dumps({"controller_site": s.site, "client_stats": client.stats, "results": results},
-                              indent=1), encoding="utf-8")
+    OUT.write_text(
+        json.dumps({"controller_site": s.site, "client_stats": client.stats, "results": results}, indent=1),
+        encoding="utf-8",
+    )
     print(f"\nWrote {OUT} ({len(results)} probes). client stats: {json.dumps(client.stats)}")
 
 
@@ -175,9 +222,22 @@ async def round2() -> None:
     await client.login()
     v2 = f"/proxy/network/v2/api/site/{s.site}"
     for period in ("DAY", "WEEK"):
-        await hit(client, results, f"cybersecure/summary {period}", "GET", f"{v2}/cybersecure/summary", query={"period": period})
-    await hit(client, results, "traffic-flow-latest-statistics", "GET", f"{v2}/traffic-flow-latest-statistics",
-              query={"period": "DAY", "top": 5})
+        await hit(
+            client,
+            results,
+            f"cybersecure/summary {period}",
+            "GET",
+            f"{v2}/cybersecure/summary",
+            query={"period": period},
+        )
+    await hit(
+        client,
+        results,
+        "traffic-flow-latest-statistics",
+        "GET",
+        f"{v2}/traffic-flow-latest-statistics",
+        query={"period": "DAY", "top": 5},
+    )
     await client.aclose()
     out = OUT.with_name("endpoints_round2.json")
     out.write_text(json.dumps({"results": results}, indent=1), encoding="utf-8")

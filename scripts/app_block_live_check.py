@@ -12,6 +12,7 @@ SAFETY
     finally block it puts that exact set back (existing blocks keep their ids). It compares the other blocks before and after.
   * `[]` (delete everything) is only exercised when the set was already empty, so a real block is never at risk.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -24,7 +25,6 @@ from typing import Any
 from mcp.client import Client
 
 from unifi_console_mcp.config import Settings
-from unifi_console_mcp.entities.app_block import SPEC
 from unifi_console_mcp.server import create_server
 from unifi_console_mcp.writes import WriteEngine
 
@@ -33,7 +33,13 @@ TOOL = "unifi_console_app_block"
 HUB = os.environ.get("UNIFI_LIVE_CHECK_CLIENT_MAC", "02:00:00:00:00:23").lower()   # a harmless client on YOUR console
 APP = 1114144
 ONE_TIME = {"mode": "ONE_TIME_ONLY", "date": "2030-01-01", "time_range_start": "03:00", "time_range_end": "03:05"}
-CUSTOM = {"mode": "CUSTOM", "date_start": "2030-01-01", "date_end": "2030-01-02", "time_all_day": True, "repeat_on_days": ["tue"]}
+CUSTOM = {
+    "mode": "CUSTOM",
+    "date_start": "2030-01-01",
+    "date_end": "2030-01-02",
+    "time_all_day": True,
+    "repeat_on_days": ["tue"],
+}
 
 PLAN = f"""\
 1. read the existing blocks (read only) and remember every one
@@ -62,7 +68,9 @@ async def apply(client: Client, args: dict[str, Any]) -> dict[str, Any]:
     if not out.get("ok"):
         raise RuntimeError(f"apply failed: {out.get('error')}")
     out["_preview"] = pre
-    out.setdefault("verified", out.get("applied") is False)      # "already in the requested state" sends nothing and counts as fine
+    out.setdefault(
+        "verified", out.get("applied") is False
+    )  # "already in the requested state" sends nothing and counts as fine
     return out
 
 
@@ -90,14 +98,23 @@ async def main(run: bool, transport: Any = None) -> int:
             original = await engine._read_list("listFirewallAppBlocks")
             print(f"\n[1] {len(original)} existing block(s)")
             for b in original:
-                print(f"    {b.get('name')}: {b.get('type')} {b.get('target_type')} {b.get('schedule', {}).get('mode')}")
+                print(
+                    f"    {b.get('name')}: {b.get('type')} {b.get('target_type')} {b.get('schedule', {}).get('mode')}"
+                )
             keep = others(original)
             leftovers = [b for b in original if str(b.get("name", "")).startswith(PREFIX)]
             if leftovers:
                 print(f"  note: {len(leftovers)} leftover {PREFIX}* block(s) will be removed by the restore in step 8")
             try:
                 print("\n[2] create (one time, 2030)")
-                out = await apply(client, {"changes": [{"op": "create", "name": PREFIX, "clients": [HUB], "apps": [APP], "schedule": ONE_TIME}]})
+                out = await apply(
+                    client,
+                    {
+                        "changes": [
+                            {"op": "create", "name": PREFIX, "clients": [HUB], "apps": [APP], "schedule": ONE_TIME}
+                        ]
+                    },
+                )
                 rows = await engine._read_list("listFirewallAppBlocks")
                 row = next((r for r in rows if r.get("name") == PREFIX), {})
                 print(f"  verified={out['verified']} keys={sorted(row)} schedule={row.get('schedule')}")
@@ -119,13 +136,27 @@ async def main(run: bool, transport: Any = None) -> int:
                 out = await apply(client, {"changes": [{"op": "update", "target": PREFIX + "-r", "categories": [6]}]})
                 rows = await engine._read_list("listFirewallAppBlocks")
                 row = next((r for r in rows if r.get("name") == PREFIX + "-r"), {})
-                print(f"  verified={out['verified']} target_type={row.get('target_type')} app_ids={row.get('app_ids')} categories={row.get('app_category_ids')}")
+                print(
+                    f"  verified={out['verified']} target_type={row.get('target_type')} app_ids={row.get('app_ids')} categories={row.get('app_category_ids')}"
+                )
                 failures += not out["verified"] or row.get("app_ids") != [] or row.get("app_category_ids") != [6]
 
                 print("\n[6] several changes, one request")
-                out = await apply(client, {"changes": [
-                    {"op": "create", "name": PREFIX + "-2", "clients": [HUB], "apps": [APP], "schedule": ONE_TIME},
-                    {"op": "update", "target": PREFIX + "-r", "apps": [APP]}]})
+                out = await apply(
+                    client,
+                    {
+                        "changes": [
+                            {
+                                "op": "create",
+                                "name": PREFIX + "-2",
+                                "clients": [HUB],
+                                "apps": [APP],
+                                "schedule": ONE_TIME,
+                            },
+                            {"op": "update", "target": PREFIX + "-r", "apps": [APP]},
+                        ]
+                    },
+                )
                 print(f"  verified={out['verified']} summary={out['summary']} journal={out['journal_id']}")
                 failures += not out["verified"]
                 rollback = out["rollback"]
@@ -133,7 +164,9 @@ async def main(run: bool, transport: Any = None) -> int:
                 print("\n[7] replay the rollback")
                 out = await apply(client, rollback)
                 rows = await engine._read_list("listFirewallAppBlocks")
-                print(f"  verified={out['verified']} names={[r.get('name') for r in rows if str(r.get('name')).startswith(PREFIX)]}")
+                print(
+                    f"  verified={out['verified']} names={[r.get('name') for r in rows if str(r.get('name')).startswith(PREFIX)]}"
+                )
                 failures += not out["verified"]
             except Exception as exc:  # report, then fall through to the restore
                 failures += 1

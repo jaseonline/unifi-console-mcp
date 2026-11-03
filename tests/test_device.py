@@ -1,4 +1,5 @@
 """unifi_console_device: locate, restart, disable, enable, update, adopt and remove (fake console, nothing real is touched)."""
+
 from __future__ import annotations
 
 import contextlib
@@ -8,10 +9,10 @@ import json
 
 import httpx
 import pytest
-from mcp.client import Client
-
 from conftest import make_jwt
+from mcp.client import Client
 from test_writes import Wrapped
+
 from unifi_console_mcp.client import UniFiError
 from unifi_console_mcp.entities import device as dev
 from unifi_console_mcp.server import create_server
@@ -19,30 +20,86 @@ from unifi_console_mcp.server import create_server
 API = "/proxy/network/api/s/default"
 TOOL = "unifi_console_device"
 PRIVATE, IOT = "5a1c0000-0000-4000-8000-0000000000a1", "5a1c0000-0000-4000-8000-0000000000a2"
-NETS = [{"_id": PRIVATE, "name": "LAN_Private", "purpose": "corporate"}, {"_id": IOT, "name": "LAN_IoT", "purpose": "corporate"},
-        {"_id": "wan1", "name": "Internet", "purpose": "wan"}]
+NETS = [
+    {"_id": PRIVATE, "name": "LAN_Private", "purpose": "corporate"},
+    {"_id": IOT, "name": "LAN_IoT", "purpose": "corporate"},
+    {"_id": "wan1", "name": "Internet", "purpose": "wan"},
+]
 AP, SW, GW, NEW = "02:00:00:00:00:41", "02:00:00:00:00:42", "02:00:00:00:00:43", "02:00:00:00:00:44"
 
 
 def rows():
     return [
-        {"_id": "id-ap", "mac": AP, "name": "AP-Lounge", "type": "uap", "model": "U6", "ip": "192.168.1.20", "state": 1, "adopted": True,
-         "uptime": 5000, "num_sta": 3, "uplink": {"uplink_mac": SW}, "mgmt_network_id": PRIVATE, "led_override": "default",
-         "config_network": {"type": "dhcp", "bonding_enabled": False}, "x_authkey": "SECRET-KEY", "syslog_key": "SECRET-SYSLOG"},
-        {"_id": "id-sw", "mac": SW, "name": "Switch-Core", "type": "usw", "model": "USW8", "ip": "192.168.1.4", "state": 1, "adopted": True,
-         "uptime": 90000, "stp_priority": "8192", "mgmt_network_id": PRIVATE, "uplink": {"uplink_mac": GW},
-         "port_table": [{"port_idx": 1, "poe_enable": True, "poe_power": "6.5"}, {"port_idx": 2, "poe_enable": False}],
-         "config_network": {"type": "static", "ip": "192.168.1.4", "netmask": "255.255.255.0", "gateway": "192.168.1.1",
-                            "dns1": "192.168.1.1", "dns2": "", "bonding_enabled": False}, "x_authkey": "SECRET-KEY-2"},
-        {"_id": "id-gw", "mac": GW, "name": "Gateway", "type": "ugw", "model": "UXG", "ip": "192.168.1.1", "state": 1, "adopted": True,
-         "uptime": 200000, "uplink": {}, "config_network": {"type": "static", "ip": "192.168.1.1"}},
+        {
+            "_id": "id-ap",
+            "mac": AP,
+            "name": "AP-Lounge",
+            "type": "uap",
+            "model": "U6",
+            "ip": "192.168.1.20",
+            "state": 1,
+            "adopted": True,
+            "uptime": 5000,
+            "num_sta": 3,
+            "uplink": {"uplink_mac": SW},
+            "mgmt_network_id": PRIVATE,
+            "led_override": "default",
+            "config_network": {"type": "dhcp", "bonding_enabled": False},
+            "x_authkey": "SECRET-KEY",
+            "syslog_key": "SECRET-SYSLOG",
+        },
+        {
+            "_id": "id-sw",
+            "mac": SW,
+            "name": "Switch-Core",
+            "type": "usw",
+            "model": "USW8",
+            "ip": "192.168.1.4",
+            "state": 1,
+            "adopted": True,
+            "uptime": 90000,
+            "stp_priority": "8192",
+            "mgmt_network_id": PRIVATE,
+            "uplink": {"uplink_mac": GW},
+            "port_table": [
+                {"port_idx": 1, "poe_enable": True, "poe_power": "6.5"},
+                {"port_idx": 2, "poe_enable": False},
+            ],
+            "config_network": {
+                "type": "static",
+                "ip": "192.168.1.4",
+                "netmask": "255.255.255.0",
+                "gateway": "192.168.1.1",
+                "dns1": "192.168.1.1",
+                "dns2": "",
+                "bonding_enabled": False,
+            },
+            "x_authkey": "SECRET-KEY-2",
+        },
+        {
+            "_id": "id-gw",
+            "mac": GW,
+            "name": "Gateway",
+            "type": "ugw",
+            "model": "UXG",
+            "ip": "192.168.1.1",
+            "state": 1,
+            "adopted": True,
+            "uptime": 200000,
+            "uplink": {},
+            "config_network": {"type": "static", "ip": "192.168.1.1"},
+        },
     ]
 
 
 class FakeDevices:
     def __init__(self, *, restart_works=True, pending=True) -> None:
         self.rows = rows()
-        self.pending = [{"_id": "id-new", "mac": NEW, "name": "New AP", "type": "uap", "adopted": False, "state": 2}] if pending else []
+        self.pending = (
+            [{"_id": "id-new", "mac": NEW, "name": "New AP", "type": "uap", "adopted": False, "state": 2}]
+            if pending
+            else []
+        )
         self.restart_works = restart_works
         self.log: list[tuple[str, str, object]] = []
 
@@ -53,10 +110,12 @@ class FakeDevices:
     def __call__(self, request: httpx.Request) -> httpx.Response:
         path, method = request.url.path, request.method
         if path == "/api/auth/login":
-            return httpx.Response(200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"})
+            return httpx.Response(
+                200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"}
+            )
         body = json.loads(request.content) if request.content else None
         self.log.append((method, path, body))
-        ok = lambda data: httpx.Response(200, json={"meta": {"rc": "ok"}, "data": data})  # noqa: E731
+        ok = lambda data: httpx.Response(200, json={"meta": {"rc": "ok"}, "data": data})
         if path == API + "/stat/device":
             return ok(copy.deepcopy(self.rows))
         if path == API + "/stat/device-basic":
@@ -82,9 +141,19 @@ class FakeDevices:
                     self.rows.append({**p, "adopted": True, "state": 1, "_id": "id-new-2", "uptime": 3})
             return ok([])
         if path == API + "/cmd/sitemgr":
-            for r in [r for r in self.rows if r["mac"] in body["macs"]]:       # a forgotten device waits to be adopted, with defaults
-                self.pending.append({"_id": "id-pend-" + r["_id"], "mac": r["mac"], "name": r.get("model"), "type": r["type"],
-                                     "adopted": False, "state": 2})
+            for r in [
+                r for r in self.rows if r["mac"] in body["macs"]
+            ]:  # a forgotten device waits to be adopted, with defaults
+                self.pending.append(
+                    {
+                        "_id": "id-pend-" + r["_id"],
+                        "mac": r["mac"],
+                        "name": r.get("model"),
+                        "type": r["type"],
+                        "adopted": False,
+                        "state": 2,
+                    }
+                )
             self.rows = [r for r in self.rows if r["mac"] not in body["macs"]]
             return ok([])
         return httpx.Response(404, json={})
@@ -97,6 +166,7 @@ class FakeDevices:
 def no_sleep(monkeypatch):
     async def fast(_seconds: float) -> None:
         return None
+
     monkeypatch.setattr(dev, "_sleep", fast)
 
 
@@ -111,6 +181,7 @@ def make_session(settings, tmp_path):
                 yield Wrapped(client)
         finally:
             await api.client.aclose()
+
     return opener
 
 
@@ -165,27 +236,41 @@ async def test_management_network_and_ip_are_tier_c(make_session):
         assert pre["tier"] == "C" and pre["errors"] == []
         res = await c.call_tool(TOOL, {**params, "confirm": True, "fingerprint": pre["fingerprint"]})
         assert "tier C" in res.content[0].text and net.writes() == []
-        out = await call(c, {**params, "confirm": True, "fingerprint": pre["fingerprint"], "approval_note": "plan 18 Oct"})
+        out = await call(
+            c, {**params, "confirm": True, "fingerprint": pre["fingerprint"], "approval_note": "plan 18 Oct"}
+        )
         assert out["verified"] is True
-        (_m, _p, body), = net.writes()
+        ((_m, _p, body),) = net.writes()
         assert body["mgmt_network_id"] == IOT and body["config_network"]["ip"] == "192.168.1.5"
         assert body["config_network"]["gateway"] == "192.168.1.1" and "name" not in body
 
 
-@pytest.mark.parametrize("fields, text", [
-    ({"ip": "192.168.1.9", "gateway": "10.0.0.1"}, "do not fit the subnet"),
-    ({"ip": "192.168.1.1"}, "already used by Gateway"),
-    ({"management_network": "Internet"}, "not a network on this console"),
-    ({"stp_priority": 100}, "multiple of 4096"),
-    ({"name": ""}, "1 to 64 characters"),
-])
+@pytest.mark.parametrize(
+    "fields, text",
+    [
+        ({"ip": "192.168.1.9", "gateway": "10.0.0.1"}, "do not fit the subnet"),
+        ({"ip": "192.168.1.1"}, "already used by Gateway"),
+        ({"management_network": "Internet"}, "not a network on this console"),
+        ({"stp_priority": 100}, "multiple of 4096"),
+        ({"name": ""}, "1 to 64 characters"),
+    ],
+)
 async def test_bad_updates_are_refused(make_session, fields, text):
     net = FakeDevices()
     async with make_session(net) as c:
         pre = await call(c, {"action": "update", "target": "Switch-Core", **fields})
         assert text in " ".join(pre["errors"]), pre
-        res = await c.call_tool(TOOL, {"action": "update", "target": "Switch-Core", **fields, "confirm": True, "fingerprint": pre["fingerprint"],
-                                       "approval_note": "x"})
+        res = await c.call_tool(
+            TOOL,
+            {
+                "action": "update",
+                "target": "Switch-Core",
+                **fields,
+                "confirm": True,
+                "fingerprint": pre["fingerprint"],
+                "approval_note": "x",
+            },
+        )
         assert "Refused" in res.content[0].text and net.writes() == []
 
 
@@ -200,7 +285,16 @@ async def test_unchanged_update_sends_nothing(make_session):
     async with make_session(net) as c:
         pre = await call(c, {"action": "update", "target": "AP-Lounge", "name": "AP-Lounge"})
         assert pre["note"].startswith("Already")
-        out = await call(c, {"action": "update", "target": "AP-Lounge", "name": "AP-Lounge", "confirm": True, "fingerprint": pre["fingerprint"]})
+        out = await call(
+            c,
+            {
+                "action": "update",
+                "target": "AP-Lounge",
+                "name": "AP-Lounge",
+                "confirm": True,
+                "fingerprint": pre["fingerprint"],
+            },
+        )
         assert out["applied"] is False and net.writes() == []
 
 
@@ -210,7 +304,16 @@ async def test_disable_is_tier_c_then_enable_restores(make_session):
     async with make_session(net) as c:
         pre = await call(c, {"action": "disable", "target": "AP-Lounge"})
         assert pre["tier"] == "C" and any("wireless client" in w for w in pre["warnings"])
-        out = await call(c, {"action": "disable", "target": "AP-Lounge", "confirm": True, "fingerprint": pre["fingerprint"], "approval_note": "ok"})
+        out = await call(
+            c,
+            {
+                "action": "disable",
+                "target": "AP-Lounge",
+                "confirm": True,
+                "fingerprint": pre["fingerprint"],
+                "approval_note": "ok",
+            },
+        )
         assert out["verified"] is True and out["rollback"]["arguments"]["action"] == "enable"
         assert net.writes() == [("PUT", API + "/rest/device/id-ap", {"disabled": True})]
         pre2, out2 = await apply(c, {"action": "enable", "target": "AP-Lounge"})
@@ -231,9 +334,15 @@ async def test_restart_switch_is_tier_c_and_lists_what_it_takes_down(make_sessio
     net = FakeDevices()
     async with make_session(net) as c:
         pre = await call(c, {"action": "restart", "target": "Switch-Core"})
-        assert pre["tier"] == "C" and pre["dependents"]["downlinks"] == ["AP-Lounge"] and pre["dependents"]["poe_ports"] == 1
+        assert (
+            pre["tier"] == "C"
+            and pre["dependents"]["downlinks"] == ["AP-Lounge"]
+            and pre["dependents"]["poe_ports"] == 1
+        )
         assert any("AP-Lounge" in w for w in pre["warnings"])
-        res = await c.call_tool(TOOL, {"action": "restart", "target": "Switch-Core", "confirm": True, "fingerprint": pre["fingerprint"]})
+        res = await c.call_tool(
+            TOOL, {"action": "restart", "target": "Switch-Core", "confirm": True, "fingerprint": pre["fingerprint"]}
+        )
         assert "tier C" in res.content[0].text and net.writes() == []
 
 
@@ -288,7 +397,16 @@ async def test_stale_preview_is_refused(make_session):
     async with make_session(net) as c:
         pre = await call(c, {"action": "update", "target": "AP-Lounge", "name": "A"})
         net.rows[0]["name"] = "Renamed elsewhere"
-        res = await c.call_tool(TOOL, {"action": "update", "target": "AP-Lounge", "name": "A", "confirm": True, "fingerprint": pre["fingerprint"]})
+        res = await c.call_tool(
+            TOOL,
+            {
+                "action": "update",
+                "target": "AP-Lounge",
+                "name": "A",
+                "confirm": True,
+                "fingerprint": pre["fingerprint"],
+            },
+        )
         assert "differs from the preview" in res.content[0].text or "No device" in res.content[0].text
         assert net.writes() == []
 

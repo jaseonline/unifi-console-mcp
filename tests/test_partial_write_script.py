@@ -1,4 +1,5 @@
 """The partial-write test script must create only zz-partial- objects, report differences, and leave nothing behind."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -8,7 +9,6 @@ from pathlib import Path
 
 import httpx
 import pytest
-
 from conftest import make_jwt
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "partial_write_test.py"
@@ -27,17 +27,23 @@ class FakeNetwork:
             f"{L}/rest/firewallgroup": ({}, True, "_id", True),
         }
         # pre-existing real objects that must never be touched
-        self.store[f"{V2}/static-dns"][0]["real"] = {"_id": "real", "key": "nuc.example.home", "value": "192.168.1.60"}
+        self.store[f"{V2}/static-dns"][0]["real"] = {
+            "_id": "real",
+            "key": "nuc.example.home",
+            "value": "192.168.1.60",
+        }
         self.log: list[tuple[str, str]] = []
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         path, method = request.url.path, request.method
         if path == "/api/auth/login":
-            return httpx.Response(200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"})
+            return httpx.Response(
+                200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"}
+            )
         self.log.append((method, path))
         for base, (items, merge, idkey, legacy) in self.store.items():
             if path == base or path.startswith(base + "/"):
-                ident = path[len(base) + 1:] or None
+                ident = path[len(base) + 1 :] or None
                 body = json.loads(request.content) if request.content else None
                 wrap = (lambda x: {"meta": {"rc": "ok"}, "data": x}) if legacy else (lambda x: x)
                 if method == "GET" and ident is None:
@@ -61,7 +67,9 @@ class FakeNetwork:
 async def test_partial_write_script_cleans_up_and_reports(monkeypatch, capsys):
     from unifi_console_mcp.config import Settings
 
-    monkeypatch.setattr(Settings, "from_env", classmethod(lambda cls: cls(host="console.test", username="u", password="p")))
+    monkeypatch.setattr(
+        Settings, "from_env", classmethod(lambda cls: cls(host="console.test", username="u", password="p"))
+    )
     spec = importlib.util.spec_from_file_location("partial_write_test", SCRIPT)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

@@ -1,10 +1,10 @@
 """The application block live check only creates its own January 2030 blocks and always ends on the original set."""
+
 from __future__ import annotations
 
 import copy
 
 import httpx
-
 from test_app_block import FakeBlocks, make_block
 from test_doh import load_script
 
@@ -12,8 +12,11 @@ from test_doh import load_script
 def prepare(monkeypatch, tmp_path):
     from unifi_console_mcp.config import Settings
 
-    monkeypatch.setattr(Settings, "from_env", classmethod(lambda cls: cls(
-        host="console.test", username="u", password="p", journal_dir=tmp_path / "journal")))
+    monkeypatch.setattr(
+        Settings,
+        "from_env",
+        classmethod(lambda cls: cls(host="console.test", username="u", password="p", journal_dir=tmp_path / "journal")),
+    )
     return load_script("app_block_live_check")
 
 

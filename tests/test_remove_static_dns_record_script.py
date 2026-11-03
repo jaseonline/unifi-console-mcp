@@ -1,11 +1,11 @@
 """The one-record removal script deletes only the record whose id and key both match."""
+
 from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
 
 import httpx
-
 from test_network_list_live_check_script import patch_settings
 from test_static_dns import NAS, OFF, FakeDns
 

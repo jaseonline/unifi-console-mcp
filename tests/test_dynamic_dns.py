@@ -1,4 +1,5 @@
 """Dynamic DNS through the write framework: create, update and delete, and a token that never leaves the server."""
+
 from __future__ import annotations
 
 import contextlib
@@ -8,18 +9,26 @@ import uuid
 
 import httpx
 import pytest
-from mcp.client import Client
-
 from conftest import make_jwt
+from mcp.client import Client
 from test_writes import Wrapped
+
 from unifi_console_mcp.server import create_server
 
 DDNS = "/proxy/network/api/s/default/rest/dynamicdns"
 SERVICES = "/proxy/network/v2/api/site/default/wan/ddns"
 TOOL = "unifi_console_dynamic_dns"
-TOKEN = "fake-ddns-value-for-tests"
-REAL = {"_id": "real-id", "interface": "wan", "service": "cloudflare", "server": "", "host_name": "unifi.example.home",
-        "login": "example.home", "x_password": "[console-hidden]", "site_id": "s"}
+FAKE_TOKEN = "fake-ddns-value-for-tests"
+REAL = {
+    "_id": "real-id",
+    "interface": "wan",
+    "service": "cloudflare",
+    "server": "",
+    "host_name": "unifi.example.home",
+    "login": "example.home",
+    "x_password": "[console-hidden]",
+    "site_id": "s",
+}
 
 
 class FakeDdns:
@@ -32,10 +41,12 @@ class FakeDdns:
     def __call__(self, request: httpx.Request) -> httpx.Response:
         path, method = request.url.path, request.method
         if path == "/api/auth/login":
-            return httpx.Response(200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"})
+            return httpx.Response(
+                200, json={}, headers={"set-cookie": f"TOKEN={make_jwt()}; Path=/", "x-csrf-token": "c"}
+            )
         body = json.loads(request.content) if request.content else None
         self.log.append((method, path, body))
-        wrap = lambda x: {"meta": {"rc": "ok"}, "data": x}  # noqa: E731
+        wrap = lambda x: {"meta": {"rc": "ok"}, "data": x}
         if path == SERVICES:
             return httpx.Response(200, json={"ddns": ["cloudflare", "noip", "duckdns", "custom"]})
         if path == DDNS and method == "GET":
@@ -49,7 +60,14 @@ class FakeDdns:
         if path.startswith(DDNS + "/") and method == "PUT":
             self.bodies.append(body)
             ident = path.rsplit("/", 1)[1]
-            if ident not in self.items or set(body) != {"service", "host_name", "interface", "login", "x_password", "server"}:
+            if ident not in self.items or set(body) != {
+                "service",
+                "host_name",
+                "interface",
+                "login",
+                "x_password",
+                "server",
+            }:
                 return httpx.Response(400, json={"meta": {"rc": "error", "msg": "api.err.Invalid"}, "data": []})
             if not self.ignore_post:
                 self.items[ident] = {**body, "_id": ident, "site_id": "s"}
@@ -65,7 +83,7 @@ class FakeDdns:
 
 @pytest.fixture
 def make_session(settings, tmp_path, monkeypatch):
-    monkeypatch.setenv("UNIFI_DDNS_TEST", TOKEN)
+    monkeypatch.setenv("UNIFI_DDNS_TEST", FAKE_TOKEN)
 
     @contextlib.asynccontextmanager
     async def opener(net: FakeDdns, *, entities=frozenset({"dynamic_dns"})):
@@ -76,6 +94,7 @@ def make_session(settings, tmp_path, monkeypatch):
                 yield Wrapped(client)
         finally:
             await api.client.aclose()
+
     return opener
 
 
@@ -96,8 +115,14 @@ async def apply(c, args):
     return pre, await call(c, {**args, "confirm": True, "fingerprint": pre["fingerprint"]})
 
 
-NEW = {"action": "create", "service": "noip", "host_name": "ZZ-Test.Example.com.", "interface": "wan2",
-       "login": "zz-user", "token_env": "UNIFI_DDNS_TEST"}
+NEW = {
+    "action": "create",
+    "service": "noip",
+    "host_name": "ZZ-Test.Example.com.",
+    "interface": "wan2",
+    "login": "zz-user",
+    "token_env": "UNIFI_DDNS_TEST",
+}
 
 
 async def test_create_sends_the_six_captured_keys_and_never_exposes_the_token(make_session, tmp_path):
@@ -107,29 +132,40 @@ async def test_create_sends_the_six_captured_keys_and_never_exposes_the_token(ma
         pre = json.loads(pre_text)
         out_text = await raw(c, {**NEW, "confirm": True, "fingerprint": pre["fingerprint"]})
     out = json.loads(out_text)
-    assert net.bodies == [{"service": "noip", "host_name": "zz-test.example.com", "interface": "wan2", "login": "zz-user",
-                           "server": "", "x_password": TOKEN}]
+    assert net.bodies == [
+        {
+            "service": "noip",
+            "host_name": "zz-test.example.com",
+            "interface": "wan2",
+            "login": "zz-user",
+            "server": "",
+            "x_password": FAKE_TOKEN,
+        }
+    ]
     assert out["verified"] is True and out["secret_fields_not_verified"] == ["x_password"]
     assert out["rollback"] == {"action": "delete", "target": out["id"]}
     journal = "".join(p.read_text() for p in (tmp_path / "journal").glob("*.jsonl"))
     for text in (pre_text, out_text, journal):
-        assert TOKEN not in text
+        assert FAKE_TOKEN not in text
     assert "[redacted]" in journal or "x_password" in journal
 
 
 async def test_a_preview_changes_when_the_token_changes(make_session, monkeypatch):
     async with make_session(FakeDdns()) as c:
         pre = await call(c, NEW)
-        monkeypatch.setenv("UNIFI_DDNS_TEST", TOKEN + "-rotated")
+        monkeypatch.setenv("UNIFI_DDNS_TEST", FAKE_TOKEN + "-rotated")
         res = await raw(c, {**NEW, "confirm": True, "fingerprint": pre["fingerprint"]})
     assert "differs from the preview" in res
 
 
-@pytest.mark.parametrize("name,needle", [
-    ("UNIFI_CONSOLE_PASSWORD", "starting with UNIFI_DDNS_"),
-    ("PATH", "starting with UNIFI_DDNS_"),
-    ("UNIFI_DDNS_MISSING", "is not set"),
-])
+@pytest.mark.parametrize(
+    "name,needle",
+    [
+        ("UNIFI_CONSOLE_PASSWORD", "starting with UNIFI_DDNS_"),
+        ("PATH", "starting with UNIFI_DDNS_"),
+        ("UNIFI_DDNS_MISSING", "is not set"),
+    ],
+)
 async def test_only_ddns_environment_variables_are_read(make_session, monkeypatch, name, needle):
     monkeypatch.setenv("UNIFI_CONSOLE_PASSWORD", "admin-secret-pw")
     net = FakeDdns()
@@ -144,14 +180,17 @@ async def test_create_needs_every_field(make_session):
     assert "create needs interface, login, token_env" in text
 
 
-@pytest.mark.parametrize("args,needle", [
-    ({"service": "nosuch"}, "not a service this console offers"),
-    ({"host_name": "nodots"}, "not a valid host name"),
-    ({"host_name": "bad name.example.com"}, "not a valid host name"),
-    ({"interface": "eth0"}, "interface must be"),
-    ({"service": "custom"}, "needs a server"),
-    ({"host_name": "unifi.example.home", "interface": "wan"}, "already exists"),
-])
+@pytest.mark.parametrize(
+    "args,needle",
+    [
+        ({"service": "nosuch"}, "not a service this console offers"),
+        ({"host_name": "nodots"}, "not a valid host name"),
+        ({"host_name": "bad name.example.com"}, "not a valid host name"),
+        ({"interface": "eth0"}, "interface must be"),
+        ({"service": "custom"}, "needs a server"),
+        ({"host_name": "unifi.example.home", "interface": "wan"}, "already exists"),
+    ],
+)
 async def test_bad_entries_are_refused(make_session, args, needle):
     net = FakeDdns()
     base = {**NEW, **args}
@@ -182,14 +221,22 @@ async def test_update_sends_the_six_keys_keeps_the_id_and_never_exposes_the_toke
         pre = json.loads(pre_text)
         out_text = await raw(c, {**UPD, "interface": "wan", "confirm": True, "fingerprint": pre["fingerprint"]})
     out = json.loads(out_text)
-    assert net.bodies == [{"service": "cloudflare", "host_name": "unifi.example.home", "interface": "wan",
-                           "login": "example.home", "server": "", "x_password": TOKEN}]
+    assert net.bodies == [
+        {
+            "service": "cloudflare",
+            "host_name": "unifi.example.home",
+            "interface": "wan",
+            "login": "example.home",
+            "server": "",
+            "x_password": FAKE_TOKEN,
+        }
+    ]
     assert out["verified"] is True and out["id"] == "real-id" and set(net.items) == {"real-id"}
     assert out["secret_fields_not_verified"] == ["x_password"]
     assert "console-hidden" not in out_text
     journal = "".join(p.read_text() for p in (tmp_path / "journal").glob("*.jsonl"))
     for text in (pre_text, out_text, journal):
-        assert TOKEN not in text
+        assert FAKE_TOKEN not in text
     assert "replaced by the one in the environment variable" in " ".join(pre["warnings"])
     assert args
 
@@ -211,7 +258,11 @@ async def test_update_needs_a_target_and_the_token(make_session):
         no_token = await raw(c, {"action": "update", "target": "real-id", "login": "x"})
         no_target = await raw(c, {"action": "update", "token_env": "UNIFI_DDNS_TEST", "login": "x"})
         discard = await raw(c, {**UPD, "discard_token": True})
-    assert "update needs token_env" in no_token and "update needs a target" in no_target and "only applies to delete" in discard
+    assert (
+        "update needs token_env" in no_token
+        and "update needs a target" in no_target
+        and "only applies to delete" in discard
+    )
     assert net.writes() == []
 
 
@@ -220,7 +271,9 @@ async def test_update_is_validated_like_a_create(make_session):
     async with make_session(net) as c:
         clash = await call(c, {**UPD, "host_name": "second.example.home"})
         bad = await call(c, {**UPD, "service": "nosuch", "interface": "eth0"})
-        res = await raw(c, {**UPD, "host_name": "second.example.home", "confirm": True, "fingerprint": clash["fingerprint"]})
+        res = await raw(
+            c, {**UPD, "host_name": "second.example.home", "confirm": True, "fingerprint": clash["fingerprint"]}
+        )
     assert "already exists" in " ".join(clash["errors"])
     assert "not a service" in " ".join(bad["errors"]) and "interface must be" in " ".join(bad["errors"])
     assert "Refused" in res and net.writes() == []
@@ -231,17 +284,31 @@ async def test_an_update_the_console_silently_drops_is_reported(make_session):
     net.ignore_post = True
     async with make_session(net) as c:
         _, out = await apply(c, {**UPD, "login": "someone-else"})
-    assert out["verified"] is False and net.items["real-id"]["login"] == "example.home" and TOKEN not in json.dumps(out)
+    assert (
+        out["verified"] is False
+        and net.items["real-id"]["login"] == "example.home"
+        and FAKE_TOKEN not in json.dumps(out)
+    )
 
 
 async def test_delete_warns_needs_acknowledgement_and_rolls_back_without_the_token(make_session, tmp_path):
     net = FakeDdns()
     async with make_session(net) as c:
         pre = await call(c, {"action": "delete", "target": "unifi.example.home"})
-        refused = await raw(c, {"action": "delete", "target": "real-id", "confirm": True, "fingerprint": pre["fingerprint"]})
+        refused = await raw(
+            c, {"action": "delete", "target": "real-id", "confirm": True, "fingerprint": pre["fingerprint"]}
+        )
         assert "discard_token=true" in refused and net.writes() == []
-        out = await call(c, {"action": "delete", "target": "real-id", "confirm": True, "fingerprint": pre["fingerprint"],
-                             "discard_token": True})
+        out = await call(
+            c,
+            {
+                "action": "delete",
+                "target": "real-id",
+                "confirm": True,
+                "fingerprint": pre["fingerprint"],
+                "discard_token": True,
+            },
+        )
     assert "discards its stored token" in " ".join(pre["warnings"])
     assert out["verified"] is True and "real-id" not in net.items
     rb = out["rollback"]
@@ -262,7 +329,9 @@ async def test_an_entry_the_console_silently_drops_is_reported(make_session):
     net.ignore_post = True
     async with make_session(net) as c:
         _, out = await apply(c, NEW)
-    assert out["verified"] is False and out["mismatches"][0]["field"] == "(object)" and TOKEN not in json.dumps(out)
+    assert (
+        out["verified"] is False and out["mismatches"][0]["field"] == "(object)" and FAKE_TOKEN not in json.dumps(out)
+    )
 
 
 async def test_entity_switch_and_previews_when_writes_are_off(make_session):
@@ -270,20 +339,39 @@ async def test_entity_switch_and_previews_when_writes_are_off(make_session):
     async with make_session(net, entities=frozenset({"port_forward"})) as c:
         pre = await call(c, NEW)
         res = await raw(c, {**NEW, "confirm": True, "fingerprint": pre["fingerprint"]})
-    assert "not enabled for writes" in pre["apply_blocked_reason"] and "not enabled for writes" in res and net.writes() == []
+    assert (
+        "not enabled for writes" in pre["apply_blocked_reason"]
+        and "not enabled for writes" in res
+        and net.writes() == []
+    )
 
 
 async def test_the_generic_tool_refuses_and_names_the_typed_one(settings, tmp_path):
     net = FakeDdns()
-    mcp, api = create_server(dataclasses.replace(settings, enable_writes=True, write_entities=frozenset({"dynamic_dns"}),
-                                                 journal_dir=tmp_path / "journal"), transport=httpx.MockTransport(net))
+    mcp, api = create_server(
+        dataclasses.replace(
+            settings, enable_writes=True, write_entities=frozenset({"dynamic_dns"}), journal_dir=tmp_path / "journal"
+        ),
+        transport=httpx.MockTransport(net),
+    )
     try:
         async with Client(mcp) as c:
-            res = await c.call_tool("unifi_console_call_operation", {"params": {
-                "operation_id": "deleteDynamicDns", "path_params": {"id": "real-id"}, "confirm": True}})
+            res = await c.call_tool(
+                "unifi_console_call_operation",
+                {"params": {"operation_id": "deleteDynamicDns", "path_params": {"id": "real-id"}, "confirm": True}},
+            )
             text = json.loads(res.content[0].text)["error"]
-            res = await c.call_tool("unifi_console_call_operation", {"params": {
-                "operation_id": "updateDynamicDns", "path_params": {"id": "real-id"}, "body": {"login": "x"}, "confirm": True}})
+            res = await c.call_tool(
+                "unifi_console_call_operation",
+                {
+                    "params": {
+                        "operation_id": "updateDynamicDns",
+                        "path_params": {"id": "real-id"},
+                        "body": {"login": "x"},
+                        "confirm": True,
+                    }
+                },
+            )
             text2 = json.loads(res.content[0].text)["error"]
     finally:
         await api.client.aclose()

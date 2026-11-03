@@ -58,27 +58,41 @@ def prepare(action: str, before: dict[str, Any] | None, changes: dict[str, Any])
     if env_name is not None:
         name = str(env_name).strip()
         if not _ENV_NAME.match(name):
-            raise UniFiError(f"token_env must be the name of an environment variable starting with {ENV_PREFIX} "
-                             "(capital letters, digits and underscores).")
+            raise UniFiError(
+                f"token_env must be the name of an environment variable starting with {ENV_PREFIX} "
+                "(capital letters, digits and underscores)."
+            )
         token = os.environ.get(name, "")
         if not token.strip():
-            raise UniFiError(f"The environment variable {name} is not set (or is empty) in the server's environment. "
-                             "Set it in the server configuration, restart, and try again. Nothing was changed.")
+            raise UniFiError(
+                f"The environment variable {name} is not set (or is empty) in the server's environment. "
+                "Set it in the server configuration, restart, and try again. Nothing was changed."
+            )
         out["x_password"] = token.strip()
     return out
 
 
-def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], others: list[dict[str, Any]],
-             ctx: dict[str, list[dict[str, Any]]]) -> Findings:
+def validate(
+    action: str,
+    before: dict[str, Any] | None,
+    after: dict[str, Any],
+    others: list[dict[str, Any]],
+    ctx: dict[str, list[dict[str, Any]]],
+) -> Findings:
     f = Findings()
     if action == "delete":
         b = before or {}
         f.warnings.append(
             f"Deleting '{b.get('host_name')}' ({b.get('service')} on {b.get('interface')}) discards its stored token, which the "
             "console never shows again. The entry can only be recreated with a fresh token, and the host name stops "
-            "following the WAN address until then.")
+            "following the WAN address until then."
+        )
         return f
-    service, host, iface = str(after.get("service") or ""), str(after.get("host_name") or ""), str(after.get("interface") or "")
+    service, host, iface = (
+        str(after.get("service") or ""),
+        str(after.get("host_name") or ""),
+        str(after.get("interface") or ""),
+    )
     known = sorted({s for row in ctx.get("services", []) for s in (row.get("ddns") or [])})
     if not service:
         f.errors.append("A service is required.")
@@ -89,39 +103,70 @@ def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], 
     if not _IFACE.match(iface):
         f.errors.append("interface must be wan, wan2 and so on.")
     if not str(after.get("login") or "").strip():
-        f.errors.append("A login is required (for Cloudflare it is the zone name; for most providers the account name).")
+        f.errors.append(
+            "A login is required (for Cloudflare it is the zone name; for most providers the account name)."
+        )
     if not after.get("x_password"):
-        f.errors.append("A token is required: pass token_env, the name of a UNIFI_DDNS_ environment variable holding it.")
+        f.errors.append(
+            "A token is required: pass token_env, the name of a UNIFI_DDNS_ environment variable holding it."
+        )
     server = str(after.get("server") or "")
     if service == "custom" and not server:
         f.errors.append("The custom service needs a server (the update URL host).")
     elif server and service != "custom":
-        f.warnings.append(f"A server is set for the '{service}' service; the console normally leaves it empty except for custom.")
+        f.warnings.append(
+            f"A server is set for the '{service}' service; the console normally leaves it empty except for custom."
+        )
     for r in others:
         if str(r.get("host_name") or "").lower() == host and str(r.get("interface") or "") == iface:
-            f.errors.append(f"An entry for {host} on {iface} already exists. Update that entry instead of creating another.")
+            f.errors.append(
+                f"An entry for {host} on {iface} already exists. Update that entry instead of creating another."
+            )
     same_wan = [r for r in others if str(r.get("interface") or "") == iface]
     if same_wan and not f.errors:
-        f.warnings.append(f"{iface} already has {len(same_wan)} Dynamic DNS entr{'y' if len(same_wan) == 1 else 'ies'} "
-                          f"({', '.join(str(r.get('host_name')) for r in same_wan[:5])}); whether the console supports several per WAN is unverified.")
+        f.warnings.append(
+            f"{iface} already has {len(same_wan)} Dynamic DNS entr{'y' if len(same_wan) == 1 else 'ies'} "
+            f"({', '.join(str(r.get('host_name')) for r in same_wan[:5])}); whether the console supports several per WAN is unverified."
+        )
     if not f.errors:
         if action == "update":
             b = before or {}
-            moved = [k for k in ("service", "host_name", "interface", "login", "server") if str(after.get(k) or "") != str(b.get(k) or "")]
-            f.warnings.append("The stored token is replaced by the one in the environment variable named in token_env, and the old one "
-                              "cannot be shown or restored. Use the current token if only other fields change.")
+            moved = [
+                k
+                for k in ("service", "host_name", "interface", "login", "server")
+                if str(after.get(k) or "") != str(b.get(k) or "")
+            ]
+            f.warnings.append(
+                "The stored token is replaced by the one in the environment variable named in token_env, and the old one "
+                "cannot be shown or restored. Use the current token if only other fields change."
+            )
             if moved:
-                f.warnings.append(f"Changing {', '.join(moved)} makes the gateway start updating a different record: "
-                                  f"{b.get('host_name')} stops following the WAN address if the host name or service changes.")
+                f.warnings.append(
+                    f"Changing {', '.join(moved)} makes the gateway start updating a different record: "
+                    f"{b.get('host_name')} stops following the WAN address if the host name or service changes."
+                )
         else:
-            f.warnings.append(f"Once created, the gateway sends this token to {service} to keep {host} pointing at the {iface} address.")
+            f.warnings.append(
+                f"Once created, the gateway sends this token to {service} to keep {host} pointing at the {iface} address."
+            )
     return f
 
 
 SPEC = EntitySpec(
-    key=KEY, label="Dynamic DNS entry", tier="B", list_op="listDynamicDns", create_op="createDynamicDns",
-    update_op="updateDynamicDns", delete_op="deleteDynamicDns", whole_object=True, id_field="_id", name_field="host_name",
-    body_drop=frozenset({"_id", "site_id"}), defaults={"server": ""}, prepare=prepare, validate_ctx=validate,
+    key=KEY,
+    label="Dynamic DNS entry",
+    tier="B",
+    list_op="listDynamicDns",
+    create_op="createDynamicDns",
+    update_op="updateDynamicDns",
+    delete_op="deleteDynamicDns",
+    whole_object=True,
+    id_field="_id",
+    name_field="host_name",
+    body_drop=frozenset({"_id", "site_id"}),
+    defaults={"server": ""},
+    prepare=prepare,
+    validate_ctx=validate,
     context_ops=(("services", "listDdnsServices"),),
 )
 
@@ -129,20 +174,39 @@ SPEC = EntitySpec(
 class DynamicDnsInput(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    action: Literal["create", "update", "delete"] = Field(..., description="create an entry, update one (needs target and token_env), or delete one.")
-    target: str | None = Field(default=None, description="Existing entry for update or delete: its _id or exact host name. Not used by create.")
-    service: str | None = Field(default=None, description="Provider, for example cloudflare, noip, duckdns or custom (create or update).")
-    host_name: str | None = Field(default=None, description="The public host name to keep updated, e.g. home.example.com (create or update).")
+    action: Literal["create", "update", "delete"] = Field(
+        ..., description="create an entry, update one (needs target and token_env), or delete one."
+    )
+    target: str | None = Field(
+        default=None, description="Existing entry for update or delete: its _id or exact host name. Not used by create."
+    )
+    service: str | None = Field(
+        default=None, description="Provider, for example cloudflare, noip, duckdns or custom (create or update)."
+    )
+    host_name: str | None = Field(
+        default=None, description="The public host name to keep updated, e.g. home.example.com (create or update)."
+    )
     interface: str | None = Field(default=None, description="wan, wan2 ... (create or update).")
     login: str | None = Field(default=None, description="Account or zone name the provider expects (create or update).")
-    server: str | None = Field(default=None, description="Update server; only for the custom service. Defaults to empty.")
+    server: str | None = Field(
+        default=None, description="Update server; only for the custom service. Defaults to empty."
+    )
     token_env: str | None = Field(
         default=None,
         description=f"Name of an environment variable in the server's own environment, starting with {ENV_PREFIX}, that holds the "
-                    "provider token (required for create and update). The token is never passed through chat.")
-    discard_token: bool = Field(default=False, description="delete only, with confirm=true: acknowledges that the stored token is lost for good.")
-    confirm: bool = Field(default=False, description="false (default) returns a read-only preview. true applies the change and needs fingerprint.")
-    fingerprint: str | None = Field(default=None, description="From the preview of exactly this change; required with confirm=true.")
+        "provider token (required for create and update). The token is never passed through chat.",
+    )
+    discard_token: bool = Field(
+        default=False,
+        description="delete only, with confirm=true: acknowledges that the stored token is lost for good.",
+    )
+    confirm: bool = Field(
+        default=False,
+        description="false (default) returns a read-only preview. true applies the change and needs fingerprint.",
+    )
+    fingerprint: str | None = Field(
+        default=None, description="From the preview of exactly this change; required with confirm=true."
+    )
 
     def changes(self) -> dict[str, Any]:
         return {k: getattr(self, k) for k in FIELDS if getattr(self, k) is not None}
@@ -151,8 +215,13 @@ class DynamicDnsInput(BaseModel):
 def register(mcp: MCPServer, engine: WriteEngine) -> None:
     @mcp.tool(
         name=TOOL,
-        annotations={"title": "Create, update or delete a Dynamic DNS entry", "readOnlyHint": False, "destructiveHint": True,
-                     "idempotentHint": False, "openWorldHint": False},
+        annotations={
+            "title": "Create, update or delete a Dynamic DNS entry",
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": False,
+            "openWorldHint": False,
+        },
     )
     async def unifi_console_dynamic_dns(params: DynamicDnsInput) -> str:
         """Preview, then apply, the creation, update or deletion of a Dynamic DNS entry on the gateway.
@@ -172,25 +241,43 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
                 if params.changes():
                     return json.dumps({"ok": False, "error": "delete takes no field values."})
                 if params.confirm and not params.discard_token:
-                    return json.dumps({"ok": False, "error": "Deleting discards the stored token, which cannot be recovered. "
-                                       "Repeat with discard_token=true to confirm that is intended. Nothing was changed."})
+                    return json.dumps(
+                        {
+                            "ok": False,
+                            "error": "Deleting discards the stored token, which cannot be recovered. "
+                            "Repeat with discard_token=true to confirm that is intended. Nothing was changed.",
+                        }
+                    )
             elif params.action == "update":
                 if params.discard_token:
                     return json.dumps({"ok": False, "error": "discard_token only applies to delete."})
                 if not params.target:
-                    return json.dumps({"ok": False, "error": "update needs a target (the entry's _id or exact host name)."})
+                    return json.dumps(
+                        {"ok": False, "error": "update needs a target (the entry's _id or exact host name)."}
+                    )
                 if not params.token_env:
-                    return json.dumps({"ok": False, "error": "update needs token_env: the console never shows the stored token, "
-                                       "so the token has to be supplied again (the current one if you are not rotating it)."})
+                    return json.dumps(
+                        {
+                            "ok": False,
+                            "error": "update needs token_env: the console never shows the stored token, "
+                            "so the token has to be supplied again (the current one if you are not rotating it).",
+                        }
+                    )
             else:
                 if params.discard_token:
                     return json.dumps({"ok": False, "error": "discard_token only applies to delete."})
-                missing = [k for k in ("service", "host_name", "interface", "login", "token_env") if not getattr(params, k)]
+                missing = [
+                    k for k in ("service", "host_name", "interface", "login", "token_env") if not getattr(params, k)
+                ]
                 if missing:
                     return json.dumps({"ok": False, "error": f"create needs {', '.join(missing)}."})
             result = await engine.execute(
-                SPEC, action=params.action, target=params.target, changes=params.changes(),
-                confirm=params.confirm, fingerprint=params.fingerprint,
+                SPEC,
+                action=params.action,
+                target=params.target,
+                changes=params.changes(),
+                confirm=params.confirm,
+                fingerprint=params.fingerprint,
             )
             return json.dumps(result, separators=(",", ":"), default=str)
         except Exception as exc:  # noqa: BLE001 - converted to an actionable message

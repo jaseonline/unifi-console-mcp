@@ -47,7 +47,9 @@ def prepare(action: str, before: dict[str, Any] | None, changes: dict[str, Any])
     if "record_type" in out:
         out["record_type"] = str(out["record_type"]).upper()
         if before is not None and out["record_type"] != before.get("record_type"):
-            raise UniFiError("The type of an existing record cannot be changed; create a new record and delete this one.")
+            raise UniFiError(
+                "The type of an existing record cannot be changed; create a new record and delete this one."
+            )
     if "key" in out:
         out["key"] = str(out["key"]).strip().lower().rstrip(".")
     if "value" in out:
@@ -58,7 +60,7 @@ def prepare(action: str, before: dict[str, Any] | None, changes: dict[str, Any])
             try:
                 v = str(ipaddress.IPv6Address(v))
             except ValueError:
-                pass                      # reported by validate
+                pass  # reported by validate
         out["value"] = v
     return out
 
@@ -70,9 +72,13 @@ def _check_shape(f: Findings, rec: dict[str, Any], changed: set[str]) -> None:
         return
     if changed & {"key", "record_type"}:
         if "*" in key:
-            f.errors.append("Wildcard names are not offered here (their behaviour on this console is unverified); add one in the console if needed.")
+            f.errors.append(
+                "Wildcard names are not offered here (their behaviour on this console is unverified); add one in the console if needed."
+            )
         elif not _valid_name(key):
-            f.errors.append(f"'{key}' is not a valid DNS name (letters, digits, '-' and '_' in labels of up to 63 characters).")
+            f.errors.append(
+                f"'{key}' is not a valid DNS name (letters, digits, '-' and '_' in labels of up to 63 characters)."
+            )
     if changed & {"value", "record_type"}:
         if rtype == "A":
             try:
@@ -99,15 +105,26 @@ def _check_shape(f: Findings, rec: dict[str, Any], changed: set[str]) -> None:
             f.errors.append(f"{fld} only applies to MX and SRV records.")
 
 
-def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], others: list[dict[str, Any]],
-             ctx: dict[str, list[dict[str, Any]]]) -> Findings:
+def validate(
+    action: str,
+    before: dict[str, Any] | None,
+    after: dict[str, Any],
+    others: list[dict[str, Any]],
+    ctx: dict[str, list[dict[str, Any]]],
+) -> Findings:
     f = Findings()
     before = before or {}
     if action == "delete":
-        pointing = [r for r in others if r.get("record_type") == "CNAME" and str(r.get("value") or "").lower() == str(before.get("key")).lower()]
+        pointing = [
+            r
+            for r in others
+            if r.get("record_type") == "CNAME" and str(r.get("value") or "").lower() == str(before.get("key")).lower()
+        ]
         if pointing:
-            f.warnings.append(f"{len(pointing)} CNAME record(s) point at {before.get('key')}: "
-                              f"{', '.join(str(r.get('key')) for r in pointing[:5])}. They will stop resolving.")
+            f.warnings.append(
+                f"{len(pointing)} CNAME record(s) point at {before.get('key')}: "
+                f"{', '.join(str(r.get('key')) for r in pointing[:5])}. They will stop resolving."
+            )
         return f
     changed = {k for k in FIELDS if before.get(k) != after.get(k)} if before else set(FIELDS) & set(after)
     _check_shape(f, after, changed)
@@ -122,40 +139,73 @@ def validate(action: str, before: dict[str, Any] | None, after: dict[str, Any], 
                 f.errors.append(f"An identical {rtype} record for {key} already exists.")
         clash = [r for r in same_key if (r.get("record_type") == "CNAME") != (rtype == "CNAME") and r.get("enabled")]
         if clash:
-            f.errors.append(f"{key} already has a {clash[0].get('record_type')} record, and a name with a CNAME can have no other record type.")
-        twins = [r for r in same_key if r.get("record_type") == rtype and r.get("enabled")
-                 and str(r.get("value")).lower() != value.lower()]
+            f.errors.append(
+                f"{key} already has a {clash[0].get('record_type')} record, and a name with a CNAME can have no other record type."
+            )
+        twins = [
+            r
+            for r in same_key
+            if r.get("record_type") == rtype and r.get("enabled") and str(r.get("value")).lower() != value.lower()
+        ]
         if twins and rtype in ("CNAME",):
             f.errors.append(f"{key} already has a CNAME record; a name can have only one.")
         elif twins and rtype in ("A", "AAAA"):
-            f.warnings.append(f"{key} already has {len(twins)} enabled {rtype} record(s); clients will receive all of the addresses.")
+            f.warnings.append(
+                f"{key} already has {len(twins)} enabled {rtype} record(s); clients will receive all of the addresses."
+            )
         if rtype in ("A", "AAAA", "CNAME"):
             for c in ctx.get("clients", []):
                 if c.get("local_dns_record_enabled") and str(c.get("local_dns_record") or "").lower() == key:
-                    f.errors.append(f"'{c.get('name') or c.get('mac')}' already publishes {key} through its own Local DNS record.")
+                    f.errors.append(
+                        f"'{c.get('name') or c.get('mac')}' already publishes {key} through its own Local DNS record."
+                    )
         if rtype == "A":
             try:
                 ip = ipaddress.IPv4Address(value)
-                nets = [ipaddress.IPv4Network(n["ip_subnet"], strict=False) for n in ctx.get("networks", []) if n.get("ip_subnet")]
+                nets = [
+                    ipaddress.IPv4Network(n["ip_subnet"], strict=False)
+                    for n in ctx.get("networks", [])
+                    if n.get("ip_subnet")
+                ]
                 if nets and not any(ip in n for n in nets):
-                    f.warnings.append(f"{ip} is not inside any of your LAN subnets; clients will be sent to an address outside the home network.")
+                    f.warnings.append(
+                        f"{ip} is not inside any of your LAN subnets; clients will be sent to an address outside the home network."
+                    )
             except ValueError:
                 pass
         if not (key == HOME_DOMAIN or key.endswith("." + HOME_DOMAIN)) and "." in key:
-            f.warnings.append(f"{key} is outside {HOME_DOMAIN}: while this record is enabled, every client gets this answer "
-                              "instead of the real public one.")
+            f.warnings.append(
+                f"{key} is outside {HOME_DOMAIN}: while this record is enabled, every client gets this answer "
+                "instead of the real public one."
+            )
     if before and (changed & {"key", "value"} or ("enabled" in changed and not enabled)):
-        pointing = [r for r in others if r.get("record_type") == "CNAME" and str(r.get("value") or "").lower() == str(before.get("key")).lower()]
+        pointing = [
+            r
+            for r in others
+            if r.get("record_type") == "CNAME" and str(r.get("value") or "").lower() == str(before.get("key")).lower()
+        ]
         if pointing and (before.get("key") != after.get("key") or not enabled):
-            f.warnings.append(f"{len(pointing)} CNAME record(s) point at {before.get('key')}: "
-                              f"{', '.join(str(r.get('key')) for r in pointing[:5])}.")
+            f.warnings.append(
+                f"{len(pointing)} CNAME record(s) point at {before.get('key')}: "
+                f"{', '.join(str(r.get('key')) for r in pointing[:5])}."
+            )
     return f
 
 
 SPEC = EntitySpec(
-    key=KEY, label="static DNS record", tier="A", list_op="listStaticDns", create_op="createStaticDns",
-    update_op="updateStaticDns", delete_op="deleteStaticDns", whole_object=True, id_field="_id", name_field="key",
-    defaults={"enabled": True}, prepare=prepare, validate_ctx=validate,
+    key=KEY,
+    label="static DNS record",
+    tier="A",
+    list_op="listStaticDns",
+    create_op="createStaticDns",
+    update_op="updateStaticDns",
+    delete_op="deleteStaticDns",
+    whole_object=True,
+    id_field="_id",
+    name_field="key",
+    defaults={"enabled": True},
+    prepare=prepare,
+    validate_ctx=validate,
     context_ops=(("clients", "listKnownClients"), ("networks", "listNetworkConfig")),
     empty_values={"ttl": 0, "priority": 0, "port": 0, "weight": 0},
 )
@@ -165,18 +215,36 @@ class StaticDnsInput(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     action: Literal["create", "update", "enable", "disable", "delete"] = Field(
-        ..., description="create a record, update fields of one, enable or disable it, or delete it.")
-    target: str | None = Field(default=None, description="Existing record: its _id or exact name (key). A name shared by several records is refused with their ids. Not used by create.")
-    record_type: Literal["A", "AAAA", "CNAME", "MX", "SRV", "TXT"] | None = Field(default=None, description="create only; fixed afterwards.")
-    key: str | None = Field(default=None, description="Record name, e.g. nas.example.home. Lower-cased; no wildcards.")
-    value: str | None = Field(default=None, description="IPv4 for A, IPv6 for AAAA, a host name for CNAME/MX/SRV, text for TXT.")
-    enabled: bool | None = Field(default=None, description="create: defaults to true. For an existing record prefer the enable and disable actions.")
+        ..., description="create a record, update fields of one, enable or disable it, or delete it."
+    )
+    target: str | None = Field(
+        default=None,
+        description="Existing record: its _id or exact name (key). A name shared by several records is refused with their ids. Not used by create.",
+    )
+    record_type: Literal["A", "AAAA", "CNAME", "MX", "SRV", "TXT"] | None = Field(
+        default=None, description="create only; fixed afterwards."
+    )
+    key: str | None = Field(
+        default=None, description="Record name, e.g. nas.example.home. Lower-cased; no wildcards."
+    )
+    value: str | None = Field(
+        default=None, description="IPv4 for A, IPv6 for AAAA, a host name for CNAME/MX/SRV, text for TXT."
+    )
+    enabled: bool | None = Field(
+        default=None,
+        description="create: defaults to true. For an existing record prefer the enable and disable actions.",
+    )
     ttl: int | None = Field(default=None, description="Seconds, 0 to 604800; 0 means the console default.")
     priority: int | None = Field(default=None, description="MX and SRV only.")
     port: int | None = Field(default=None, description="SRV only.")
     weight: int | None = Field(default=None, description="SRV only.")
-    confirm: bool = Field(default=False, description="false (default) returns a read-only preview. true applies the change and needs fingerprint.")
-    fingerprint: str | None = Field(default=None, description="From the preview of exactly this change; required with confirm=true.")
+    confirm: bool = Field(
+        default=False,
+        description="false (default) returns a read-only preview. true applies the change and needs fingerprint.",
+    )
+    fingerprint: str | None = Field(
+        default=None, description="From the preview of exactly this change; required with confirm=true."
+    )
 
     def changes(self) -> dict[str, Any]:
         return {k: getattr(self, k) for k in FIELDS if getattr(self, k) is not None}
@@ -185,8 +253,13 @@ class StaticDnsInput(BaseModel):
 def register(mcp: MCPServer, engine: WriteEngine) -> None:
     @mcp.tool(
         name=TOOL,
-        annotations={"title": "Create, change or delete a Local DNS record", "readOnlyHint": False, "destructiveHint": True,
-                     "idempotentHint": False, "openWorldHint": False},
+        annotations={
+            "title": "Create, change or delete a Local DNS record",
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": False,
+            "openWorldHint": False,
+        },
     )
     async def unifi_console_static_dns(params: StaticDnsInput) -> str:
         """Preview, then apply, a change to the gateway's Local DNS records (A, AAAA, CNAME, MX, SRV, TXT).
@@ -204,12 +277,18 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
             if params.action == "delete" and params.changes():
                 return json.dumps({"ok": False, "error": "delete takes no field values."})
             if params.action in ("enable", "disable") and params.changes():
-                return json.dumps({"ok": False, "error": f"{params.action} takes no field values; use update to change fields."})
+                return json.dumps(
+                    {"ok": False, "error": f"{params.action} takes no field values; use update to change fields."}
+                )
             if params.action == "create" and not (params.record_type and params.key and params.value is not None):
                 return json.dumps({"ok": False, "error": "create needs record_type, key and value."})
             result = await engine.execute(
-                SPEC, action=params.action, target=params.target, changes=params.changes(),
-                confirm=params.confirm, fingerprint=params.fingerprint,
+                SPEC,
+                action=params.action,
+                target=params.target,
+                changes=params.changes(),
+                confirm=params.confirm,
+                fingerprint=params.fingerprint,
             )
             return json.dumps(result, separators=(",", ":"), default=str)
         except Exception as exc:  # noqa: BLE001 - converted to an actionable message

@@ -1,0 +1,301 @@
+{
+  "manifest_version": "0.4",
+  "name": "unifi-console-mcp",
+  "display_name": "UniFi Console",
+  "version": "0.1.0",
+  "description": "Read, audit and (optionally) change your UniFi Network from Claude, with a preview-then-confirm flow for every change.",
+  "long_description": "UniFi Console connects Claude to your own UniFi console over your local network. It covers the documented Integration API plus the controller and UniFi OS APIs: system log, firewall policy hit counts, PoE budget, switch ports, access review, backups and support files. Read tools are always safe. Configuration changes are off by default; when you turn them on, every change is previewed first and applied only after you approve it, with an audit journal and secrets always redacted. Everything runs on your computer and talks only to your console.",
+  "author": {
+    "name": "jaseonline",
+    "url": "https://github.com/jaseonline"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jaseonline/unifi-console-mcp"
+  },
+  "homepage": "https://github.com/jaseonline/unifi-console-mcp",
+  "documentation": "https://github.com/jaseonline/unifi-console-mcp#readme",
+  "support": "https://github.com/jaseonline/unifi-console-mcp/issues",
+  "license": "MIT",
+  "keywords": [
+    "unifi",
+    "ubiquiti",
+    "network",
+    "firewall",
+    "home-network",
+    "mcp"
+  ],
+  "icon": "icons/icon-light.png",
+  "icons": [
+    {
+      "src": "icons/icon-light.png",
+      "size": "512x512",
+      "theme": "light"
+    },
+    {
+      "src": "icons/icon-dark.png",
+      "size": "512x512",
+      "theme": "dark"
+    }
+  ],
+  "server": {
+    "type": "uv",
+    "entry_point": "src/unifi_console_mcp/server.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "${__dirname}",
+        "--no-dev",
+        "unifi-console-mcp"
+      ],
+      "env": {
+        "UNIFI_BUNDLE_HOST": "${user_config.console_host}",
+        "UNIFI_BUNDLE_API_KEY": "${user_config.api_key}",
+        "UNIFI_BUNDLE_USERNAME": "${user_config.username}",
+        "UNIFI_BUNDLE_PASSWORD": "${user_config.password}",
+        "UNIFI_BUNDLE_SITE": "${user_config.site}",
+        "UNIFI_BUNDLE_PORT": "${user_config.port}",
+        "UNIFI_BUNDLE_VERIFY_SSL": "${user_config.verify_ssl}",
+        "UNIFI_BUNDLE_CERT_SHA256": "${user_config.cert_sha256}",
+        "UNIFI_BUNDLE_ENABLE_WRITES": "${user_config.enable_writes}",
+        "UNIFI_BUNDLE_WRITE_ENTITIES": "${user_config.write_entities}",
+        "UNIFI_BUNDLE_DOWNLOAD_DIR": "${user_config.download_dir}",
+        "UNIFI_BUNDLE_JOURNAL_DIR": "${user_config.journal_dir}",
+        "UNIFI_BUNDLE_LOG_LEVEL": "${user_config.log_level}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "unifi_console_access_review",
+      "description": "Who and what can access the console: admin accounts, custom roles and API keys (keys masked)."
+    },
+    {
+      "name": "unifi_console_app_block",
+      "description": "Preview, then apply, changes to the console's application blocks (Settings > Security > Simple App Blocking)."
+    },
+    {
+      "name": "unifi_console_backup",
+      "description": "List, create or download UniFi OS console backups (whole console, not just the Network app)."
+    },
+    {
+      "name": "unifi_console_call_operation",
+      "description": "Call one spec operation on the console: file downloads and safe writes."
+    },
+    {
+      "name": "unifi_console_client",
+      "description": "Preview, then apply, a change to one known client: alias, note, fixed IP and Local DNS record."
+    },
+    {
+      "name": "unifi_console_client_command",
+      "description": "Preview, then apply, a command for one client: block, unblock, reconnect or forget."
+    },
+    {
+      "name": "unifi_console_client_group",
+      "description": "Preview, then apply, a change to the console's client groups (named sets of client MAC addresses used by policies)."
+    },
+    {
+      "name": "unifi_console_data_retention",
+      "description": "Preview, then apply, a change to how long the console keeps statistics and events (Control Plane > Network data retention)."
+    },
+    {
+      "name": "unifi_console_describe_operation",
+      "description": "Show an operation's parameters, request-body schema, access level and description from the spec."
+    },
+    {
+      "name": "unifi_console_device",
+      "description": "Preview, then apply, an action on ONE UniFi device (access point, switch, gateway)."
+    },
+    {
+      "name": "unifi_console_doh",
+      "description": "Preview, then apply, a change to the gateway's DNS over HTTPS (DoH) setting."
+    },
+    {
+      "name": "unifi_console_dynamic_dns",
+      "description": "Preview, then apply, the creation, update or deletion of a Dynamic DNS entry on the gateway."
+    },
+    {
+      "name": "unifi_console_firewall_policy",
+      "description": "Preview, then apply, a change to one custom zone-based firewall policy."
+    },
+    {
+      "name": "unifi_console_firewall_policy_hits",
+      "description": "List zone-based firewall policies with hit counts and last-hit time, for audits."
+    },
+    {
+      "name": "unifi_console_gateway_config",
+      "description": "What the controller actually sent the gateway, read from a console support file, and whether it matches."
+    },
+    {
+      "name": "unifi_console_list_operations",
+      "description": "Search the UniFi OpenAPI spec for operations (undocumented controller / UniFi OS APIs plus the Integration API)."
+    },
+    {
+      "name": "unifi_console_logging_levels",
+      "description": "Preview, then apply, the logging level (warn or debug) of the Network application's services: device, mgmt, sdn, system."
+    },
+    {
+      "name": "unifi_console_network",
+      "description": "Preview, then apply, a change to a LAN/VLAN network."
+    },
+    {
+      "name": "unifi_console_network_list",
+      "description": "Preview, then apply, a change to the console's network lists (port, address and domain lists used by firewall policies)."
+    },
+    {
+      "name": "unifi_console_poe_overview",
+      "description": "PoE budget for one switch plus the site's power supervisors (watchdogs that power-cycle ports)."
+    },
+    {
+      "name": "unifi_console_port_forward",
+      "description": "Preview, then apply, a change to the console's port forwards (internet-to-LAN rules)."
+    },
+    {
+      "name": "unifi_console_qos_rule",
+      "description": "Preview, then apply, a change to the console's QoS rules (the dashboard's QoS widget; Traffic Management objects use unifi_console_traffic_object instead)."
+    },
+    {
+      "name": "unifi_console_read_operation",
+      "description": "Run one read-only spec operation on the console and return its data."
+    },
+    {
+      "name": "unifi_console_session_status",
+      "description": "Check the connection and report which account the server runs as, what it may do, and session facts."
+    },
+    {
+      "name": "unifi_console_static_dns",
+      "description": "Preview, then apply, a change to the gateway's Local DNS records (A, AAAA, CNAME, MX, SRV, TXT)."
+    },
+    {
+      "name": "unifi_console_support_file",
+      "description": "Generate a support file and (for the console) download it to disk."
+    },
+    {
+      "name": "unifi_console_switch_port",
+      "description": "Preview, then apply, a change to ONE port of ONE switch."
+    },
+    {
+      "name": "unifi_console_switch_port_detail",
+      "description": "Live per-port state for a switch: link, STP state/role, flaps, errors, PoE and optionally LLDP."
+    },
+    {
+      "name": "unifi_console_syslog",
+      "description": "Preview, then apply, a change to the console's remote syslog setting (where logs are sent and which categories)."
+    },
+    {
+      "name": "unifi_console_system_log",
+      "description": "Query the UniFi System Log (the Network app's 'System Log' page), with templates already filled in."
+    },
+    {
+      "name": "unifi_console_traffic_object",
+      "description": "Preview, then apply, a change to the console's traffic objects (Traffic Management: bandwidth limits and priority, schedules, internet blocking and routing for networks or clients)."
+    },
+    {
+      "name": "unifi_console_wan",
+      "description": "Preview, then apply, a change to the WAN network settings."
+    },
+    {
+      "name": "unifi_console_wifi",
+      "description": "Preview, then apply, a change to a Wi-Fi network (SSID)."
+    }
+  ],
+  "tools_generated": false,
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "python": ">=3.12"
+    }
+  },
+  "user_config": {
+    "console_host": {
+      "type": "string",
+      "title": "Console address",
+      "required": false,
+      "description": "IP address or hostname of your UniFi console, for example 192.168.1.1. Leave blank to use the UNIFI_LOCAL_HOST system environment variable."
+    },
+    "api_key": {
+      "type": "string",
+      "title": "Integration API key",
+      "sensitive": true,
+      "required": false,
+      "description": "UniFi Network Integration API key (Network > Settings > Control Plane > Integrations). Used for the documented Integration API. Blank uses the UNIFI_MCP_API_KEY system variable."
+    },
+    "username": {
+      "type": "string",
+      "title": "Local admin username",
+      "required": false,
+      "description": "Blank uses UNIFI_MCP_USERNAME. Local (not cloud) admin account. Needed with the password for the controller and UniFi OS endpoints that an API key cannot reach: system log, firewall hit counts, PoE, backups and all configuration writes."
+    },
+    "password": {
+      "type": "string",
+      "title": "Local admin password",
+      "sensitive": true,
+      "required": false,
+      "description": "Blank uses UNIFI_MCP_PASSWORD. Stored by the host in the operating system's secure storage when entered here."
+    },
+    "site": {
+      "type": "string",
+      "title": "Site",
+      "required": false,
+      "description": "UniFi site name. Blank uses UNIFI_DEFAULT_SITE, then 'default'."
+    },
+    "port": {
+      "type": "number",
+      "title": "HTTPS port",
+      "min": 1,
+      "max": 65535,
+      "required": false,
+      "description": "HTTPS port of the console. Blank uses UNIFI_LOCAL_PORT, then 443."
+    },
+    "verify_ssl": {
+      "type": "string",
+      "title": "Verify the console's TLS certificate",
+      "required": false,
+      "description": "true or false; blank uses UNIFI_LOCAL_VERIFY_SSL, then true. Consoles ship with a self-signed certificate. Leave on if you installed a trusted certificate or set a fingerprint below; turn off only on a network you trust."
+    },
+    "cert_sha256": {
+      "type": "string",
+      "title": "Pinned certificate fingerprint (SHA-256)",
+      "required": false,
+      "description": "Optional. SHA-256 fingerprint of the console's certificate. When set, only that certificate is accepted, which is the safe way to use a self-signed console."
+    },
+    "enable_writes": {
+      "type": "string",
+      "title": "Allow configuration changes",
+      "required": false,
+      "description": "true or false; blank uses UNIFI_CONSOLE_ENABLE_WRITES, then false (read-only). When on, typed write tools can change configuration, but only for the entities listed below and only after a preview and an explicit confirm."
+    },
+    "write_entities": {
+      "type": "string",
+      "title": "Entities that may be changed",
+      "required": false,
+      "description": "Comma-separated list, for example 'wifi,network,firewall_policy'. Blank uses UNIFI_CONSOLE_WRITE_ENTITIES. Ignored unless writes are enabled; empty means nothing can be changed."
+    },
+    "download_dir": {
+      "type": "directory",
+      "title": "Download folder",
+      "required": false,
+      "description": "Where backups and support files are saved. Defaults to ~/.unifi-console-mcp/downloads."
+    },
+    "journal_dir": {
+      "type": "directory",
+      "title": "Change journal folder",
+      "required": false,
+      "description": "Where the audit journal of every confirmed change is kept. Defaults to ~/.unifi-console-mcp/journal."
+    },
+    "log_level": {
+      "type": "string",
+      "title": "Log level",
+      "default": "INFO",
+      "required": false,
+      "description": "DEBUG, INFO, WARNING, ERROR or CRITICAL. Logs go to the host's MCP log file (stderr), never to the chat."
+    }
+  }
+}

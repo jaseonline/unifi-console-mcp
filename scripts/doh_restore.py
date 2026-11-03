@@ -8,6 +8,7 @@ through the tool's gates or the DNS probe, because it is the way out of a bad st
 (`key`, `state`, `server_names`, `custom_servers`) taken from the `before` of the newest DoH `attempt` in the journal. If the
 journal has none, it stops. The UniFi UI (Settings > Security > DNS over HTTPS ... or Internet > DNS) is the other way out.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -32,7 +33,11 @@ def last_attempt(journal_dir: Path) -> dict[str, Any] | None:
                 entry = json.loads(line)
             except ValueError:
                 continue
-            if entry.get("event") == "attempt" and entry.get("entity") == "doh" and isinstance(entry.get("before"), dict):
+            if (
+                entry.get("event") == "attempt"
+                and entry.get("entity") == "doh"
+                and isinstance(entry.get("before"), dict)
+            ):
                 found = entry
     return found
 
@@ -57,8 +62,10 @@ async def main(run: bool, transport: Any = None, journal_dir: Path | None = None
     settings = Settings.from_env()
     entry = last_attempt(journal_dir or settings.journal_dir)
     if entry is None:
-        print(f"STOP: no DoH change found in the journal at {journal_dir or settings.journal_dir}. Nothing was sent. "
-              "Use the UniFi UI to set DNS over HTTPS by hand.")
+        print(
+            f"STOP: no DoH change found in the journal at {journal_dir or settings.journal_dir}. Nothing was sent. "
+            "Use the UniFi UI to set DNS over HTTPS by hand."
+        )
         return 1
     before = entry["before"]
     body = {"key": "doh", **{k: before.get(k, [] if k != "state" else "off") for k in KEYS}}
@@ -83,7 +90,10 @@ async def main(run: bool, transport: Any = None, journal_dir: Path | None = None
         after = await read_group(api)
         show("Now                       ", after)
         ok = all(after.get(k) == body[k] for k in KEYS)
-        print("RESULT:", "restored and verified" if ok else "sent, but the console does not show the earlier values; check the UI")
+        print(
+            "RESULT:",
+            "restored and verified" if ok else "sent, but the console does not show the earlier values; check the UI",
+        )
         return 0 if ok else 1
     finally:
         await api.client.aclose()
