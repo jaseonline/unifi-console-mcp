@@ -73,8 +73,10 @@ More in [docs/getting-started.md](docs/getting-started.md).
 | Variable | Meaning |
 |---|---|
 | `UNIFI_LOCAL_HOST` | Console address, e.g. `192.168.1.2` |
-| `UNIFI_LOCAL_PORT` / `UNIFI_DEFAULT_SITE` | HTTPS port (default 443) / site name (default `default`); `UNIFI_NETWORK_PORT` / `UNIFI_NETWORK_SITE` are also read |
-| `UNIFI_MCP_USERNAME` / `UNIFI_MCP_PASSWORD` | Dedicated local account (no MFA) |
+| `UNIFI_LOCAL_PORT` | HTTPS port (default 443); `UNIFI_NETWORK_PORT` also read |
+| `UNIFI_DEFAULT_SITE` | Site name (default `default`); `UNIFI_NETWORK_SITE` also read |
+| `UNIFI_MCP_USERNAME` | Local account |
+| `UNIFI_MCP_PASSWORD` | Local password (no MFA) |
 | `UNIFI_MCP_API_KEY` | Integration API key (only for Integration operations) |
 | `UNIFI_CONSOLE_CERT_SHA256` | Pin the console certificate by SHA-256 fingerprint (preferred) |
 | `UNIFI_LOCAL_VERIFY_SSL` | `false` to skip certificate checks (not recommended) |
