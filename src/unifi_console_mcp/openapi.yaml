@@ -6,19 +6,19 @@ info:
   summary: Reference for the UniFi Cloud Key Gen2 Plus console (official Integration API, controller API, UniFi OS) and UniFi Site Manager.
   description: |
     ## How this reference is organised
-    Each operation appears under exactly one tag, prefixed by the API it belongs to:
+    Each operation appears under exactly one tag, named for the resource it works on (Devices, Clients, Firewall and so on), so the same resource's operations from different APIs sit together. The API an operation belongs to is in its `x-unifi-api` extension.
 
-    | Prefix | Base path | Auth | Stability |
+    | `x-unifi-api` | Base path | Auth | Stability |
     |---|---|---|---|
-    | **Integration** | `/proxy/network/integration/v1` | `ApiKey` (local key) | Official, versioned |
-    | **Controller** | `/proxy/network/api/s/{site}` and `/proxy/network/v2/api/site/{site}` | `ControllerSession` (+ `CsrfToken` on writes) | Undocumented and may change between Network Application releases |
-    | **UniFi OS** | `/api/` | `ControllerSession` | Undocumented authentication |
-    | **Cloud** | `https://unifi.ui.com` | `ApiKey` (cloud key) | Official; `/ea/` paths are Early Access |
+    | `integration` | `/proxy/network/integration/v1` | `ApiKey` (local key) | Official, versioned |
+    | `controller` | `/proxy/network/api/s/{site}` and `/proxy/network/v2/api/site/{site}` | `ControllerSession` (+ `CsrfToken` on writes) | Undocumented and may change between Network Application releases |
+    | `unifi_os` | `/api/` | `ControllerSession` | Undocumented authentication |
+    | `site_manager` | `https://api.ui.com` | `SiteManagerApiKey` (cloud key) | Official, versioned |
 
     ## Getting started
     1. **Integration API:** create a key in `~/network/default/integrations` and send it as `X-API-KEY`. Call `listLocalSites` first; the returned `id` is `{siteId}` for every other Integration call (see the **Links** on that response).
     2. **Controller API:** call `localLogin`. Keep the `TOKEN` cookie, and echo the `X-CSRF-Token` response header on every state-changing request. `{site}` is the site *name*, normally `default`.
-    3. **Cloud:** create a key at <https://unifi.ui.com/settings/api-keys>, send it as `X-API-KEY` to `api.ui.com`.
+    3. **Site Manager:** create a key at https://account.ui.com/settings/api-keys and send it as `X-API-Key` to `api.ui.com`. It is a different key from the Integration API's.
 
     ## Conventions
     - Operations that change state carry `x-destructive: true` (shown under each operation). Per the project change-management rule, firewall, VLAN and tunnel changes need a written plan and approval before use.
@@ -40,7 +40,7 @@ info:
     name: 'MIT License'
     identifier: MIT
 externalDocs:
-  description: UniFi Developer Portal (official APIs)
+  description: UniFi Developer Portal (Official APIs)
   url: https://developer.ui.com/
 servers:  
   - url: https://{host}:{port}
@@ -58,69 +58,63 @@ servers:
           - '443'
           - '8443'
         description: Port
-  - url: https://unifi.ui.com
+  - url: https://api.ui.com
     description: UniFi Site Manager
 tags:
   - name: Auth
-    description: UniFi OS console login/logout. Produces the session used by the **Controller** and **UniFi OS** tags.
-  - name: Integration · Application
-    description: Application info and sites. Start here to obtain `{siteId}`.
-    externalDocs: {description: 'Network API reference', url: 'https://developer.ui.com/network-api/'}
-  - name: Integration · Devices
-    description: Adopted and pending UniFi devices, statistics, device and port actions.
-  - name: Integration · Clients
-    description: Connected clients and guest authorisation.
-  - name: Integration · Networks
-    description: Networks (VLANs) and what references them.
-  - name: Integration · WiFi
-    description: Wi-Fi broadcasts (SSIDs).
-  - name: Integration · Firewall
-    description: Zone-based firewall - zones, policies, policy ordering, traffic matching lists.
-  - name: Integration · ACL rules
-    description: Switch ACL rules (layer 2/3 filtering enforced on switches).
-  - name: Integration · Switching
-    description: Read-only - switch stacks, MC-LAG domains and link aggregation groups (LAGs).
-  - name: Integration · DNS
-    description: Local DNS records and domain forwarding.
-  - name: Integration · Hotspot
-    description: Guest hotspot vouchers. Not used on this site (guest WLAN uses a passphrase); listed for completeness.
-  - name: Integration · Supporting resources
-    description: Read-only lookups - WANs, VPN servers and tunnels, RADIUS profiles, device tags, countries, DPI catalogue.
-  - name: Controller · System
-    description: Undocumented controller endpoints for health, events, alarms and backups.
+    description: UniFi OS console login/logout. Produces the session used by the `controller` and `unifi_os` operations.
+  - name: Sites
+    description: |
+      Sites on this console (`integration`) and across every console on the UI account (`site_manager`).
+      Start with `listLocalSites`: its `id` is `{siteId}` for every other Integration call.
+    externalDocs: {description: 'Network API reference', url: 'https://developer.ui.com/network'}
+  - name: System
+    description: |
+      Network Application info (`integration`); undocumented controller health, events, alarms and backups (`controller`);
+      console-level settings, firmware, applications, backups, certificates and support files (`unifi_os`).
     externalDocs: {description: 'Community API notes (Art-of-WiFi)', url: 'https://github.com/Art-of-WiFi/UniFi-API-client'}
-  - name: Controller · Devices
-    description: Undocumented device endpoints (ports, radios, topology).
-  - name: Controller · Clients
-    description: Undocumented client endpoints (known clients, fixed IPs, block/kick/forget).
-  - name: Controller · Networks
-    description: Undocumented network configuration and DHCP lease endpoints.
-  - name: Controller · Firewall
-    description: Undocumented firewall group, zone and matrix endpoints, the UI's policy table (with hit counts), port forwards and traffic rules.
-  - name: Controller · Traffic
+  - name: Devices
+    description: |
+      Adopted and pending devices, statistics, device and port actions (`integration`); ports, radios and topology
+      (`controller`); devices across every console on the UI account (`site_manager`).
+  - name: Clients
+    description: Connected clients and guest authorisation (`integration`); known clients, fixed IPs, block/kick/forget (`controller`).
+  - name: Networks
+    description: Networks (VLANs) and what references them (`integration`); network configuration and DHCP leases (`controller`).
+  - name: WiFi
+    description: Wi-Fi broadcasts (SSIDs).
+  - name: Firewall
+    description: |
+      Zone-based firewall: zones, policies, policy ordering and traffic matching lists (`integration`); firewall groups,
+      the zone matrix, the UI's policy table with hit counts, port forwards and traffic rules (`controller`).
+  - name: ACL rules
+    description: Switch ACL rules (layer 2/3 filtering enforced on switches).
+  - name: Switching
+    description: Read-only - switch stacks, MC-LAG domains and link aggregation groups (LAGs).
+  - name: DNS
+    description: Local DNS records and domain forwarding.
+  - name: Hotspot
+    description: Guest hotspot vouchers. Not used on this site (guest WLAN uses a passphrase); listed for completeness.
+  - name: Traffic
     description: Insights - traffic flows, per-application and per-country usage, the dashboard and WAN uptime/SLA.
-  - name: Controller · Alerts
+  - name: Alerts
     description: |
       System Log (critical events), Alarm Manager rules and console notifications.
 
       **Live events (WebSocket, not modelled as an operation):** `wss://<console>/proxy/network/wss/s/{site}/events?clients=v2`
       streams device, client and alert events as they happen (session cookie required); `wss/s/super/events` carries
       console-wide events. Useful for watching a change take effect instead of polling.
-  - name: UniFi OS · System
-    description: Console-level (UniFi OS) settings, firmware, applications, backups, certificates and support files.
-  - name: UniFi OS · Users
+  - name: Users
     description: Console users, roles, permission areas and API keys. Use to confirm an integration account's rights.
-  - name: Cloud · Hosts
+  - name: Supporting resources
+    description: Read-only lookups - WANs, VPN servers and tunnels, RADIUS profiles, device tags, countries, DPI catalogue.
+  - name: Hosts
     description: Consoles linked to the UI account.
     externalDocs: {description: 'Site Manager API reference', url: 'https://developer.ui.com/site-manager-api/'}
-  - name: Cloud · Sites
-    description: Network application sites across all consoles.
-  - name: Cloud · Devices
-    description: Devices across all consoles.
-  - name: Cloud · ISP metrics
-    description: Early Access. WAN latency, packet loss, uptime and throughput history.
-  - name: Cloud · SD-WAN
-    description: Early Access. SD-WAN (Site Magic) configurations and deployment status.
+  - name: ISP metrics
+    description: WAN latency, packet loss, uptime and throughput history for every site on the UI account.
+  - name: SD-WAN
+    description: SD-WAN (Site Magic) configurations and deployment status.
 security:
   - ApiKey: []
 paths:
@@ -132,6 +126,7 @@ paths:
       description: |
         Returns a `TOKEN` cookie and an `X-CSRF-Token` response header, both required by the controller API. Use a local-only admin account; MFA (`token`) is needed only for UI-account logins with 2FA.
       tags: [Auth]
+      x-unifi-api: unifi_os
       security: []
       requestBody:
         required: true
@@ -192,7 +187,9 @@ paths:
     post:
       operationId: localLogout
       summary: Log out (invalidate the session)
+      description: 'Ends the local console session. The `TOKEN` cookie and its CSRF token stop working; log in again before further controller or UniFi OS calls.'
       tags: [Auth]
+      x-unifi-api: unifi_os
       security: [{ControllerSession: [], CsrfToken: []}]
       responses:
         '200': {description: 'Logged out; the `TOKEN` cookie is cleared'}
@@ -205,7 +202,8 @@ paths:
       operationId: getApplicationInfo
       summary: Get Network application info
       description: Cheapest call to confirm the API key works and read the Network Application version.
-      tags: [Integration · Application]
+      tags: [System]
+      x-unifi-api: integration
       responses:
         '200':
           description: OK
@@ -222,7 +220,8 @@ paths:
       operationId: listLocalSites
       summary: List local sites
       description: The site UUID returned here is `{siteId}` for all other Integration API calls.
-      tags: [Integration · Application]
+      tags: [Sites]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -262,7 +261,8 @@ paths:
       description: |
         Filterable on `id`, `macAddress`, `ipAddress`, `model`, `state` (`eq ne in notIn`), `name` (also `like`), `supported`,
         `firmwareUpdatable` (`eq ne`), `firmwareVersion` (all comparisons, `like`, `isNull`), `features` and `interfaces` (set functions).
-      tags: [Integration · Devices]
+      tags: [Devices]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -288,7 +288,8 @@ paths:
       summary: Adopt a pending device
       description: Adopts a device discovered by `listPendingDevices`.
       x-destructive: true
-      tags: [Integration · Devices]
+      tags: [Devices]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -318,7 +319,8 @@ paths:
       operationId: getDeviceDetails
       summary: Get device details
       description: Includes per-port and per-radio detail.
-      tags: [Integration · Devices]
+      tags: [Devices]
+      x-unifi-api: integration
       responses:
         '200':
           description: OK
@@ -338,7 +340,8 @@ paths:
       summary: Remove (unadopt) a device
       description: Removes the device from the site. If it is online it is reset to factory defaults and must be re-adopted.
       x-destructive: true
-      tags: [Integration · Devices]
+      tags: [Devices]
+      x-unifi-api: integration
       responses:
         '200': {description: 'Device removed'}
         '401': {$ref: '#/components/responses/Unauthorized'}
@@ -352,7 +355,8 @@ paths:
       operationId: getLatestDeviceStatistics
       summary: Get latest device statistics
       description: Point-in-time CPU, memory, load, uplink throughput and radio retry figures.
-      tags: [Integration · Devices]
+      tags: [Devices]
+      x-unifi-api: integration
       responses:
         '200':
           description: OK
@@ -369,8 +373,10 @@ paths:
     post:
       operationId: executeDeviceAction
       summary: Execute a device action (restart)
+      description: 'Runs an action on one adopted device. The only action is `RESTART`, which reboots the device and drops its clients until it is back.'
       x-destructive: true
-      tags: [Integration · Devices]
+      tags: [Devices]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -398,7 +404,8 @@ paths:
       summary: Execute a port action (PoE power-cycle)
       description: Power-cycles the PoE output on one switch port; the attached device loses power briefly.
       x-destructive: true
-      tags: [Integration · Devices]
+      tags: [Devices]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -417,7 +424,8 @@ paths:
       operationId: listPendingDevices
       summary: List devices pending adoption
       description: Not site-scoped. Factory-default devices visible to this console; `adoptionTargetSiteIds` lists the sites each can be adopted into.
-      tags: [Integration · Devices]
+      tags: [Devices]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -438,7 +446,8 @@ paths:
       operationId: listConnectedClients
       summary: List connected clients
       description: Includes physical clients and active VPN connections. Filterable on `id`, `type`, `macAddress`, `ipAddress`, `connectedAt` (comparisons), `access.type`, `access.authorized`.
-      tags: [Integration · Clients]
+      tags: [Clients]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -463,7 +472,9 @@ paths:
     get:
       operationId: getConnectedClient
       summary: Get connected client details
-      tags: [Integration · Clients]
+      description: 'One connected client by its Integration API id: name, type, IP, MAC, connection time and the device it is uplinked to.'
+      tags: [Clients]
+      x-unifi-api: integration
       responses:
         '200':
           description: OK
@@ -486,7 +497,8 @@ paths:
       summary: Execute a client action (authorise or revoke guest access)
       description: Applies to clients on a guest/hotspot network. The client integration API cannot rename or set fixed IPs; use `updateKnownClient`.
       x-destructive: true
-      tags: [Integration · Clients]
+      tags: [Clients]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -517,7 +529,8 @@ paths:
       operationId: listNetworks
       summary: List networks (VLANs)
       description: Filterable on `management`, `id`, `name` (also `like`), `enabled`, `vlanId` (comparisons), `deviceId`, `metadata.origin`.
-      tags: [Integration · Networks]
+      tags: [Networks]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -539,7 +552,8 @@ paths:
       summary: Create a network (VLAN)
       description: Structural change. Needs a written plan and approval; take a backup (`systemCommand`) first.
       x-destructive: true
-      tags: [Integration · Networks]
+      tags: [Networks]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -590,7 +604,9 @@ paths:
     get:
       operationId: getNetworkDetails
       summary: Get network details
-      tags: [Integration · Networks]
+      description: 'One network by id, with its full configuration (VLAN, management type, DHCP and gateway settings where they apply).'
+      tags: [Networks]
+      x-unifi-api: integration
       responses:
         '200':
           description: OK
@@ -609,7 +625,8 @@ paths:
       summary: Update a network
       description: Structural change. Show a before/after diff and obtain approval first.
       x-destructive: true
-      tags: [Integration · Networks]
+      tags: [Networks]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -630,7 +647,8 @@ paths:
       summary: Delete a network
       description: Fails with 409 while Wi-Fi broadcasts, zones or port profiles reference it, unless `force=true`. Check `getNetworkReferences` first.
       x-destructive: true
-      tags: [Integration · Networks]
+      tags: [Networks]
+      x-unifi-api: integration
       parameters: [{$ref: '#/components/parameters/Force'}]
       responses:
         '200': {description: 'Deleted'}
@@ -646,7 +664,8 @@ paths:
       operationId: getNetworkReferences
       summary: List objects that reference a network
       description: Impact check before changing or deleting a network (Wi-Fi broadcasts, firewall zones, port profiles and so on).
-      tags: [Integration · Networks]
+      tags: [Networks]
+      x-unifi-api: integration
       responses:
         '200':
           description: OK
@@ -664,7 +683,8 @@ paths:
       operationId: listWifiBroadcasts
       summary: List Wi-Fi broadcasts (SSIDs)
       description: List items are a summary (type, id, name, enabled, network, security type, device filter); use `getWifiBroadcast` for full settings.
-      tags: [Integration · WiFi]
+      tags: [WiFi]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -684,8 +704,10 @@ paths:
     post:
       operationId: createWifiBroadcast
       summary: Create a Wi-Fi broadcast
+      description: 'Creates an SSID. Clients can join once the broadcasting APs have provisioned it.'
       x-destructive: true
-      tags: [Integration · WiFi]
+      tags: [WiFi]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -722,7 +744,9 @@ paths:
     get:
       operationId: getWifiBroadcast
       summary: Get Wi-Fi broadcast details
-      tags: [Integration · WiFi]
+      description: 'One SSID by id, with its security, network, band and broadcasting settings.'
+      tags: [WiFi]
+      x-unifi-api: integration
       responses:
         '200':
           description: OK
@@ -735,8 +759,10 @@ paths:
     put:
       operationId: updateWifiBroadcast
       summary: Update a Wi-Fi broadcast
+      description: 'Replaces the SSID configuration with the body sent.'
       x-destructive: true
-      tags: [Integration · WiFi]
+      tags: [WiFi]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -755,8 +781,10 @@ paths:
     delete:
       operationId: deleteWifiBroadcast
       summary: Delete a Wi-Fi broadcast
+      description: 'Deletes the SSID. Every client on it is disconnected. Use `force` when other objects still reference it.'
       x-destructive: true
-      tags: [Integration · WiFi]
+      tags: [WiFi]
+      x-unifi-api: integration
       parameters: [{$ref: '#/components/parameters/Force'}]
       responses:
         '200': {description: 'Deleted'}
@@ -772,7 +800,8 @@ paths:
       operationId: listIntegrationFirewallZones
       summary: List firewall zones
       description: Official equivalent of the controller's `listFirewallZones`. Filterable on `id`, `name` (also `like`), `metadata.origin`, `metadata.configurable`.
-      tags: [Integration · Firewall]
+      tags: [Firewall]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -798,7 +827,8 @@ paths:
       summary: Create a custom firewall zone
       description: Structural change. Needs a written plan and approval.
       x-destructive: true
-      tags: [Integration · Firewall]
+      tags: [Firewall]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -820,7 +850,9 @@ paths:
     get:
       operationId: getFirewallZone
       summary: Get a firewall zone
-      tags: [Integration · Firewall]
+      description: 'One firewall zone by id, with the networks assigned to it.'
+      tags: [Firewall]
+      x-unifi-api: integration
       responses:
         '200':
           description: OK
@@ -835,7 +867,8 @@ paths:
       summary: Update a firewall zone (name, member networks)
       description: Structural change. Show a before/after diff and obtain approval first. System-defined zones cannot be renamed.
       x-destructive: true
-      tags: [Integration · Firewall]
+      tags: [Firewall]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -854,8 +887,10 @@ paths:
     delete:
       operationId: deleteFirewallZone
       summary: Delete a custom firewall zone
+      description: 'Deletes a custom zone. Built-in zones cannot be deleted. Use `force` when policies or networks still reference it.'
       x-destructive: true
-      tags: [Integration · Firewall]
+      tags: [Firewall]
+      x-unifi-api: integration
       parameters: [{$ref: '#/components/parameters/Force'}]
       responses:
         '200': {description: 'Deleted'}
@@ -869,7 +904,8 @@ paths:
       operationId: listFirewallPolicies
       summary: List firewall policies
       description: Filterable on `id`, `name`, `source.zoneId`, `destination.zoneId`, `metadata.origin`.
-      tags: [Integration · Firewall]
+      tags: [Firewall]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -891,7 +927,8 @@ paths:
       summary: Create a firewall policy
       description: Structural change. Needs a written plan and approval. New policies are placed at the end of the zone pair's user-defined order.
       x-destructive: true
-      tags: [Integration · Firewall]
+      tags: [Firewall]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -942,7 +979,9 @@ paths:
     get:
       operationId: getFirewallPolicy
       summary: Get a firewall policy
-      tags: [Integration · Firewall]
+      description: 'One user-defined firewall policy by id, with its source, destination, action and schedule.'
+      tags: [Firewall]
+      x-unifi-api: integration
       responses:
         '200':
           description: OK
@@ -957,7 +996,8 @@ paths:
       summary: Replace a firewall policy
       description: Structural change. Show a before/after diff and obtain approval first.
       x-destructive: true
-      tags: [Integration · Firewall]
+      tags: [Firewall]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -978,7 +1018,8 @@ paths:
       summary: Patch logging and flow reporting on a firewall policy
       description: Only `loggingEnabled` and `reportFlowEnabled` can be patched. To enable or disable a policy use `updateFirewallPolicy`.
       x-destructive: true
-      tags: [Integration · Firewall]
+      tags: [Firewall]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -1004,8 +1045,10 @@ paths:
     delete:
       operationId: deleteFirewallPolicy
       summary: Delete a firewall policy
+      description: 'Deletes a user-defined firewall policy. System policies cannot be deleted. Traffic it matched falls through to the next policy for the zone pair.'
       x-destructive: true
-      tags: [Integration · Firewall]
+      tags: [Firewall]
+      x-unifi-api: integration
       responses:
         '200': {description: 'Deleted'}
         '401': {$ref: '#/components/responses/Unauthorized'}
@@ -1020,7 +1063,8 @@ paths:
       operationId: getFirewallPolicyOrdering
       summary: Get user-defined policy order for a zone pair
       description: Policies are evaluated per source/destination zone pair, top to bottom.
-      tags: [Integration · Firewall]
+      tags: [Firewall]
+      x-unifi-api: integration
       responses:
         '200':
           description: OK
@@ -1034,7 +1078,8 @@ paths:
       summary: Reorder policies for a zone pair
       description: Structural change. Must list every user-defined policy ID of the pair, split into those evaluated before and after the system-defined policies.
       x-destructive: true
-      tags: [Integration · Firewall]
+      tags: [Firewall]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -1055,7 +1100,8 @@ paths:
       operationId: listTrafficMatchingLists
       summary: List traffic matching lists (firewall objects)
       description: Reusable port and IP lists referenced by firewall policies. Filterable on `id`, `name` (also `like`).
-      tags: [Integration · Firewall]
+      tags: [Firewall]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -1071,8 +1117,10 @@ paths:
     post:
       operationId: createTrafficMatchingList
       summary: Create a traffic matching list
+      description: 'Creates a named list of ports, IPv4 or IPv6 addresses that firewall policies can match on.'
       x-destructive: true
-      tags: [Integration · Firewall]
+      tags: [Firewall]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -1098,7 +1146,9 @@ paths:
     get:
       operationId: getTrafficMatchingList
       summary: Get a traffic matching list
-      tags: [Integration · Firewall]
+      description: 'One traffic matching list by id, with its type and items.'
+      tags: [Firewall]
+      x-unifi-api: integration
       responses:
         '200':
           description: OK
@@ -1111,8 +1161,10 @@ paths:
     put:
       operationId: updateTrafficMatchingList
       summary: Update a traffic matching list
+      description: 'Replaces the list''s name and items. Every policy that uses the list matches the new items.'
       x-destructive: true
-      tags: [Integration · Firewall]
+      tags: [Firewall]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -1131,8 +1183,10 @@ paths:
     delete:
       operationId: deleteTrafficMatchingList
       summary: Delete a traffic matching list
+      description: 'Deletes the list. Use `force` when firewall policies still reference it.'
       x-destructive: true
-      tags: [Integration · Firewall]
+      tags: [Firewall]
+      x-unifi-api: integration
       parameters: [{$ref: '#/components/parameters/Force'}]
       responses:
         '200': {description: 'Deleted'}
@@ -1151,7 +1205,8 @@ paths:
         Filterable on `type`, `id`, `enabled`, `name`, `description`, `action`, `index`, `protocolFilter`, `networkId`,
         `enforcingDeviceFilter.deviceIds`, `metadata.origin`, and on `sourceFilter.*` / `destinationFilter.*`
         (`type`, `ipAddressesOrSubnets`, `portFilter`, `networkIds`, `macAddresses`, `prefixLength`).
-      tags: [Integration · ACL rules]
+      tags: [ACL rules]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -1169,7 +1224,8 @@ paths:
       summary: Create a switch ACL rule
       description: Structural change. Needs a written plan and approval.
       x-destructive: true
-      tags: [Integration · ACL rules]
+      tags: [ACL rules]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -1191,7 +1247,9 @@ paths:
     get:
       operationId: getAclRule
       summary: Get a switch ACL rule
-      tags: [Integration · ACL rules]
+      description: 'One switch ACL rule by id, with its action, match criteria and the switches it applies to.'
+      tags: [ACL rules]
+      x-unifi-api: integration
       responses:
         '200':
           description: OK
@@ -1204,8 +1262,10 @@ paths:
     put:
       operationId: updateAclRule
       summary: Update a switch ACL rule
+      description: 'Replaces the ACL rule with the body sent. Affected switches re-provision.'
       x-destructive: true
-      tags: [Integration · ACL rules]
+      tags: [ACL rules]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -1224,8 +1284,10 @@ paths:
     delete:
       operationId: deleteAclRule
       summary: Delete a switch ACL rule
+      description: 'Deletes the ACL rule. Use `force` when other objects still reference it.'
       x-destructive: true
-      tags: [Integration · ACL rules]
+      tags: [ACL rules]
+      x-unifi-api: integration
       parameters: [{$ref: '#/components/parameters/Force'}]
       responses:
         '200': {description: 'Deleted'}
@@ -1237,7 +1299,9 @@ paths:
     get:
       operationId: getAclRuleOrdering
       summary: Get ACL rule order
-      tags: [Integration · ACL rules]
+      description: 'The order in which user-defined switch ACL rules are evaluated, top to bottom.'
+      tags: [ACL rules]
+      x-unifi-api: integration
       responses:
         '200':
           description: OK
@@ -1249,8 +1313,10 @@ paths:
     put:
       operationId: updateAclRuleOrdering
       summary: Reorder ACL rules
+      description: 'Sets the evaluation order of user-defined ACL rules. This is the only way to reorder them: the `index` property in individual rule payloads is deprecated and ignored.'
       x-destructive: true
-      tags: [Integration · ACL rules]
+      tags: [ACL rules]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -1273,7 +1339,8 @@ paths:
       operationId: listSwitchStacks
       summary: List switch stacks
       description: Filterable on `id`, `name` (also `like`), `units.id`, `units.macAddress`, `metadata.origin`.
-      tags: [Integration · Switching]
+      tags: [Switching]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -1296,7 +1363,9 @@ paths:
     get:
       operationId: getSwitchStack
       summary: Get a switch stack
-      tags: [Integration · Switching]
+      description: 'One switch stack by id, with its member units.'
+      tags: [Switching]
+      x-unifi-api: integration
       responses:
         '200':
           description: OK
@@ -1312,7 +1381,8 @@ paths:
       operationId: listMcLagDomains
       summary: List MC-LAG domains
       description: Multi-chassis LAG pairs. Filterable on `id`, `name` (also `like`), `peers.deviceId`, `metadata.origin`.
-      tags: [Integration · Switching]
+      tags: [Switching]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -1335,7 +1405,9 @@ paths:
     get:
       operationId: getMcLagDomain
       summary: Get an MC-LAG domain
-      tags: [Integration · Switching]
+      description: 'One MC-LAG domain by id, with its peer switches.'
+      tags: [Switching]
+      x-unifi-api: integration
       responses:
         '200':
           description: OK
@@ -1351,7 +1423,8 @@ paths:
       operationId: listLags
       summary: List link aggregation groups (LAGs)
       description: Filterable on `id`, `type`, `switchStackId`, `mcLagDomainId`, `members.deviceId`, `members.portIdxs`, `metadata.origin`.
-      tags: [Integration · Switching]
+      tags: [Switching]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -1374,7 +1447,9 @@ paths:
     get:
       operationId: getLag
       summary: Get a LAG
-      tags: [Integration · Switching]
+      description: 'One link aggregation group by id, with its member ports.'
+      tags: [Switching]
+      x-unifi-api: integration
       responses:
         '200':
           description: OK
@@ -1392,7 +1467,8 @@ paths:
       operationId: listDnsPolicies
       summary: List local DNS records and forwarders
       description: List items are a summary (type, id, enabled, domain). Filterable on every record field, for example `type`, `domain`, `ipv4Address`, `targetDomain`, `ttlSeconds`.
-      tags: [Integration · DNS]
+      tags: [DNS]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -1410,7 +1486,8 @@ paths:
       summary: Create a DNS record or forwarder
       description: The body shape depends on `type`; pick an example to see each variant.
       x-destructive: true
-      tags: [Integration · DNS]
+      tags: [DNS]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -1446,7 +1523,9 @@ paths:
     get:
       operationId: getDnsPolicy
       summary: Get a DNS record or forwarder
-      tags: [Integration · DNS]
+      description: 'One local DNS record (A, AAAA, CNAME, MX, TXT, SRV) or forward domain by id.'
+      tags: [DNS]
+      x-unifi-api: integration
       responses:
         '200':
           description: OK
@@ -1459,8 +1538,10 @@ paths:
     put:
       operationId: updateDnsPolicy
       summary: Update a DNS record or forwarder
+      description: 'Replaces the DNS record or forward domain with the body sent. The record type is fixed at creation and cannot be changed; delete and recreate to change it.'
       x-destructive: true
-      tags: [Integration · DNS]
+      tags: [DNS]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -1479,8 +1560,10 @@ paths:
     delete:
       operationId: deleteDnsPolicy
       summary: Delete a DNS record or forwarder
+      description: 'Deletes the DNS record or forward domain. Lookups for the name fall back to upstream DNS.'
       x-destructive: true
-      tags: [Integration · DNS]
+      tags: [DNS]
+      x-unifi-api: integration
       responses:
         '200': {description: 'Deleted'}
         '401': {$ref: '#/components/responses/Unauthorized'}
@@ -1494,7 +1577,8 @@ paths:
       operationId: listVouchers
       summary: List hotspot vouchers
       description: Note the larger page size than other lists (default 100, maximum 1000).
-      tags: [Integration · Hotspot]
+      tags: [Hotspot]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/VoucherLimit'}
@@ -1510,8 +1594,10 @@ paths:
     post:
       operationId: createVouchers
       summary: Generate hotspot vouchers
+      description: 'Generates one or more hotspot vouchers with the given duration, guest limit and data or rate limits. The response holds the voucher codes.'
       x-destructive: true
-      tags: [Integration · Hotspot]
+      tags: [Hotspot]
+      x-unifi-api: integration
       requestBody:
         required: true
         content:
@@ -1538,7 +1624,8 @@ paths:
       summary: Delete vouchers matching a filter
       description: '`filter` is mandatory here to prevent deleting every voucher by accident, for example `expired.eq(true)`.'
       x-destructive: true
-      tags: [Integration · Hotspot]
+      tags: [Hotspot]
+      x-unifi-api: integration
       parameters:
         - name: filter
           in: query
@@ -1566,7 +1653,9 @@ paths:
     get:
       operationId: getVoucher
       summary: Get a hotspot voucher
-      tags: [Integration · Hotspot]
+      description: 'One hotspot voucher by id: code, limits, use count and expiry.'
+      tags: [Hotspot]
+      x-unifi-api: integration
       responses:
         '200':
           description: OK
@@ -1579,8 +1668,10 @@ paths:
     delete:
       operationId: deleteVoucher
       summary: Delete a hotspot voucher
+      description: 'Deletes one voucher. Guests authorised with it are cut off.'
       x-destructive: true
-      tags: [Integration · Hotspot]
+      tags: [Hotspot]
+      x-unifi-api: integration
       responses:
         '200':
           description: Deleted
@@ -1600,7 +1691,9 @@ paths:
     get:
       operationId: listWanInterfaces
       summary: List WAN interfaces
-      tags: [Integration · Supporting resources]
+      description: 'WAN interfaces on the site gateway, as id and name pairs. Use the id where other resources reference a WAN.'
+      tags: [Supporting resources]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -1617,7 +1710,9 @@ paths:
     get:
       operationId: listVpnServers
       summary: List VPN servers
-      tags: [Integration · Supporting resources]
+      description: 'VPN servers configured on the gateway (WireGuard, Teleport or other server types), with their type and enabled state.'
+      tags: [Supporting resources]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -1635,7 +1730,9 @@ paths:
     get:
       operationId: listSiteToSiteVpnTunnels
       summary: List site-to-site VPN tunnels
-      tags: [Integration · Supporting resources]
+      description: 'Site-to-site VPN tunnels configured on the gateway, with their type and metadata.'
+      tags: [Supporting resources]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -1653,7 +1750,9 @@ paths:
     get:
       operationId: listRadiusProfiles
       summary: List RADIUS profiles
-      tags: [Integration · Supporting resources]
+      description: 'RADIUS profiles, as id and name pairs, for use by SSIDs and switch port 802.1X.'
+      tags: [Supporting resources]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -1672,7 +1771,8 @@ paths:
       operationId: listDeviceTags
       summary: List device tags
       description: Tags group devices, for example to target Wi-Fi broadcasts at specific APs.
-      tags: [Integration · Supporting resources]
+      tags: [Supporting resources]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -1689,7 +1789,9 @@ paths:
     get:
       operationId: listCountries
       summary: List countries (regulatory domains)
-      tags: [Integration · Supporting resources]
+      description: 'Countries the console accepts as a regulatory domain, with their ISO codes.'
+      tags: [Supporting resources]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -1707,7 +1809,8 @@ paths:
       operationId: listDpiCategories
       summary: List DPI application categories
       description: Catalogue used when matching applications in firewall and traffic policies.
-      tags: [Integration · Supporting resources]
+      tags: [Supporting resources]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -1724,7 +1827,9 @@ paths:
     get:
       operationId: listDpiApplications
       summary: List DPI applications
-      tags: [Integration · Supporting resources]
+      description: 'Applications the DPI engine recognises, with their ids, for use in firewall and traffic rules.'
+      tags: [Supporting resources]
+      x-unifi-api: integration
       parameters:
         - {$ref: '#/components/parameters/Offset'}
         - {$ref: '#/components/parameters/Limit'}
@@ -1745,7 +1850,8 @@ paths:
       operationId: getSiteHealth
       summary: Site health (WAN, LAN, WLAN subsystems)
       description: One entry per subsystem. The quickest "is anything wrong" check.
-      tags: [Controller · System]
+      tags: [System]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -1763,7 +1869,9 @@ paths:
     get:
       operationId: getSysInfo
       summary: Controller system information
-      tags: [Controller · System]
+      description: 'Network application and console details, as on the dashboard console panel: Network and UniFi OS versions, whether updates are available, uptime, hostname and timezone.'
+      tags: [System]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -1781,7 +1889,9 @@ paths:
     get:
       operationId: getSiteWarnings
       summary: Dashboard warnings (upgradable devices, low disk, EOL devices)
-      tags: [Controller · System]
+      description: 'The warnings shown on the dashboard, such as devices with firmware upgrades, low disk space and end-of-life devices.'
+      tags: [System]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200': {$ref: '#/components/responses/LegacyOk'}
@@ -1795,7 +1905,8 @@ paths:
       summary: Recent events
       description: |
         Deprecated. Returns HTTP 404 on Network 11.0.81 (probed 2026-10-17); use `querySystemLogAll` (and `getSystemLogCount`) instead. Kept for older controller versions.
-      tags: [Controller · System]
+      tags: [System]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: _limit, in: query, description: 'Maximum events to return', schema: {type: integer, minimum: 1, default: 3000}}
@@ -1816,7 +1927,9 @@ paths:
     get:
       operationId: listAlarms
       summary: Alarms
-      tags: [Controller · System]
+      description: 'Controller alarms, newest first. Pass `archived=false` to return only open alarms.'
+      tags: [System]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: archived, in: query, description: '`false` returns only active alarms', schema: {type: boolean}}
@@ -1837,7 +1950,8 @@ paths:
       operationId: backupCommand
       summary: List Network application backups
       description: Read-only despite using POST. For console-level (UniFi OS) backups see `listConsoleBackups`.
-      tags: [Controller · System]
+      tags: [System]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -1861,7 +1975,8 @@ paths:
       description: |
         Network application settings only (plus statistics if `days` is set). Take one before any structural change.
         Returns the backup file URL in `data[0].url`. For a whole-console backup use `createConsoleBackup`.
-      tags: [Controller · System]
+      tags: [System]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -1884,7 +1999,9 @@ paths:
     get:
       operationId: getCurrentChannels
       summary: Channels allowed for the configured country
-      tags: [Controller · Devices]
+      description: 'Wi-Fi channels permitted by the site''s configured country, per band and including DFS.'
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200': {$ref: '#/components/responses/LegacyOk'}
@@ -1896,7 +2013,8 @@ paths:
       operationId: listDevicesDetailed
       summary: Detailed device list (ports, STP, PoE, radios, VAPs)
       description: Very large payload. Use `listDevicesBasic` or the Integration API unless port or radio detail is required.
-      tags: [Controller · Devices]
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -1913,7 +2031,8 @@ paths:
       operationId: listDevicesDetailedFiltered
       summary: Detailed device list filtered by MAC
       description: Read-only despite using POST.
-      tags: [Controller · Devices]
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         content:
@@ -1939,7 +2058,9 @@ paths:
     get:
       operationId: listDevicesBasic
       summary: Minimal device list (adopted, disabled, mac, state, type)
-      tags: [Controller · Devices]
+      description: 'A small device list (MAC, state, type, adopted and disabled flags). Cheaper than `listDevicesDetailed` when only identity and state are needed.'
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -1957,7 +2078,9 @@ paths:
     get:
       operationId: listDevicesV2
       summary: Device list (v2)
-      tags: [Controller · Devices]
+      description: 'Devices as the v2 UI shows them. `separateUnmanaged` splits out unmanaged devices; `includeTrafficUsage` adds traffic counters.'
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: separateUnmanaged, in: query, description: 'Return unmanaged (third-party) devices in a separate array', schema: {type: boolean, default: false}}
@@ -1979,7 +2102,9 @@ paths:
     get:
       operationId: getTopology
       summary: Network topology (edges and vertices)
-      tags: [Controller · Devices]
+      description: 'The site topology graph: vertices are devices and clients, edges are the links between them with uplink port numbers.'
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -2020,7 +2145,8 @@ paths:
         How well each AP hears the others, per radio band. `ap_radio_neighbours` lists, for each AP, the other APs it hears,
         grouped by channel, with signal strength. `ap_radio_isolation` lists channel interference per AP (empty when none).
         Bands with no capable APs come back with empty lists (`6e` on this site). Captured 2026-10-19 (Network 11.0.81).
-      tags: [Controller · Devices]
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: radioBand, in: query, description: '`all` or one band', schema: {type: string, enum: [all, ng, na, 6e], default: all}}
@@ -2063,7 +2189,8 @@ paths:
         One row per AP radio: traffic, average client signal, channel utilisation, interference and transmit retries, averaged
         over the window. `radio_name` is the AP's interface (`wifi0` = 2.4 GHz, `wifi1` = 5 GHz on the APs captured).
         Captured 2026-10-19 (Network 11.0.81).
-      tags: [Controller · Devices]
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: start, in: query, required: true, description: 'Window start (epoch ms)', schema: {type: integer}, example: 1792361749512}
@@ -2128,7 +2255,8 @@ paths:
         **Lowest-risk tests:** `deviceManagerCommand` `set-locate` (no configuration change), then renaming a switch
         or AP, or its `led_override` (`on` / `off` / `default`).
       x-destructive: true
-      tags: [Controller · Devices]
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -2201,7 +2329,8 @@ paths:
 
         Use it to find a flapping, erroring or saturated port, or a PoE device near its budget, and to see when it
         started. `filter` uses the same syntax as the Integration API.
-      tags: [Controller · Devices]
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - name: schema
@@ -2269,7 +2398,8 @@ paths:
 
         **Sensitive:** fields prefixed `x_` (for example `x_authkey`, `x_aes_gcm`, `x_vwirekey`) are device keys.
         Never log or store the raw response.
-      tags: [Controller · Devices]
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -2293,12 +2423,17 @@ paths:
           is the **lowest-risk test of write access**.
         - `restart`: reboot the device. `reboot_type: hard` also power-cycles the PoE ports, so every device powered
           by a switch goes down with it. Restarting a switch or the gateway takes down everything behind it.
+        - `upgrade-external`: install the firmware image at `url` on the device. The UI uses it both for a custom
+          firmware update and for Revert (with `previous_firmware_url` from `getFirmwareRevertOptions`). The response
+          is `rc: ok` with empty `data` once the upgrade starts; the device then downloads, flashes and reboots, so
+          it and everything behind it go offline. Not exposed by any tool in this server.
 
         The UI's *Debug* terminal also uses this endpoint (`build-ssh-session`, then `ssh-sdp-answer`) after
         `cmd/cloudaccess` `get-turn-credentials` returns short-lived TURN relay credentials. That is a WebRTC
         session through UniFi's relay, so it is not usable from an API client; use SSH instead.
       x-destructive: true
-      tags: [Controller · Devices]
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -2308,14 +2443,18 @@ paths:
               type: object
               required: [cmd, mac]
               properties:
-                cmd: {type: string, enum: [set-locate, unset-locate, restart, adopt]}
+                cmd: {type: string, enum: [set-locate, unset-locate, restart, adopt, upgrade-external]}
                 mac: {$ref: '#/components/schemas/MacAddress'}
+                url: {type: string, format: uri, description: '`upgrade-external` only: firmware image URL (dl.ui.com or fw-download.ubnt.com).'}
                 reboot_type: {type: string, enum: [soft, hard], description: '`restart` only. The UI sends `hard` (which also power-cycles PoE ports); there is no soft reset on this console.'}
                 client: {type: string, enum: [web], description: '`adopt` only: the UI sends `"client": "web"`.'}
             examples:
               locate: {summary: 'Start flashing the LED', value: {cmd: set-locate, mac: '00:00:5e:00:53:04'}}
               stopLocate: {summary: 'Stop flashing', value: {cmd: unset-locate, mac: '00:00:5e:00:53:04'}}
               restartHard: {summary: 'Restart and power-cycle PoE ports', value: {cmd: restart, mac: '00:00:5e:00:53:04', reboot_type: hard}}
+              upgradeExternal:
+                summary: Install firmware from a URL (custom update or revert)
+                value: {cmd: upgrade-external, mac: '00:00:5e:00:53:04', url: 'https://dl.ui.com/unifi/firmware/USMULTUS8/7.5.15.17146/US.MULT.US8_7.5.15+17146.260825.0811.bin'}
       responses:
         '200': {$ref: '#/components/responses/LegacyOk'}
         '400': {$ref: '#/components/responses/LegacyBadRequest'}
@@ -2331,7 +2470,8 @@ paths:
         devices from the site. The reply is the device record. The device must be adopted again to rejoin, and the
         device's `_id` changes when it is. **Irreversible short of re-adopting**; use `unifi_console_device`.
       x-destructive: true
-      tags: [Controller · Devices]
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -2380,7 +2520,8 @@ paths:
         Turning a feature off sends the same whole group with its switch set to `false`; the reply echoes the stored group.
         Partial bodies have not been tested; send the whole group read from `getSiteSetting`.
       x-destructive: true
-      tags: [Controller · System]
+      tags: [System]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -2559,7 +2700,8 @@ paths:
         may also cut the connection this tool runs over. Use the typed tool `unifi_console_doh`, which probes DNS before
         and after and puts the old values back automatically if the probe fails.
       x-destructive: true
-      tags: [Controller · System]
+      tags: [System]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -2599,7 +2741,8 @@ paths:
       operationId: getGatewayDefaults
       summary: Default gateway firewall state timeouts and DNS verification
       description: The values `firewall_state_timeouts` returns to when `timeout_setting_preference` is `auto`. Compare with the gateway's current values to spot hand-tuned timeouts.
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -2623,7 +2766,8 @@ paths:
       description: |
         For one adopted device (switch, AP, gateway), not the console. Seen: `READY_TO_GENERATE`, `GENERATING`.
         The ready and download steps have not been captured yet.
-      tags: [Controller · Devices]
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -2651,9 +2795,10 @@ paths:
       summary: Start generating a device support file (about 3 minutes)
       description: |
         Returns 200 with an empty body at once; the file is built on the device. Progress arrives on the site events
-        WebSocket as `meta.message: support-file:update` with `data[0].status` (see the Controller · Alerts tag), and
+        WebSocket as `meta.message: support-file:update` with `data[0].status` (see the Alerts tag), and
         `getDeviceSupportFileStatus` can be polled. The UI sends the literal body `null`.
-      tags: [Controller · Devices]
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         content:
@@ -2676,7 +2821,8 @@ paths:
       operationId: listDeviceSystemLog
       summary: Recent System Log entries for one device
       description: What the device panel's *Activity* list shows, including admin changes made to the device.
-      tags: [Controller · Alerts]
+      tags: [Alerts]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: mac, in: query, required: true, description: 'Same MAC as the path', schema: {$ref: '#/components/schemas/MacAddress'}}
@@ -2695,7 +2841,9 @@ paths:
     get:
       operationId: getPoeInfo
       summary: PoE use on one switch, and downlinks near their power limit
-      tags: [Controller · Devices]
+      description: 'PoE budget and use on the switch given by `mac`, and its downlinks that are close to their power limit.'
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: mac, in: query, required: true, description: 'Switch MAC', schema: {$ref: '#/components/schemas/MacAddress'}}
@@ -2723,7 +2871,8 @@ paths:
       operationId: listPortAnomalies
       summary: Switch ports the controller flags as anomalous
       description: An empty list when there are none (the only response captured so far).
-      tags: [Controller · Devices]
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -2739,7 +2888,8 @@ paths:
       operationId: getPortHistoryTimeline
       summary: Port change timeline for a time window
       description: An empty list when nothing changed (the only response captured so far). `getPortHistoryTimestamps` gives the times that have entries.
-      tags: [Controller · Devices]
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {$ref: '#/components/parameters/TimeStartMs'}
@@ -2757,7 +2907,9 @@ paths:
     get:
       operationId: getPortHistoryTimestamps
       summary: Times (epoch ms) with port history in a window
-      tags: [Controller · Devices]
+      description: 'Epoch-millisecond timestamps in the window that have switch port history snapshots. Use one with `getPortHistoryTimeline`.'
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {$ref: '#/components/parameters/TimeStartMs'}
@@ -2778,7 +2930,8 @@ paths:
       description: |
         Each entry watches a client and power-cycles its PoE port after `silence_threshold` missed heartbeats.
         `consecutive_failures` shows whether one has been firing. Check before diagnosing a device that keeps rebooting.
-      tags: [Controller · Devices]
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -2824,7 +2977,9 @@ paths:
     get:
       operationId: getFirmwareRevertOptions
       summary: Previous firmware a device can be rolled back to
-      tags: [Controller · Devices]
+      description: 'The previous firmware version and its download URL (fw-download.ubnt.com) for one device, for example `7.4.1+16850` on a switch running 7.5.15. The UI''s Revert sends that URL to `deviceManagerCommand` with `cmd: upgrade-external`. The UI hides Revert when no earlier image exists; the API response in that case has not been captured. A MAC not adopted on the site returns 404.'
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -2843,7 +2998,9 @@ paths:
     get:
       operationId: listRollingUpgradeEligibleDevices
       summary: Devices with a firmware upgrade available for a rolling upgrade
-      tags: [Controller · Devices]
+      description: 'MACs of devices with a firmware upgrade available that a rolling upgrade would include.'
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -2862,7 +3019,8 @@ paths:
       operationId: listActiveClientsLegacy
       summary: Active clients (legacy format)
       description: Prefer `listActiveClients` (v2) or `listConnectedClients` (Integration).
-      tags: [Controller · Clients]
+      tags: [Clients]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -2881,7 +3039,8 @@ paths:
       operationId: listKnownClients
       summary: Known clients (fixed IPs, names, notes, block state)
       description: Source of truth for fixed-IP records. Changes here must be mirrored in the "Static IPs" sheet.
-      tags: [Controller · Clients]
+      tags: [Clients]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -2899,7 +3058,8 @@ paths:
       summary: Create a known client (for example a fixed-IP reservation)
       description: Pick an address in `.1`-`.100` of the target subnet (static block); `.101+` is the DHCP pool.
       x-destructive: true
-      tags: [Controller · Clients]
+      tags: [Clients]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -2925,8 +3085,10 @@ paths:
     put:
       operationId: updateKnownClient
       summary: Update a known client (name, fixed IP, block)
+      description: 'Changes a known client''s stored settings: name, note, fixed IP, local DNS record or blocked state. Fields not sent are left unchanged.'
       x-destructive: true
-      tags: [Controller · Clients]
+      tags: [Clients]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -2962,7 +3124,8 @@ paths:
       summary: Client manager command (block, unblock, kick, forget)
       description: Per the project rule, forgetting clients is done only from a reviewed MAC list.
       x-destructive: true
-      tags: [Controller · Clients]
+      tags: [Clients]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -2999,7 +3162,9 @@ paths:
     get:
       operationId: listActiveClients
       summary: Active clients with traffic usage
-      tags: [Controller · Clients]
+      description: 'Clients connected now, with traffic usage. Optional flags add UniFi devices and Matter or Thread clients to the list.'
+      tags: [Clients]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: includeTrafficUsage, in: query, description: 'Include per-client traffic counters', schema: {type: boolean, default: false}}
@@ -3023,7 +3188,8 @@ paths:
       description: |
         To build a forget list of stale clients, call with `onlyNonBlocked=true&includeUnifiDevices=false&withinHours=0`,
         then keep entries with `status` = `offline` and `use_fixedip` = `false` (fixed-IP reservations are kept).
-      tags: [Controller · Clients]
+      tags: [Clients]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: onlyBlocked, in: query, description: 'Return blocked clients only', schema: {type: boolean, default: false}}
@@ -3051,7 +3217,8 @@ paths:
         attempts that ended at the same `failure_stage`, so one client can appear in several groups.
         Latencies appear to be microseconds. Clients the console has not identified have no `hostname`, `fingerprint` or
         `wlanconf_id`, and `name` is the MAC. For roams use `queryWifiConnectivityEvents`. Captured 2026-10-19 (Network 11.0.81).
-      tags: [Controller · Clients]
+      tags: [Clients]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: start, in: query, required: true, description: 'Window start (epoch ms)', schema: {type: integer}, example: 1792273438065}
@@ -3122,7 +3289,8 @@ paths:
         Each event names the AP, radio and signal at both ends (`from_endpoint`, `to_endpoint`).
         For later pages, increase `pageNumber` and pass the previous page's `last_event_cursor` as `lastEventCursor`.
         Captured 2026-10-19 (Network 11.0.81).
-      tags: [Controller · Clients]
+      tags: [Clients]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -3246,7 +3414,9 @@ paths:
     get:
       operationId: listNetworkConfig
       summary: Network configuration (VLANs, DHCP, IGMP, mDNS, zone assignment)
-      tags: [Controller · Networks]
+      description: 'Every network in controller format: VLAN, subnet, DHCP, IGMP snooping, mDNS, IPv6 and firewall zone. WAN networks are included.'
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -3261,12 +3431,13 @@ paths:
         '500': {$ref: '#/components/responses/LegacyServerError'}
     post:
       operationId: createNetworkConfig
-      summary: Create a network / VLAN (controller format)
+      summary: Create a network or VLAN (controller format)
       description: |
         Captured 2026-10-18 (UI create of a throwaway VLAN): a whole object of 53 keys without `_id`, naming `firewall_zone_id`;
         the reply is the legacy envelope with `_id`, `external_id`, `site_id`, `mdns_enabled`, `dpi_enabled` and the `dhcpdv6_*` keys added.
         Not callable through the generic tool: use `unifi_console_network`.
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       x-destructive: true
       requestBody:
@@ -3288,7 +3459,8 @@ paths:
       description: |
         Captured 2026-10-18: the UI sends the whole object (60 keys) including `_id` and `external_id`. Not callable through the
         generic tool: use `unifi_console_network`.
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       x-destructive: true
       requestBody:
@@ -3304,7 +3476,8 @@ paths:
       operationId: deleteNetworkConfig
       summary: Delete a network
       description: "Captured 2026-10-18: no body; reply `{meta:{rc:ok}, data:[]}`. Not callable through the generic tool: use `unifi_console_network`."
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       x-destructive: true
       responses:
@@ -3315,11 +3488,12 @@ paths:
     parameters: [{$ref: '#/components/parameters/Site'}]
     put:
       operationId: updateNetworkConfigGroup
-      summary: Change fields on several networks at once (used to enable / disable)
+      summary: Change fields on several networks at once (used to enable or disable)
       description: |
         Captured 2026-10-18: body `{"id": ["<network _id>"], "data": {"enabled": false}}`; the reply is a legacy envelope keyed by id,
         each value a nested envelope holding the updated object. Not callable through the generic tool: use `unifi_console_network`.
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       x-destructive: true
       requestBody:
@@ -3336,7 +3510,9 @@ paths:
     get:
       operationId: listActiveLeases
       summary: Active DHCP leases
-      tags: [Controller · Networks]
+      description: 'Current DHCP leases from the gateway: IP, MAC, hostname and network.'
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -3362,7 +3538,9 @@ paths:
     get:
       operationId: listFirewallGroups
       summary: Firewall address and port groups
-      tags: [Controller · Firewall]
+      description: 'Legacy firewall groups: named sets of IPv4 addresses, IPv6 addresses or ports.'
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -3383,7 +3561,8 @@ paths:
         group_members, source: "static"}`; `group_type` is `port-group`, `address-group` or `domain-group`. Not callable
         through the generic tool: use `unifi_console_network_list`.
       x-destructive: true
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -3407,7 +3586,8 @@ paths:
         description), but `group_members` is always replaced whole. Not callable through the generic tool: use
         `unifi_console_network_list`, which previews, checks what uses the list, journals and reads back.
       x-destructive: true
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -3426,7 +3606,8 @@ paths:
       summary: Delete a network list (firewall group)
       description: "Returns HTTP 200. Not callable through the generic tool; use `unifi_console_network_list`, which refuses while a policy or traffic object still uses the list."
       x-destructive: true
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       responses:
         '200': {description: Deleted}
@@ -3439,7 +3620,8 @@ paths:
       summary: Legacy firewall rules (pre zone-based firewall)
       description: Deprecated. Returns an empty list once the site has migrated to the zone-based firewall, as this one has. Use `listFirewallPolicies`.
       deprecated: true
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200': {$ref: '#/components/responses/LegacyOk'}
@@ -3451,7 +3633,8 @@ paths:
       operationId: listFirewallZones
       summary: Firewall zones and assigned networks
       description: Controller view; the Integration equivalent is `listIntegrationFirewallZones`.
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -3469,7 +3652,8 @@ paths:
       operationId: getZoneMatrix
       summary: Zone-to-zone policy matrix
       description: The grid shown in *Settings > Security > Zones*, showing the effective default action for each source/destination pair.
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -3485,7 +3669,9 @@ paths:
     get:
       operationId: getSyslogSettings
       summary: Console syslog settings (Insights Plus feed)
-      tags: [UniFi OS · System]
+      description: 'The console''s remote syslog settings: whether it is on, the server address and port, and which content categories are sent (in the UI: Admin Activity, Clients, Critical, Devices, Security Detections, Triggers and others). Needs more than Control Plane View access.'
+      tags: [System]
+      x-unifi-api: unifi_os
       security: [{ControllerSession: []}]
       responses:
         '200': {description: 'OK, content: {application/json: {schema: {type: object, additionalProperties: true}}}'}
@@ -3495,7 +3681,9 @@ paths:
     get:
       operationId: getFirmwareUpdates
       summary: Console firmware update status
-      tags: [UniFi OS · System]
+      description: 'The latest UniFi OS firmware release for the console''s platform (for example UCKP for a Cloud Key Gen2 Plus): version, release channel, size, checksums and download links. Compare `version` with the installed UniFi OS version to tell whether an update is available. Covers the console only, not adopted devices.'
+      tags: [System]
+      x-unifi-api: unifi_os
       security: [{ControllerSession: []}]
       responses:
         '200': {description: 'OK, content: {application/json: {schema: {type: object, additionalProperties: true}}}'}
@@ -3509,7 +3697,8 @@ paths:
         Certificates installed under *Settings > Control Plane > Console > Certificates*, including Let's Encrypt
         certificates the console renews itself. Metadata only (no certificate or key material).
         To check expiry, read `valid_to`; `acme_renew_error` is non-null when the last automatic renewal failed.
-      tags: [UniFi OS · System]
+      tags: [System]
+      x-unifi-api: unifi_os
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -3540,7 +3729,8 @@ paths:
       operationId: getCertificateChallenge
       summary: Current ACME (Let's Encrypt) challenge
       description: Returns `{}` when no certificate request or renewal is in progress. The in-progress shape has not been captured.
-      tags: [UniFi OS · System]
+      tags: [System]
+      x-unifi-api: unifi_os
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -3559,7 +3749,8 @@ paths:
         The machine-readable spec behind *Settings > Control Plane > Integrations > API docs*, for the running Network
         version. Its `servers` entry is the relative `/integration`, so prefix `/proxy/network` when calling from outside.
         Use it to check this spec after a Network application upgrade.
-      tags: [UniFi OS · System]
+      tags: [System]
+      x-unifi-api: unifi_os
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -3584,7 +3775,8 @@ paths:
 
         **Sensitive:** device `system.cfg` files contain Wi-Fi passphrases, device SSH passwords and VPN/RADIUS secrets
         in plain text. Never keep the bundle inside a git working tree; store it in a password manager or encrypted storage.
-      tags: [UniFi OS · System]
+      tags: [System]
+      x-unifi-api: unifi_os
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -3629,7 +3821,8 @@ paths:
       description: |
         Returns the bundle made by `generateSupportFile` as a gzipped tar, named `support-<last 4 hex of console MAC>-<epoch ms>.tgz`.
         Contains secrets in plain text; see `generateSupportFile`.
-      tags: [UniFi OS · System]
+      tags: [System]
+      x-unifi-api: unifi_os
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -3648,7 +3841,8 @@ paths:
         not just the Network application. Sent with an empty body (`Content-Length: 0`).
         Returns no body; the new entry appears at the top of `listConsoleBackups` with the schedule's `frequency`
         (for example `WEEKLY`), not a separate manual label.
-      tags: [UniFi OS · System]
+      tags: [System]
+      x-unifi-api: unifi_os
       security: [{ControllerSession: [], CsrfToken: []}]
       parameters:
         - name: destination
@@ -3666,7 +3860,8 @@ paths:
       operationId: listConsoleBackups
       summary: List console (UniFi OS) backups stored on the console
       description: Newest first. Each entry records the console firmware and the version of every application and service it covers.
-      tags: [UniFi OS · System]
+      tags: [System]
+      x-unifi-api: unifi_os
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -3700,7 +3895,8 @@ paths:
         Builds and returns a fresh archive at request time (the file name's timestamp and ID do not match any entry in
         `listConsoleBackups`). Without `target` it is *Backup for All Applications and Settings*.
         Treat the file as sensitive (contains configuration and credentials). Store it in a password manager or encrypted storage only.
-      tags: [UniFi OS · System]
+      tags: [System]
+      x-unifi-api: unifi_os
       security: [{ControllerSession: []}]
       parameters:
         - name: target
@@ -3748,7 +3944,8 @@ paths:
         Typical uses: blocked traffic in the last 24 hours (`action: [blocked]`), traffic for one client
         (`source_mac`), or traffic hitting one policy (`policy`). Only policies with `reportFlowEnabled` appear.
         Valid filter values (hosts, IPs, ports, policies) come from `getTrafficFlowFilterData`.
-      tags: [Controller · Traffic]
+      tags: [Traffic]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -3786,7 +3983,8 @@ paths:
       operationId: getTrafficFlowFilterData
       summary: Values available to filter traffic flows by
       description: Hosts, IPs, MACs and ports seen as source or destination, plus the policies that reported flows.
-      tags: [Controller · Traffic]
+      tags: [Traffic]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: inputSize, in: query, description: 'Flows to scan', schema: {type: integer, examples: [10000]}}
@@ -3808,7 +4006,8 @@ paths:
       description: |
         Same data as *Insights > Traffic*. `application` and `category` are DPI IDs; resolve names with
         `listDpiApplications` / `listDpiCategories` (Integration API).
-      tags: [Controller · Traffic]
+      tags: [Traffic]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - $ref: '#/components/parameters/TimeStartMs'
@@ -3828,7 +4027,8 @@ paths:
       operationId: getAppTrafficRate
       summary: Site traffic rate over time, with the top application per interval
       description: Read-only despite POST; the UI sends an empty JSON body.
-      tags: [Controller · Traffic]
+      tags: [Traffic]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       parameters:
         - $ref: '#/components/parameters/TimeStartMs'
@@ -3854,7 +4054,8 @@ paths:
       operationId: getTrafficByCountry
       summary: Internet traffic by country
       description: Useful for spotting unexpected destinations (pair with a region filter in a firewall policy).
-      tags: [Controller · Traffic]
+      tags: [Traffic]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - $ref: '#/components/parameters/TimeStartMs'
@@ -3887,7 +4088,8 @@ paths:
         Everything the Network dashboard shows: WAN activity with latency and packet loss history, system status,
         Wi-Fi activity and TX retries per AP, radio density and channel configuration, most active apps / APs / clients,
         speed test results, upgradable device count and safe-mode (degradation) status. A good single call for a health check.
-      tags: [Controller · Traffic]
+      tags: [Traffic]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: historySeconds, in: query, description: 'History window', schema: {type: integer, examples: [86400]}}
@@ -3904,7 +4106,9 @@ paths:
     get:
       operationId: listWanGroups
       summary: WAN connections with uptime and failover priority
-      tags: [Controller · Traffic]
+      description: 'WAN connections with failover priority, load-balancing mode and port. Pass `uptime` to add uptime statistics.'
+      tags: [Traffic]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: uptime, in: query, description: 'Include `uptime` (percentage)', schema: {type: boolean, default: false}}
@@ -3942,7 +4146,9 @@ paths:
     get:
       operationId: listWanSlaMonitors
       summary: WAN SLA monitors (latency and loss thresholds per target)
-      tags: [Controller · Traffic]
+      description: 'WAN SLA monitors: the targets probed and the latency and packet-loss thresholds that raise alerts.'
+      tags: [Traffic]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -3982,14 +4188,15 @@ paths:
     parameters: [{$ref: '#/components/parameters/Site'}]
     post:
       operationId: querySystemLog
-      summary: Critical System Log entries (the "Critical" tab)
+      summary: Critical System Log entries (the Critical tab)
       description: |
         Same data as *System Log > Critical*. Read-only despite POST. No time window or paging; filter by severity,
         category, subcategory and event type. For the full history use `querySystemLogAll`.
         Includes switching problems the device logs rarely surface clearly, for example `NETWORK_LOOP_DETECTED_BY_STP`,
         `LOG_SWITCH_PORT_STP_FLAP`, `BPDU_GUARD_TRIGGERED`, `PORT_BROADCAST_STORM`, `ROGUE_DHCP_SERVER_DETECTED`.
         The UI sends every value; send only the ones of interest to narrow the result.
-      tags: [Controller · Alerts]
+      tags: [Alerts]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -4065,14 +4272,15 @@ paths:
     parameters: [{$ref: '#/components/parameters/Site'}]
     post:
       operationId: querySystemLogAll
-      summary: System Log history, paged (the "All" tab)
+      summary: System Log history, paged (the All tab)
       description: |
         Every System Log entry in a time window, newest first. Read-only despite POST. Volume is dominated by Wi-Fi
         connect, disconnect and roam events (about 2,000 a month on this site), so narrow with `severities`
         (for example `MEDIUM` and above) or `categories` unless client history is the point.
         Entries are templates: replace each `{NAME}` in `title_raw` / `message_raw` with `parameters.NAME.name`.
         For one entry as a syslog line use `getSystemLogEntryCef`.
-      tags: [Controller · Alerts]
+      tags: [Alerts]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -4129,7 +4337,8 @@ paths:
       operationId: getSystemLogFilterData
       summary: Values available to filter the System Log by (for a time window)
       description: Read-only despite POST. Takes the same filters as `querySystemLogAll`, without paging.
-      tags: [Controller · Alerts]
+      tags: [Alerts]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -4159,7 +4368,8 @@ paths:
         The entry rendered in ArcSight CEF, exactly as sent to a remote syslog server: every parameter appears as a
         `UNIFIname=value` extension plus a resolved `msg`. The UI also passes the same ID as `?id=`.
         Handy for a one-line, fully resolved summary of an event.
-      tags: [Controller · Alerts]
+      tags: [Alerts]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - name: id
@@ -4184,7 +4394,8 @@ paths:
       operationId: listAlarmRules
       summary: Alarm Manager rules (what triggers a notification, and how)
       description: Each rule has trigger and action categories, a scope (site, devices) and `stats.executions_24h`.
-      tags: [Controller · Alerts]
+      tags: [Alerts]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -4198,7 +4409,9 @@ paths:
     get:
       operationId: getAlarmActivity
       summary: Alarms fired in the last 24 hours
-      tags: [Controller · Alerts]
+      description: 'Alarm Manager alarms fired in the last 24 hours, with the report window. Covers every rule listed by `listAlarmRules` (system, internet, power and monitoring triggers such as Internet Disconnected, Network Loop Detected and UPS Power State), not only console events.'
+      tags: [Alerts]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -4218,7 +4431,8 @@ paths:
       operationId: getAlarmManifest
       summary: Catalogue of available alarm triggers, actions and scopes
       description: Use to discover trigger and action IDs before reading or designing alarm rules.
-      tags: [Controller · Alerts]
+      tags: [Alerts]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200': {description: 'OK, content: {application/json: {schema: {type: object, additionalProperties: true}}}'}
@@ -4227,8 +4441,10 @@ paths:
   /api/notifications/settings:
     get:
       operationId: getConsoleNotificationSettings
-      summary: Console notification settings (email / push per event)
-      tags: [Controller · Alerts]
+      summary: Console notification settings (email and push per event)
+      description: 'The console''s notification mode and, per event, whether email and push notifications are on.'
+      tags: [Alerts]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -4261,7 +4477,8 @@ paths:
         The list the UI's *Policy Table* shows, including system-defined policies. Unlike `listFirewallPolicies`
         it returns `hits` and `last_hit`, which make it the right source for audits (unused, shadowed or noisy rules).
         Changes go through the typed tool `unifi_console_firewall_policy` (create, update, enable, disable, delete, move).
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -4281,7 +4498,8 @@ paths:
         `index` (the next free index in the zone pair).
         Not callable through the generic tool: use `unifi_console_firewall_policy`, which previews, protects system policies, probes DNS before and after, journals and reads back.
       x-destructive: true
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -4303,7 +4521,8 @@ paths:
         v2 endpoint (captured 2026-10-17). Body is a list `[{_id, enabled}]`; HTTP 200 with the updated policies.
         Not callable through the generic tool: use `unifi_console_firewall_policy`, which previews, protects system policies, probes DNS before and after, journals and reads back.
       x-destructive: true
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -4327,7 +4546,8 @@ paths:
         each in the new order. HTTP 200 with the reordered policies and their new indexes.
         Not callable through the generic tool: use `unifi_console_firewall_policy`, which previews, protects system policies, probes DNS before and after, journals and reads back.
       x-destructive: true
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -4350,7 +4570,8 @@ paths:
         the "(Return)" policy generated for it.
         Not callable through the generic tool: use `unifi_console_firewall_policy`, which previews, protects system policies, probes DNS before and after, journals and reads back.
       x-destructive: true
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -4368,8 +4589,10 @@ paths:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: listTrafficRules
-      summary: Traffic rules (legacy simple app / domain blocking and rate limits)
-      tags: [Controller · Firewall]
+      summary: Traffic rules (app and domain blocking and rate limits)
+      description: 'Traffic rules (app or domain blocking and rate limits). Shape is passed through as returned.'
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -4384,7 +4607,9 @@ paths:
     get:
       operationId: listTrafficRoutes
       summary: Policy-based routes (send selected traffic via a VPN or WAN)
-      tags: [Controller · Firewall]
+      description: 'Policy-based routes that send selected clients, networks or destinations through a specific VPN or WAN.'
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -4399,7 +4624,9 @@ paths:
     get:
       operationId: listContentFilters
       summary: Content filtering profiles
-      tags: [Controller · Firewall]
+      description: 'Content filtering profiles and the networks or clients each applies to.'
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -4414,7 +4641,9 @@ paths:
     get:
       operationId: listPortForwards
       summary: Port forwards
-      tags: [Controller · Firewall]
+      description: 'Port forward rules on the gateway: WAN port, destination IP and port, protocol and enabled state.'
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
@@ -4428,7 +4657,8 @@ paths:
         asks for confirmation, journals and reads back. Body fields verified live on 11.0.81 (a rule created disabled
         with these 11 keys was accepted and deleted again): `enabled`, `name`, `pfwd_interface`, `destination_ip`,
         `destination_ips`, `dst_port`, `fwd`, `fwd_port`, `proto`, `src_limiting_enabled`, `log`.
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       x-destructive: true
       requestBody:
@@ -4450,7 +4680,8 @@ paths:
       description: |
         Legacy `rest/*` endpoint: a **partial body is merged** (verified 2026-10-17: `{name}` alone changed only the name).
         Not callable through the generic tool: use `unifi_console_port_forward`.
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       x-destructive: true
       requestBody:
@@ -4466,7 +4697,8 @@ paths:
       operationId: deletePortForward
       summary: Delete a port forward
       description: "Returns HTTP 200. Not callable through the generic tool; use `unifi_console_port_forward`."
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       x-destructive: true
       responses:
@@ -4487,7 +4719,8 @@ paths:
 
         **Sensitive:** fields prefixed `x_` hold secrets in plain text (device SSH password, RADIUS and SMTP secrets,
         SNMP community, element PSK). Never log or store the raw response.
-      tags: [Controller · System]
+      tags: [System]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
@@ -4507,7 +4740,8 @@ paths:
       operationId: getSiteSetting
       summary: One site setting group
       description: Same record shape as one entry of `listSiteSettings`; same secrets warning applies.
-      tags: [Controller · System]
+      tags: [System]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
@@ -4521,7 +4755,8 @@ paths:
       description: |
         Names such as `ZONE_BASED_FIREWALL`, `WAN_SLA`, `ALARM_MANAGER`, `SWITCH_CUSTOM_ACL_RULES`, `WIREGUARD_VPN_SERVER`
         (113 on 11.0.81). Check before calling an endpoint whose feature may be absent.
-      tags: [Controller · System]
+      tags: [System]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: includeSystemFeatures, in: query, description: 'Include internal system features as well as user-facing ones', schema: {type: boolean, default: false}}
@@ -4544,7 +4779,9 @@ paths:
     get:
       operationId: getGlobalNetworkConfig
       summary: Site-wide network settings (IGMP snooping, mDNS, multicast, default security posture)
-      tags: [Controller · Networks]
+      description: 'Site-wide network settings: default security posture, IGMP snooping and fast leave, multicast flooding, mDNS networks and IPv6 prefix delegation.'
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -4571,7 +4808,8 @@ paths:
       operationId: listLanConfigurationWithStats
       summary: Networks (LANs) with live client counts and satisfaction
       description: '`configuration` is the `networkconf` record; `statistics` adds current/peak clients and satisfaction.'
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -4587,7 +4825,8 @@ paths:
       operationId: listWlanConfigurationWithStats
       summary: SSIDs with live client counts and satisfaction
       description: '`configuration` is the `wlanconf` record (includes the passphrase); `statistics` adds clients, APs and satisfaction.'
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -4602,7 +4841,9 @@ paths:
     get:
       operationId: listWanConfigurationWithStats
       summary: WAN connections with uptime percentage, peak usage and ISP details
-      tags: [Controller · Networks]
+      description: 'WAN connections with uptime percentage, peak usage and ISP details.'
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -4621,7 +4862,8 @@ paths:
         Every SSID setting the UI exposes, including some the Integration API does not (for example `ap_group_ids`,
         minimum data rates, roaming assistant). **Sensitive:** includes `x_passphrase` and `x_iapp_key` in plain text.
         Prefer `listWifiBroadcasts` unless a field is only here.
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
@@ -4634,7 +4876,8 @@ paths:
         Captured 2026-10-18 (UI create of a throwaway SSID, then delete): a whole object of 53 keys without `_id`; the reply is
         the legacy envelope with `_id`, `site_id`, `short_id` and `external_id` added. `x_passphrase` is a write-only secret.
         Not callable through the generic tool: use `unifi_console_wifi`.
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       x-destructive: true
       requestBody:
@@ -4656,7 +4899,8 @@ paths:
       description: |
         Captured 2026-10-18: the UI sends the whole object (62 keys) including `_id`. Secrets (`x_passphrase`, `x_iapp_key`)
         come back from the read and are sent again. Not callable through the generic tool: use `unifi_console_wifi`.
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       x-destructive: true
       requestBody:
@@ -4672,7 +4916,8 @@ paths:
       operationId: deleteWlanConfig
       summary: Delete an SSID
       description: "Captured 2026-10-18: no body; reply `{meta:{rc:ok}, data:[]}`. Not callable through the generic tool: use `unifi_console_wifi`."
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       x-destructive: true
       responses:
@@ -4684,7 +4929,9 @@ paths:
     get:
       operationId: listApGroups
       summary: AP groups (which access points broadcast which SSIDs)
-      tags: [Controller · Networks]
+      description: 'AP groups: which access points are in each group, used to choose which APs broadcast an SSID.'
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -4708,7 +4955,9 @@ paths:
     get:
       operationId: listPortProfiles
       summary: Switch port profiles
-      tags: [Controller · Networks]
+      description: 'Switch port profiles (native and tagged networks, PoE, STP and other port settings) that ports can be assigned.'
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
@@ -4719,7 +4968,9 @@ paths:
     get:
       operationId: listStaticRoutes
       summary: Static routes
-      tags: [Controller · Networks]
+      description: 'Static routes on the gateway: destination, next hop or interface, distance and enabled state.'
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
@@ -4731,7 +4982,8 @@ paths:
       operationId: listBandwidthProfiles
       summary: Bandwidth profiles (user groups)
       description: '`_id` is the `usergroup_id` on known clients. `qos_rate_max_down` / `_up` are kbps; `-1` = unlimited.'
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
@@ -4743,7 +4995,8 @@ paths:
       operationId: listRadiusProfilesLegacy
       summary: RADIUS profiles (controller format)
       description: '**Sensitive:** `auth_servers[].x_secret` and `acct_servers[].x_secret` are shared secrets in plain text.'
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
@@ -4754,7 +5007,9 @@ paths:
     get:
       operationId: listScheduledTasks
       summary: Scheduled tasks (for example nightly network optimisation)
-      tags: [Controller · System]
+      description: 'Scheduled controller tasks, each with `action`, a cron expression and, for upgrades, the target device MACs. Captured on a single-site console: a weekly device firmware `upgrade` task and the nightly `radio-ai` channel optimisation.'
+      tags: [System]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
@@ -4766,7 +5021,9 @@ paths:
     get:
       operationId: listConsoleApplications
       summary: Applications on the console (installed, running, version)
-      tags: [UniFi OS · System]
+      description: 'UniFi OS applications on the console (Network, Protect and so on): version and whether each is installed, configured and running.'
+      tags: [System]
+      x-unifi-api: unifi_os
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -4801,7 +5058,8 @@ paths:
       description: |
         Hostname, hardware, UniFi OS build, every application version (`network_version`, `ucore_version`, ...),
         capability lists, start time, remote access and cloud connection state. A cheap first call for "what am I talking to".
-      tags: [UniFi OS · System]
+      tags: [System]
+      x-unifi-api: unifi_os
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -4821,7 +5079,8 @@ paths:
       operationId: checkApplicationUpdates
       summary: Ask the console to check for application updates
       description: Triggers a check only; nothing is installed. Read the result from `getFirmwareUpdates` / `listConsoleApplications`.
-      tags: [UniFi OS · System]
+      tags: [System]
+      x-unifi-api: unifi_os
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -4844,7 +5103,8 @@ paths:
       description: |
         Backups stored in the UI cloud, newest first. Pair with `listConsoleBackups` to confirm an off-site copy exists.
         `fileKey` identifies the cloud object; treat it as sensitive.
-      tags: [UniFi OS · System]
+      tags: [System]
+      x-unifi-api: unifi_os
       security: [{ControllerSession: []}]
       parameters:
         - {name: allBackups, in: query, description: 'List every stored backup, not only the most recent', schema: {type: boolean, default: false}}
@@ -4882,7 +5142,8 @@ paths:
       description: |
         Use at start-up to confirm which account an integration is running as and what it may do
         (`permissions["network.management"]` is `["admin"]`, `["readonly"]` and so on).
-      tags: [UniFi OS · Users]
+      tags: [Users]
+      x-unifi-api: unifi_os
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -4914,7 +5175,8 @@ paths:
       operationId: listConsoleAdmins
       summary: Console administrators
       description: Review who can administer the console and with which role.
-      tags: [UniFi OS · Users]
+      tags: [Users]
+      x-unifi-api: unifi_os
       security: [{ControllerSession: []}]
       parameters:
         - {name: page_num, in: query, description: 'Page number, starting at 1', schema: {type: integer, default: 1}}
@@ -4937,7 +5199,8 @@ paths:
       operationId: listRoles
       summary: Roles (system and custom) with their permissions and member counts
       description: Use with `listPermissionManifests` to design a least-privilege role for an integration account.
-      tags: [UniFi OS · Users]
+      tags: [Users]
+      x-unifi-api: unifi_os
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -4970,7 +5233,9 @@ paths:
     get:
       operationId: listPermissionManifests
       summary: Permission areas and the levels each offers (admin, read-only, ...)
-      tags: [UniFi OS · Users]
+      description: 'Permission areas for roles (for example Network and Control Plane) and the levels each offers (for example Full Admin and View Only). A role is a choice of one level per area.'
+      tags: [Users]
+      x-unifi-api: unifi_os
       security: [{ControllerSession: []}]
       parameters:
         - {name: clean, in: query, description: '`1` returns a de-duplicated manifest', schema: {type: integer, enum: [0, 1]}}
@@ -5009,7 +5274,8 @@ paths:
       operationId: listApiKeys
       summary: API keys (masked), with permissions and last use
       description: Audit which keys exist, what they can do and whether they are still used (`last_used_at`). Keys are masked.
-      tags: [UniFi OS · Users]
+      tags: [Users]
+      x-unifi-api: unifi_os
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -5043,7 +5309,10 @@ paths:
     get:
       operationId: cloudListHosts
       summary: List hosts (consoles) on the account
-      tags: [Cloud · Hosts]
+      description: 'Consoles linked to the UI account, from Site Manager (api.ui.com). Pages with `nextToken`.'
+      tags: [Hosts]
+      x-unifi-api: site_manager
+      security: [{SiteManagerApiKey: []}]
       parameters:
         - {$ref: '#/components/parameters/CloudPageSize'}
         - {$ref: '#/components/parameters/CloudNextToken'}
@@ -5065,15 +5334,20 @@ paths:
             devicesOnHost:
               operationId: cloudListDevices
               parameters: {'hostIds[]': '$response.body#/data/0/id'}
+        '400': {$ref: '#/components/responses/CloudBadRequest'}
         '401': {$ref: '#/components/responses/CloudUnauthorized'}
         '429': {$ref: '#/components/responses/CloudTooManyRequests'}
         '500': {$ref: '#/components/responses/CloudServerError'}
+        '502': {$ref: '#/components/responses/CloudBadGateway'}
   /v1/hosts/{hostId}:
     servers: [{url: 'https://api.ui.com', description: UniFi Site Manager (cloud)}]
     get:
       operationId: cloudGetHost
       summary: Get host by ID
-      tags: [Cloud · Hosts]
+      description: 'One console linked to the UI account by host id, from Site Manager (api.ui.com).'
+      tags: [Hosts]
+      x-unifi-api: site_manager
+      security: [{SiteManagerApiKey: []}]
       parameters:
         - {name: hostId, in: path, required: true, description: 'Host `id` from `cloudListHosts`', schema: {type: string}}
       responses:
@@ -5089,12 +5363,16 @@ paths:
         '404': {$ref: '#/components/responses/CloudNotFound'}
         '429': {$ref: '#/components/responses/CloudTooManyRequests'}
         '500': {$ref: '#/components/responses/CloudServerError'}
+        '502': {$ref: '#/components/responses/CloudBadGateway'}
   /v1/sites:
     servers: [{url: 'https://api.ui.com', description: UniFi Site Manager (cloud)}]
     get:
       operationId: cloudListSites
       summary: List sites across hosts
-      tags: [Cloud · Sites]
+      description: 'Sites on every console linked to the UI account, from Site Manager (api.ui.com). Pages with `nextToken`.'
+      tags: [Sites]
+      x-unifi-api: site_manager
+      security: [{SiteManagerApiKey: []}]
       parameters:
         - {$ref: '#/components/parameters/CloudPageSize'}
         - {$ref: '#/components/parameters/CloudNextToken'}
@@ -5112,13 +5390,16 @@ paths:
         '401': {$ref: '#/components/responses/CloudUnauthorized'}
         '429': {$ref: '#/components/responses/CloudTooManyRequests'}
         '500': {$ref: '#/components/responses/CloudServerError'}
+        '502': {$ref: '#/components/responses/CloudBadGateway'}
   /v1/devices:
     servers: [{url: 'https://api.ui.com', description: UniFi Site Manager (cloud)}]
     get:
       operationId: cloudListDevices
       summary: List devices across hosts
       description: Devices are grouped by host. Only hosts where the account is owner or super admin are included.
-      tags: [Cloud · Devices]
+      tags: [Devices]
+      x-unifi-api: site_manager
+      security: [{SiteManagerApiKey: []}]
       parameters:
         - name: 'hostIds[]'
           in: query
@@ -5150,16 +5431,19 @@ paths:
         '401': {$ref: '#/components/responses/CloudUnauthorized'}
         '429': {$ref: '#/components/responses/CloudTooManyRequests'}
         '500': {$ref: '#/components/responses/CloudServerError'}
-  /ea/isp-metrics/{type}:
+        '502': {$ref: '#/components/responses/CloudBadGateway'}
+  /v1/isp-metrics/{type}:
     servers: [{url: 'https://api.ui.com', description: UniFi Site Manager (cloud)}]
     get:
       operationId: cloudGetIspMetrics
-      summary: Get ISP metrics for all sites (Early Access)
+      summary: Get ISP metrics for all sites
       description: |
         WAN latency, packet loss, uptime and throughput for every site on the account.
         `5m` data is kept for at least 24 hours, `1h` data for at least 30 days.
-        Give either `duration`, or `beginTimestamp` (+ optional `endTimestamp`). Early Access limit: 100 requests/minute.
-      tags: [Cloud · ISP metrics]
+        Give either `duration`, or `beginTimestamp` (+ optional `endTimestamp`).
+      tags: [ISP metrics]
+      x-unifi-api: site_manager
+      security: [{SiteManagerApiKey: []}]
       parameters:
         - {$ref: '#/components/parameters/IspMetricType'}
         - {name: beginTimestamp, in: query, description: 'Start of the window (RFC 3339). Use with `endTimestamp` instead of `duration`', schema: {type: string, format: date-time}}
@@ -5178,13 +5462,16 @@ paths:
         '401': {$ref: '#/components/responses/CloudUnauthorized'}
         '429': {$ref: '#/components/responses/CloudTooManyRequests'}
         '500': {$ref: '#/components/responses/CloudServerError'}
-  /ea/isp-metrics/{type}/query:
+        '502': {$ref: '#/components/responses/CloudBadGateway'}
+  /v1/isp-metrics/{type}/query:
     servers: [{url: 'https://api.ui.com', description: UniFi Site Manager (cloud)}]
     post:
       operationId: cloudQueryIspMetrics
-      summary: Query ISP metrics for chosen sites (Early Access)
+      summary: Query ISP metrics for chosen sites
       description: Read-only despite using POST.
-      tags: [Cloud · ISP metrics]
+      tags: [ISP metrics]
+      x-unifi-api: site_manager
+      security: [{SiteManagerApiKey: []}]
       parameters: [{$ref: '#/components/parameters/IspMetricType'}]
       requestBody:
         required: true
@@ -5217,13 +5504,16 @@ paths:
         '401': {$ref: '#/components/responses/CloudUnauthorized'}
         '429': {$ref: '#/components/responses/CloudTooManyRequests'}
         '500': {$ref: '#/components/responses/CloudServerError'}
-  /ea/sd-wan-configs:
+        '502': {$ref: '#/components/responses/CloudBadGateway'}
+  /v1/sd-wan-configs:
     servers: [{url: 'https://api.ui.com', description: UniFi Site Manager (cloud)}]
     get:
       operationId: cloudListSdwanConfigs
-      summary: List SD-WAN configurations (Early Access)
+      summary: List SD-WAN configurations
       description: Not used on this account (single site); listed for completeness.
-      tags: [Cloud · SD-WAN]
+      tags: [SD-WAN]
+      x-unifi-api: site_manager
+      security: [{SiteManagerApiKey: []}]
       responses:
         '200':
           description: OK
@@ -5240,12 +5530,16 @@ paths:
         '401': {$ref: '#/components/responses/CloudUnauthorized'}
         '429': {$ref: '#/components/responses/CloudTooManyRequests'}
         '500': {$ref: '#/components/responses/CloudServerError'}
-  /ea/sd-wan-configs/{id}:
+        '502': {$ref: '#/components/responses/CloudBadGateway'}
+  /v1/sd-wan-configs/{id}:
     servers: [{url: 'https://api.ui.com', description: UniFi Site Manager (cloud)}]
     get:
       operationId: cloudGetSdwanConfig
-      summary: Get an SD-WAN configuration (Early Access)
-      tags: [Cloud · SD-WAN]
+      summary: Get an SD-WAN configuration
+      description: 'One SD-WAN configuration by id, from Site Manager (api.ui.com). Not used on this account (single site).'
+      tags: [SD-WAN]
+      x-unifi-api: site_manager
+      security: [{SiteManagerApiKey: []}]
       parameters: [{name: id, in: path, required: true, description: 'SD-WAN configuration `id`', schema: {type: string}}]
       responses:
         '200':
@@ -5260,12 +5554,16 @@ paths:
         '404': {$ref: '#/components/responses/CloudNotFound'}
         '429': {$ref: '#/components/responses/CloudTooManyRequests'}
         '500': {$ref: '#/components/responses/CloudServerError'}
-  /ea/sd-wan-configs/{id}/status:
+        '502': {$ref: '#/components/responses/CloudBadGateway'}
+  /v1/sd-wan-configs/{id}/status:
     servers: [{url: 'https://api.ui.com', description: UniFi Site Manager (cloud)}]
     get:
       operationId: cloudGetSdwanConfigStatus
-      summary: Get SD-WAN deployment status (Early Access)
-      tags: [Cloud · SD-WAN]
+      summary: Get SD-WAN deployment status
+      description: 'Deployment status of one SD-WAN configuration: hubs, spokes, errors and warnings. Not used on this account (single site).'
+      tags: [SD-WAN]
+      x-unifi-api: site_manager
+      security: [{SiteManagerApiKey: []}]
       parameters: [{name: id, in: path, required: true, description: 'SD-WAN configuration `id`', schema: {type: string}}]
       responses:
         '200':
@@ -5293,6 +5591,7 @@ paths:
         '404': {$ref: '#/components/responses/CloudNotFound'}
         '429': {$ref: '#/components/responses/CloudTooManyRequests'}
         '500': {$ref: '#/components/responses/CloudServerError'}
+        '502': {$ref: '#/components/responses/CloudBadGateway'}
 
   # ---------------------------------------------------------------------------------------------
   # Added 2026-10-17 from live probes of Network 11.0.81 (scripts/probe_endpoints.py) plus the
@@ -5306,7 +5605,8 @@ paths:
       description: |
         Not scoped to a site, so it works before you know the site name. Returns the site `name` (the
         short name used in paths, `default` here), the display `desc`, `role` and `device_count`.
-      tags: ["Controller · System"]
+      tags: [System]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -5344,7 +5644,8 @@ paths:
       summary: Dynamic DNS entries
       description: |
         Provider, host name and login per WAN interface. `x_password` is always redacted.
-      tags: ["Controller · Networks"]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -5380,7 +5681,8 @@ paths:
         Not callable through the generic tool: use `unifi_console_dynamic_dns`, which takes the token from an environment
         variable of the server (never from chat), previews, journals without the token and reads back.
       x-destructive: true
-      tags: ["Controller · Networks"]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -5414,7 +5716,8 @@ paths:
         send the token again (the current one when it is not being changed). Not callable through the generic tool; use
         `unifi_console_dynamic_dns`.
       x-destructive: true
-      tags: ["Controller · Networks"]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -5440,7 +5743,8 @@ paths:
         Discards the stored provider token: it cannot be read back, so a deleted entry can only be recreated with a fresh
         token. Not callable through the generic tool; use `unifi_console_dynamic_dns`.
       x-destructive: true
-      tags: ["Controller · Networks"]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
@@ -5455,7 +5759,8 @@ paths:
       description: |
         Shape not yet captured: the response was an empty list on this site (no static or learned routes
         beyond the connected networks). Compare `listStaticRoutes`, which is the configured set.
-      tags: ["Controller · Networks"]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
@@ -5470,7 +5775,8 @@ paths:
       description: |
         Voucher `code` values are access credentials for guests. Treat them as sensitive and do not repeat
         them in reports. `status` examples: `VALID_ONE`.
-      tags: ["Controller · Clients"]
+      tags: [Clients]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -5511,7 +5817,8 @@ paths:
         One entry, by MAC. Includes the fixed IP settings, fingerprint, last uplink, first and last seen,
         and the live session fields (`ap_mac`, `essid`, `channel`, `radio`, `signal`, `anomalies`) when the
         client is connected. Use `listClientHistory` or `listKnownClients` to find a MAC first.
-      tags: ["Controller · Clients"]
+      tags: [Clients]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: mac, in: path, required: true, description: Client MAC, schema: {$ref: '#/components/schemas/MacAddress'}}
@@ -5563,7 +5870,8 @@ paths:
       description: |
         `scans[]` has one entry per radio with its `spectrum_table`. The table is empty unless a scan has
         been run from the UI; this call only reads, it never starts a scan.
-      tags: ["Controller · Devices"]
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: mac, in: path, required: true, description: Access point MAC, schema: {$ref: '#/components/schemas/MacAddress'}}
@@ -5612,7 +5920,8 @@ paths:
         security and which of your APs heard them. With an empty body it returns everything seen (230
         entries, about 90 KB on this site), so pass `_limit` or `within` to narrow. `is_rogue` is the
         controller's own flag; `is_ubnt` marks other Ubiquiti devices. Useful for channel planning.
-      tags: ["Controller · Devices"]
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -5668,8 +5977,9 @@ paths:
       summary: MAC ACL rules (controller format, layer-2 access control)
       description: |
         Shape not yet captured: empty on this site. Not the same as the Integration API ACL rules
-        (`Integration · ACL rules`). Upstream notes that `GET /acl-rules/{id}` returns 405, so list and filter.
-      tags: ["Controller · Firewall"]
+        (the ACL rules tag). Upstream notes that `GET /acl-rules/{id}` returns 405, so list and filter.
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -5688,7 +5998,8 @@ paths:
       operationId: listNatRules
       summary: NAT rules (masquerade, source and destination NAT)
       description: 'Shape not yet captured (empty on this site).'
-      tags: ["Controller · Firewall"]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -5712,7 +6023,8 @@ paths:
         `port_matching_type`), `schedule` (`mode: ALWAYS`), `objective` (LIMIT or PRIORITIZE), `download_limit_kbps`,
         `upload_limit_kbps`, `download_burst`, `upload_burst` (OFF, SHORT, LONG). Not the same resource as the Traffic
         Management objects (`listTrafficPolicyObjects`).
-      tags: ["Controller · Traffic"]
+      tags: [Traffic]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -5731,7 +6043,8 @@ paths:
         v2 endpoint (captured 2026-10-18): the UI sends the whole rule and the console answers HTTP 201 with it plus `_id` and
         `index`. Not callable through the generic tool: use `unifi_console_qos_rule`.
       x-destructive: true
-      tags: ["Controller · Traffic"]
+      tags: [Traffic]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -5752,7 +6065,8 @@ paths:
       summary: Update a QoS rule (whole rule)
       description: "The UI sends the whole rule including `_id` and `index` (HTTP 200). Not callable through the generic tool: use `unifi_console_qos_rule`."
       x-destructive: true
-      tags: ["Controller · Traffic"]
+      tags: [Traffic]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       parameters:
         - {name: id, in: path, required: true, description: Rule id (from `listQosRules`), schema: {type: string}}
@@ -5777,7 +6091,8 @@ paths:
         Captured 2026-10-18: POST with a list of rule ids `["id", ...]` (also for a single rule); HTTP 204.
         Not callable through the generic tool: use `unifi_console_qos_rule`.
       x-destructive: true
-      tags: ["Controller · Traffic"]
+      tags: [Traffic]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -5799,7 +6114,8 @@ paths:
       description: |
         Static A, AAAA, CNAME, MX, SRV and TXT records the gateway answers itself (split-horizon names).
         `key` is the record name; `value` is the target. `port`, `priority` and `weight` apply to SRV.
-      tags: ["Controller · Networks"]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -5831,7 +6147,8 @@ paths:
         Not callable through the generic tool: use `unifi_console_static_dns`, which previews, checks for duplicates and CNAME
         conflicts, journals and reads back.
       x-destructive: true
-      tags: ["Controller · Networks"]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -5857,7 +6174,8 @@ paths:
         v2 endpoint: a partial body is **rejected** (HTTP 400, verified 2026-10-17 for `{value}` only and `{enabled}` only), so the
         whole record is sent. Not callable through the generic tool: use `unifi_console_static_dns`.
       x-destructive: true
-      tags: ["Controller · Networks"]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -5874,7 +6192,8 @@ paths:
       summary: Delete a Local DNS record
       description: "Not callable through the generic tool; use `unifi_console_static_dns`."
       x-destructive: true
-      tags: ["Controller · Networks"]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       responses:
         '200': {description: OK}
@@ -5888,7 +6207,8 @@ paths:
       operationId: listNetworkMemberGroups
       summary: Client groups (named sets of client MACs used by policies)
       description: Members are MAC addresses. `type` example `CLIENTS`.
-      tags: ["Controller · Firewall"]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -5906,7 +6226,9 @@ paths:
     get:
       operationId: getNetworkMemberGroup
       summary: One client group
-      tags: ["Controller · Firewall"]
+      description: 'One client group by id: its name, type and member MAC addresses.'
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: id, in: path, required: true, description: Group id (from `listNetworkMemberGroups`), schema: {type: string}}
@@ -5925,7 +6247,8 @@ paths:
         v2 endpoint: a partial body is **rejected** (HTTP 400, verified 2026-10-17 for `{id, name}` without `members`), so the
         whole group is sent, including `id`. Not callable through the generic tool: use `unifi_console_client_group`.
       x-destructive: true
-      tags: ["Controller · Firewall"]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       parameters:
         - {name: id, in: path, required: true, description: Group id (from `listNetworkMemberGroups`), schema: {type: string}}
@@ -5945,7 +6268,8 @@ paths:
       summary: Delete a client group
       description: "Not callable through the generic tool; use `unifi_console_client_group`."
       x-destructive: true
-      tags: ["Controller · Firewall"]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       parameters:
         - {name: id, in: path, required: true, description: Group id (from `listNetworkMemberGroups`), schema: {type: string}}
@@ -5965,7 +6289,8 @@ paths:
         Not callable through the generic tool: use `unifi_console_client_group`, which previews, validates the MACs,
         journals and reads back.
       x-destructive: true
-      tags: ["Controller · Firewall"]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -5989,7 +6314,8 @@ paths:
       description: |
         The category groups the IPS engine can enable, each with its `sensitivity` and `value`. Read-only
         catalogue; the configured selection is in the site settings.
-      tags: ["Controller · Firewall"]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -6011,11 +6337,12 @@ paths:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
       operationId: getTrafficFlowStatistics
-      summary: Insights > Flows summary (top applications, clients, destinations, blocked traffic)
+      summary: Insights Flows summary (top applications, clients, destinations, blocked traffic)
       description: |
         Returns HTTP 400 without `period`. Counts by region and risk level are objects keyed by region or
         risk; the `top_*` lists hold the ranked entries (application ids resolve with `listDpiApplications`).
-      tags: ["Controller · Traffic"]
+      tags: [Traffic]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: period, in: query, required: true, description: Window, schema: {type: string, enum: [HOUR, DAY, WEEK, MONTH]}}
@@ -6059,7 +6386,8 @@ paths:
         Returns HTTP 400 without `period`. On this site it answers 404 "Cybersecure data is not available
         for this site" (no CyberSecure subscription), so the success shape is not captured. Upstream
         expects a one-element array.
-      tags: ["Controller · Alerts"]
+      tags: [Alerts]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: period, in: query, required: true, description: Window, schema: {type: string, enum: [HOUR, DAY, WEEK, MONTH]}}
@@ -6090,7 +6418,8 @@ paths:
         Read-only despite POST. Takes the same filters as `querySystemLogAll` without paging. Cheap way to
         see what is noisy before pulling entries: `categories[]`, `events[]` (event type names) and
         `type[]`, each as `{name, count}`.
-      tags: [Controller · Alerts]
+      tags: [Alerts]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -6125,7 +6454,8 @@ paths:
       operationId: listTrafficPolicyObjects
       summary: Traffic policy objects (per-network or per-client QoS, routing and secure settings)
       description: "The objects behind the QoS, route and secure rules in the Traffic Management area. Each has `targets[]`, and `qos`, `route` and `secure` blocks. Writes use the singular `object-oriented-network-config` route (`createTrafficPolicyObject`, `updateTrafficPolicyObject`, `deleteTrafficPolicyObject`; typed tool `unifi_console_traffic_object`)."
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -6146,7 +6476,8 @@ paths:
         value}], secure, route, qos}` and answers HTTP 201 with the stored object (captured in the batch-6 HAR). Not callable
         through the generic tool: use `unifi_console_traffic_object`, which previews, validates, journals and reads back.
       x-destructive: true
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -6169,7 +6500,8 @@ paths:
         v2 endpoint: the UI sends the whole object including `id` (captured in the batch-6 HAR, HTTP 200 with the stored object).
         Not callable through the generic tool: use `unifi_console_traffic_object`.
       x-destructive: true
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       parameters:
         - {name: id, in: path, required: true, description: Object id (from `listTrafficPolicyObjects`), schema: {type: string}}
@@ -6189,7 +6521,8 @@ paths:
       summary: Delete a traffic policy object
       description: "Answers HTTP 204 (captured in the batch-6 HAR). Not callable through the generic tool; use `unifi_console_traffic_object`."
       x-destructive: true
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       parameters:
         - {name: id, in: path, required: true, description: Object id (from `listTrafficPolicyObjects`), schema: {type: string}}
@@ -6205,7 +6538,8 @@ paths:
       operationId: listPortForwardStats
       summary: Port forwarding rules with traffic counters
       description: "Legacy `stat` view of port forwards (the rule list is `listPortForwards`)."
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -6225,7 +6559,8 @@ paths:
       operationId: listStaticDnsDevices
       summary: Devices offered when creating a Local DNS record
       description: "Devices the gateway already resolves by hostname, with their IP and MAC. Used by the Local DNS Records page."
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -6241,8 +6576,9 @@ paths:
     get:
       operationId: getPortAnomaliesForPort
       summary: Anomaly detail for one switch port
-      description: "Used by the port panel in the UI. Shape not yet captured in detail (seen in a HAR of the Network 11.0.81 UI, 2026-10-17)."
-      tags: [Controller · Devices]
+      description: "Used by the port panel in the UI. Captured 2026-11-08: an empty array on this site (no anomalous ports). Item shape unverified."
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: mac, in: path, required: true, description: Switch MAC, schema: {$ref: '#/components/schemas/MacAddress'}}
@@ -6252,7 +6588,7 @@ paths:
           description: OK
           content:
             application/json:
-              schema: {}
+              schema: {type: array, items: {type: object, additionalProperties: true}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '500': {$ref: '#/components/responses/LegacyServerError'}
 
@@ -6262,7 +6598,8 @@ paths:
       operationId: getDohAvailableServerNames
       summary: Public DoH resolvers the UI offers by name
       description: "Names usable in `server_names[]` when DoH `state` is `manual`."
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -6279,7 +6616,8 @@ paths:
       operationId: getDohDefaults
       summary: Default DoH settings
       description: "DoH defaults: `state` off and the default resolver names."
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -6296,7 +6634,8 @@ paths:
       operationId: getIpsSuricataSettings
       summary: Suricata (IPS engine) settings
       description: "Suricata engine version in use and the newest version the console supports. A gap means a newer engine can be selected."
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -6313,7 +6652,8 @@ paths:
       operationId: getIpsAdvancedFilteringDefaults
       summary: Default IPS advanced filtering
       description: "IPS mode, enabled threat categories and the networks it covers, in the shape the settings page uses."
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -6330,7 +6670,8 @@ paths:
       operationId: getSslInspectionSetting
       summary: SSL inspection setting
       description: "Fields seen: `state` (`off` when disabled), `identity_certificate_all_users`, `identity_certificate_groups[]`, `identity_certificate_users[]`."
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -6346,15 +6687,16 @@ paths:
     get:
       operationId: getSslInspectionSettingDefaults
       summary: Default SSL inspection setting
-      description: "Shape not yet captured in detail (seen in a HAR of the Network 11.0.81 UI, 2026-10-17)."
-      tags: [Controller · Firewall]
+      description: "Defaults the UI pre-fills for SSL inspection (captured 2026-11-08)."
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
           description: OK
           content:
             application/json:
-              schema: {}
+              schema: {$ref: '#/components/schemas/SslInspectionSettingDefaults'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '500': {$ref: '#/components/responses/LegacyServerError'}
 
@@ -6363,15 +6705,16 @@ paths:
     get:
       operationId: listSslInspectionCertificates
       summary: Certificates available for SSL inspection
-      description: "Shape not yet captured in detail (seen in a HAR of the Network 11.0.81 UI, 2026-10-17)."
-      tags: [Controller · Firewall]
+      description: "Certificate authorities SSL inspection can sign with (captured 2026-11-08: one entry, the console's generated CA). Returns the public CA certificate only, never a private key."
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
           description: OK
           content:
             application/json:
-              schema: {}
+              schema: {type: array, items: {$ref: '#/components/schemas/SslInspectionCertificate'}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '500': {$ref: '#/components/responses/LegacyServerError'}
 
@@ -6381,7 +6724,8 @@ paths:
       operationId: getActiveSslInspectionCertificate
       summary: Certificate currently used for SSL inspection
       description: "The CA certificate SSL inspection would use. The response carries the public certificate (base64) and its details (issuer, validity, fingerprint)."
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -6397,8 +6741,9 @@ paths:
     get:
       operationId: getClient24hrSatisfaction
       summary: Client experience (satisfaction) over the last 24 hours
-      description: "Shape not yet captured in detail (seen in a HAR of the Network 11.0.81 UI, 2026-10-17)."
-      tags: [Controller · Clients]
+      description: "One Wi-Fi experience score every 5 minutes for the last 24 hours, about 288 points (captured 2026-11-08)."
+      tags: [Clients]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: mac, in: path, required: true, description: Client MAC, schema: {$ref: '#/components/schemas/MacAddress'}}
@@ -6407,7 +6752,7 @@ paths:
           description: OK
           content:
             application/json:
-              schema: {}
+              schema: {$ref: '#/components/schemas/ClientSatisfactionHistory'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '500': {$ref: '#/components/responses/LegacyServerError'}
 
@@ -6416,8 +6761,9 @@ paths:
     get:
       operationId: getClientApStats
       summary: Client activity per access point
-      description: "Shape not yet captured in detail (seen in a HAR of the Network 11.0.81 UI, 2026-10-17)."
-      tags: [Controller · Clients]
+      description: "Time the client spent on each access point (captured 2026-11-08; the UI labels it the last 24 hours)."
+      tags: [Clients]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: mac, in: path, required: true, description: Client MAC, schema: {$ref: '#/components/schemas/MacAddress'}}
@@ -6426,7 +6772,7 @@ paths:
           description: OK
           content:
             application/json:
-              schema: {}
+              schema: {$ref: '#/components/schemas/ClientApStats'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '500': {$ref: '#/components/responses/LegacyServerError'}
 
@@ -6435,8 +6781,9 @@ paths:
     get:
       operationId: getClientConnectionLog
       summary: Connection history for one client (System Log)
-      description: "Shape not yet captured in detail (seen in a HAR of the Network 11.0.81 UI, 2026-10-17)."
-      tags: [Controller · Clients]
+      description: "System Log entries about one client (connects, disconnects, roams), in the `SystemLogEntry` format (captured 2026-11-08). Called without query parameters it returned one recent entry; the UI may send a time window or paging parameters that are not yet recorded."
+      tags: [Clients]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: mac, in: path, required: true, description: Client MAC, schema: {$ref: '#/components/schemas/MacAddress'}}
@@ -6445,7 +6792,7 @@ paths:
           description: OK
           content:
             application/json:
-              schema: {}
+              schema: {type: array, items: {$ref: '#/components/schemas/SystemLogEntry'}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '500': {$ref: '#/components/responses/LegacyServerError'}
 
@@ -6454,15 +6801,16 @@ paths:
     get:
       operationId: listDeviceWirelessLinks
       summary: Wireless uplinks between devices (mesh and bridge)
-      description: "Shape not yet captured in detail (seen in a HAR of the Network 11.0.81 UI, 2026-10-17)."
-      tags: [Controller · Devices]
+      description: "Captured 2026-11-08: an empty array on this site (no device uses a wireless uplink). Item shape unverified."
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
           description: OK
           content:
             application/json:
-              schema: {}
+              schema: {type: array, items: {type: object, additionalProperties: true}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '500': {$ref: '#/components/responses/LegacyServerError'}
 
@@ -6471,15 +6819,16 @@ paths:
     get:
       operationId: listPowerSupervisorLinks
       summary: Links between power supervisors and the devices they feed
-      description: "Shape not yet captured in detail (seen in a HAR of the Network 11.0.81 UI, 2026-10-17)."
-      tags: [Controller · Devices]
+      description: "Captured 2026-11-08: an empty array on this site (no power supervisors configured). Item shape unverified."
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
           description: OK
           content:
             application/json:
-              schema: {}
+              schema: {type: array, items: {type: object, additionalProperties: true}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '500': {$ref: '#/components/responses/LegacyServerError'}
 
@@ -6488,8 +6837,9 @@ paths:
     get:
       operationId: listDeviceReplacementCandidates
       summary: Devices that could replace this one (adopt-in-place)
-      description: "Shape not yet captured in detail (seen in a HAR of the Network 11.0.81 UI, 2026-10-17)."
-      tags: [Controller · Devices]
+      description: "Captured 2026-11-08: `{devices: []}` on this site (no unadopted device of a compatible model). Item shape unverified."
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: mac, in: path, required: true, description: Device MAC, schema: {$ref: '#/components/schemas/MacAddress'}}
@@ -6498,7 +6848,7 @@ paths:
           description: OK
           content:
             application/json:
-              schema: {}
+              schema: {type: object, properties: {devices: {type: array, items: {type: object, additionalProperties: true}}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '500': {$ref: '#/components/responses/LegacyServerError'}
 
@@ -6512,7 +6862,8 @@ paths:
         (`APP_ID` or `APP_CATEGORY`), `app_ids`, `app_category_ids`, `client_macs`, `network_ids` (all lists, the ones
         that do not apply are `[]`) and `schedule` (`mode` ALWAYS, EVERY_DAY, EVERY_WEEK, ONE_TIME_ONLY or CUSTOM). The
         console generates a `simple_app_block` firewall policy for each entry (`origin_id` is the entry's `_id`).
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -6533,7 +6884,8 @@ paths:
         deletes them all. The UI edits the table locally and sends everything in one request when Apply is pressed. The
         response is the new collection with `_id`s. Not callable through the generic tool: use `unifi_console_app_block`.
       x-destructive: true
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -6553,15 +6905,16 @@ paths:
     get:
       operationId: listContentFilteringCategories
       summary: Categories available to content filtering
-      description: "Shape not yet captured in detail (seen in a HAR of the Network 11.0.81 UI, 2026-10-17)."
-      tags: [Controller · Firewall]
+      description: "Category names a content-filtering policy can block, as a plain array of strings (captured 2026-11-08: 116 values)."
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
           description: OK
           content:
             application/json:
-              schema: {}
+              schema: {type: array, items: {type: string}, examples: [[FAMILY, ADVERTISEMENT, ADULT, ALCOHOL]]}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '500': {$ref: '#/components/responses/LegacyServerError'}
 
@@ -6571,7 +6924,8 @@ paths:
       operationId: getFirewallPolicyDefaults
       summary: Defaults the UI pre-fills for a new firewall policy
       description: "The template the UI starts a new policy from: action BLOCK, any source and destination, all protocols, IPv4 and IPv6, always scheduled."
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -6588,7 +6942,8 @@ paths:
       operationId: getFirewallZoneDefaults
       summary: Firewall zones (built-in set) with ids and member networks
       description: "The six built-in zones (Internal, External, Gateway, Vpn, Hotspot, Dmz) with the zone `_id` used in firewall policies and the networks assigned to each. Handy for turning a zone name into the id a policy needs."
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -6605,7 +6960,8 @@ paths:
       operationId: getGlobalSwitchSettingDefaults
       summary: Default global switch settings
       description: "Global switch settings: STP version, DHCP snooping, jumbo frames, flow control, link debounce and the isolation lists."
-      tags: [Controller · Devices]
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -6622,7 +6978,8 @@ paths:
       operationId: getPortMacTables
       summary: MAC address tables for selected switch ports
       description: "Read-only despite POST. Body is a list of `{mac, ports[]}` (switch MAC and port numbers). Shape of the response not yet captured."
-      tags: [Controller · Devices]
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -6652,7 +7009,8 @@ paths:
       operationId: queryPortSystemLogs
       summary: System Log entries for one switch port
       description: "Read-only despite POST. Used by the port panel. Response shape not yet captured."
-      tags: [Controller · Devices]
+      tags: [Devices]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       requestBody:
         required: true
@@ -6683,7 +7041,8 @@ paths:
       operationId: listDdnsServices
       summary: Dynamic DNS providers the UI offers
       description: "Names of the supported DDNS services (for example `cloudflare`, `noip`, `duckdns`, `custom`). This is not the configured list: the entries you have set up are returned by `listDynamicDns`. Create, update and delete use `rest/dynamicdns` (`createDynamicDns`, `updateDynamicDns`, `deleteDynamicDns`; typed tool `unifi_console_dynamic_dns`)."
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -6700,7 +7059,8 @@ paths:
       operationId: getWanDefaults
       summary: Default WAN settings
       description: "The defaults the UI applies to a new WAN (DHCP, no VLAN, IPv6 disabled, automatic DNS). About 30 keys; a few are listed here."
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -6717,7 +7077,8 @@ paths:
       operationId: getWanLoadBalancingConfiguration
       summary: WAN load balancing and failover configuration
       description: "Failover and load-balancing mode and the per-WAN priority and weight."
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -6734,7 +7095,8 @@ paths:
       operationId: getWanLoadBalancingStatus
       summary: WAN load balancing and failover status
       description: "Which WAN is currently active (`state` ACTIVE)."
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -6750,15 +7112,16 @@ paths:
     get:
       operationId: getWlanDefaults
       summary: Defaults the UI pre-fills for a new WLAN
-      description: "Shape not yet captured in detail (seen in a HAR of the Network 11.0.81 UI, 2026-10-17)."
-      tags: [Controller · Networks]
+      description: "Template WLANs the UI starts a new SSID from, in the controller `wlanconf` format (captured 2026-11-08: two templates, a standard dual-band one and an IoT one with `enhanced_iot: true` on 2.4 GHz only). Holds no passphrase."
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
           description: OK
           content:
             application/json:
-              schema: {}
+              schema: {type: array, items: {$ref: '#/components/schemas/WlanDefaults'}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '500': {$ref: '#/components/responses/LegacyServerError'}
 
@@ -6768,7 +7131,8 @@ paths:
       operationId: getWlanCapabilities
       summary: What the adopted APs support (bands, security modes)
       description: "Whether the adopted APs support the 6 GHz band, OWE and WPA3."
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -6785,7 +7149,8 @@ paths:
       operationId: listVpnConnections
       summary: Active VPN connections
       description: "Active VPN connections as `{connections: []}`. Empty on a site with no VPN in use."
-      tags: [Controller · Networks]
+      tags: [Networks]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       responses:
         '200':
@@ -6801,8 +7166,9 @@ paths:
     get:
       operationId: getControllerFirewallPolicy
       summary: One firewall policy
-      description: "Fetch by id from the controller policy list (`listFirewallPoliciesWithHits`). Shape not yet captured in detail (seen in a HAR of the Network 11.0.81 UI, 2026-10-17)."
-      tags: [Controller · Firewall]
+      description: "Fetch by id from the controller policy list (`listFirewallPoliciesWithHits`). Returns the same object as a list item but without `hits` and `last_hit` (captured 2026-11-08 with a custom policy's UUID). Custom policies only: system-defined policies have a composite `_id` (see `FirewallPolicyUi._id`) and return 404 here (checked 2026-11-08 on both kinds); read them from the list."
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: []}]
       parameters:
         - {name: id, in: path, required: true, description: Policy id, schema: {type: string}}
@@ -6811,7 +7177,7 @@ paths:
           description: OK
           content:
             application/json:
-              schema: {}
+              schema: {$ref: '#/components/schemas/FirewallPolicyUi'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '500': {$ref: '#/components/responses/LegacyServerError'}
     put:
@@ -6822,7 +7188,8 @@ paths:
         policy. Editing a policy also regenerates its "(Return)" policy.
         Not callable through the generic tool: use `unifi_console_firewall_policy`, which previews, protects system policies, probes DNS before and after, journals and reads back.
       x-destructive: true
-      tags: [Controller · Firewall]
+      tags: [Firewall]
+      x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
       parameters:
         - {name: id, in: path, required: true, description: Policy id, schema: {type: string}}
@@ -6844,9 +7211,15 @@ components:
       in: header
       name: X-API-KEY
       description: |
-        API key sent in the `X-API-KEY` header. Used by the official APIs on both servers, but each server has its own key:
-        - **Local console (Integration API):** created in *Network > Settings > Control Plane > Integrations*.
-        - **Cloud (Site Manager):** created at <https://unifi.ui.com/settings/api-keys>. Limits: 10,000 requests/minute on `/v1`, 100 requests/minute on `/ea`.
+        Integration API key for the local console, sent in the `X-API-KEY` header. Created in
+        *Network > Settings > Control Plane > Integrations*.
+    SiteManagerApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        Site Manager API key for `api.ui.com`, created at <https://unifi.ui.com/settings/api-keys>. It reads every console
+        on the UI account the key belongs to, so it is a different key from the console's Integration API key.
     ControllerSession:
       type: apiKey
       in: cookie
@@ -7123,6 +7496,12 @@ components:
       content:
         application/json:
           schema: {$ref: '#/components/schemas/CloudError'}
+    CloudBadGateway:
+      description: The console behind Site Manager did not answer; retry with back-off
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/CloudError'}
+          example: {code: bad_gateway, httpStatusCode: 502, message: bad gateway, traceId: a7dc15e0eb4527142d7823515b15f87d}
   schemas:
     # ================================================================ shared
     MacAddress:
@@ -12019,11 +12398,11 @@ components:
       type: object
       description: Controller (UI) view of a zone-based firewall policy. Field names differ from the Integration API.
       properties:
-        _id: {type: string}
+        _id: {type: string, description: 'UUID for custom policies. System-defined policies (`predefined: true`) have a composite id: source zone UUID, destination zone UUID and `index` run together. `getControllerFirewallPolicy` returns 404 for those.', examples: [7c1e5f2b-3d8a-4e6c-9f1b-2d0a4e3f5a6b, 7c1e5f2b-3d8a-4e6c-9f1b-2d0a4e3f5a6b0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d2147483647]}
         name: {type: string}
         description: {type: string}
         enabled: {type: boolean}
-        index: {type: integer, description: 'Evaluation order within the zone pair'}
+        index: {type: integer, description: 'Evaluation order within the zone pair. System policies use 30000 and up; the default block is 2147483647.'}
         action: {type: string, examples: [ALLOW, BLOCK, REJECT]}
         predefined: {type: boolean, description: 'System-defined policy'}
         origin_type: {type: [string, 'null'], examples: [custom_firewall_rule]}
@@ -12061,6 +12440,153 @@ components:
         port_matching_type: {type: string, examples: [ANY, SPECIFIC]}
         port: {type: string}
         match_opposite_ports: {type: boolean}
+    SslInspectionSettingDefaults:
+      type: object
+      properties:
+        state: {type: string, description: 'Seen only `off`. Other values unverified.', examples: ['off']}
+        identity_certificate_all_users: {type: boolean}
+        identity_certificate_groups: {type: array, items: {type: string}}
+        identity_certificate_users: {type: array, items: {type: string}}
+      example: {state: 'off', identity_certificate_all_users: true, identity_certificate_groups: [], identity_certificate_users: []}
+    SslInspectionCertificate:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string, examples: [UniFi SSL Certificate]}
+        type: {type: string, description: 'Seen only `generated`. Other values unverified.', examples: [generated]}
+        status: {type: string, description: 'Seen only `active`. Other values unverified.', examples: [active]}
+        valid: {type: boolean}
+        intermediate_certificates: {type: array, items: {$ref: '#/components/schemas/SslInspectionCertificateDetail'}}
+        root_certificate: {$ref: '#/components/schemas/SslInspectionCertificateDetail'}
+      example:
+        id: 7c1e5f2b-3d8a-4e6c-9f1b-2d0a4e3f5a6b
+        name: UniFi SSL Certificate
+        type: generated
+        status: active
+        valid: true
+        intermediate_certificates: []
+        root_certificate:
+          certificate: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUR0ekNDQXArZ0F3SUJBZ0lJ...
+          details:
+            issuer: {common_name: UniFi SSL Certificate Authority, organization: Ubiquiti Inc.}
+            subject: {common_name: UniFi SSL Certificate Authority, organization: Ubiquiti Inc.}
+            overview: {fingerprint: '00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33', serial_number: '1234567890123456789', valid_from: 1716258495000, valid_to: 2031618495000, version: 3}
+    SslInspectionCertificateDetail:
+      type: object
+      properties:
+        certificate: {type: string, contentEncoding: base64, description: 'Base64 of the PEM certificate (public; no private key)'}
+        details:
+          type: object
+          properties:
+            issuer: {$ref: '#/components/schemas/CertificateName'}
+            subject: {$ref: '#/components/schemas/CertificateName'}
+            overview:
+              type: object
+              properties:
+                fingerprint: {type: string, description: 'SHA-1, colon-separated hex'}
+                serial_number: {type: string, description: 'Decimal, as a string'}
+                valid_from: {type: integer, description: 'Epoch ms'}
+                valid_to: {type: integer, description: 'Epoch ms'}
+                version: {type: integer, description: 'X.509 version'}
+    CertificateName:
+      type: object
+      properties:
+        common_name: {type: string}
+        organization: {type: string}
+    ClientSatisfactionHistory:
+      type: object
+      properties:
+        historical_scores:
+          type: array
+          description: Oldest first, one point every 300 000 ms.
+          items:
+            type: object
+            properties:
+              satisfaction: {type: integer, minimum: 0, maximum: 100}
+              timestamp: {type: integer, description: 'Epoch ms'}
+      example:
+        historical_scores:
+          - {satisfaction: 100, timestamp: 1794021000000}
+          - {satisfaction: 93, timestamp: 1794021300000}
+    ClientApStats:
+      type: object
+      properties:
+        total_session_time_seconds: {type: integer}
+        ap_stats:
+          type: array
+          items:
+            type: object
+            properties:
+              device_mac: {$ref: '#/components/schemas/MacAddress'}
+              device_name: {type: string}
+              session_time_seconds: {type: integer}
+      example:
+        total_session_time_seconds: 87032
+        ap_stats:
+          - {device_mac: '00:00:5e:00:53:01', device_name: AP Living Room, session_time_seconds: 86873}
+          - {device_mac: '00:00:5e:00:53:02', device_name: AP Office, session_time_seconds: 159}
+    WlanDefaults:
+      type: object
+      description: |
+        A template in the controller `wlanconf` format: the same field names as `listWlanConfigLegacy` items, without
+        `_id`, `name` or a passphrase. Only the commonly used fields are listed; around 60 are returned.
+      additionalProperties: true
+      properties:
+        enabled: {type: boolean}
+        security: {type: string, examples: [wpapsk, open]}
+        wpa_mode: {type: string, examples: [wpa2]}
+        wpa_enc: {type: string, examples: [ccmp]}
+        wpa3_support: {type: boolean}
+        wpa3_transition: {type: boolean}
+        pmf_mode: {type: string, examples: [disabled, optional, required]}
+        wlan_bands: {type: array, items: {type: string, examples: [2g, 5g, 6g]}}
+        enhanced_iot: {type: boolean, description: 'IoT template: 2.4 GHz only, tuned for low-power clients'}
+        hide_ssid: {type: boolean}
+        is_guest: {type: boolean}
+        l2_isolation: {type: boolean}
+        fast_roaming_enabled: {type: boolean}
+        bss_transition: {type: boolean}
+        no2ghz_oui: {type: boolean}
+        mac_filter_enabled: {type: boolean}
+        mac_filter_policy: {type: string, examples: [allow, deny]}
+        minrate_setting_preference: {type: string, examples: [auto, manual]}
+        minrate_ng_enabled: {type: boolean}
+        minrate_ng_data_rate_kbps: {type: integer}
+        minrate_na_enabled: {type: boolean}
+        minrate_na_data_rate_kbps: {type: integer}
+        dtim_mode: {type: string, examples: [default, custom]}
+        ap_group_ids: {type: array, items: {type: string}}
+        ap_group_mode: {type: string, examples: [groups]}
+        schedule_with_duration: {type: array, items: {type: object, additionalProperties: true}}
+        private_preshared_keys_enabled: {type: boolean}
+      example:
+        enabled: true
+        security: wpapsk
+        wpa_mode: wpa2
+        wpa_enc: ccmp
+        wpa3_support: false
+        wpa3_transition: false
+        pmf_mode: disabled
+        wlan_bands: [2g, 5g]
+        enhanced_iot: false
+        hide_ssid: false
+        is_guest: false
+        l2_isolation: false
+        fast_roaming_enabled: false
+        bss_transition: true
+        no2ghz_oui: true
+        mac_filter_enabled: false
+        mac_filter_policy: allow
+        minrate_setting_preference: auto
+        minrate_ng_enabled: true
+        minrate_ng_data_rate_kbps: 1000
+        minrate_na_enabled: false
+        minrate_na_data_rate_kbps: 6000
+        dtim_mode: default
+        ap_group_ids: []
+        ap_group_mode: groups
+        schedule_with_duration: []
+        private_preshared_keys_enabled: false
     EnrichedConfiguration:
       type: object
       properties:

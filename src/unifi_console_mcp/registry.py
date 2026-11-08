@@ -34,6 +34,7 @@ READ_ONLY_POSTS = frozenset(
         "getPortMacTables",
         "queryPortSystemLogs",
         "queryWifiConnectivityEvents",
+        "cloudQueryIspMetrics",
     }
 )
 
@@ -111,7 +112,12 @@ TYPED_WRITE_TOOLS = {
     "deleteNetwork": "unifi_console_network",
 }
 
-INCLUDED_TAG_PREFIXES = ("Controller", "UniFi OS", "Integration")
+# Every operation names its API in `x-unifi-api`; tags only name the resource (Devices, Firewall, ...) so viewers can
+# group one resource across APIs. site_manager operations go to api.ui.com with their own key (see Api._run_cloud).
+# Site Manager's Connector proxy (/v1/connector/...) is deliberately not in the spec: it forwards any method to the
+# console, so it would be a way round the write gates.
+KNOWN_APIS = frozenset({"integration", "controller", "unifi_os", "site_manager"})
+INCLUDED_APIS = KNOWN_APIS
 EXCLUDED_OPERATION_IDS = frozenset({"localLogin", "localLogout"})
 
 
@@ -130,6 +136,7 @@ class Operation:
     method: str
     path: str
     tag: str
+    api: str
     summary: str
     description: str
     params: tuple[Param, ...]
@@ -138,12 +145,6 @@ class Operation:
     destructive: bool
     needs_session: bool
     extra: dict[str, Any] = field(default_factory=dict)
-
-    @property
-    def kind(self) -> str:
-        if self.tag.startswith("Integration"):
-            return "integration"
-        return "unifi_os" if self.tag.startswith("UniFi OS") else "controller"
 
     @property
     def is_download(self) -> bool:
@@ -162,6 +163,12 @@ class Operation:
             return "safe_write"
         return "blocked"
 
+    @property
+    def auth(self) -> str:
+        if self.api == "site_manager":
+            return "Site Manager API key (UNIFI_SITE_MANAGER_API_KEY)"
+        return "login session (cookie + CSRF)" if self.needs_session else "API key"
+
     def build_path(self, path_params: dict[str, Any], default_site: str) -> str:
         values = dict(path_params)
         if "{site}" in self.path:
@@ -170,6 +177,11 @@ class Operation:
         if missing:
             raise ValueError(f"Missing path parameter(s): {', '.join(missing)}. See unifi_console_describe_operation.")
         return re.sub(r"\{(\w+)\}", lambda m: quote(str(values[m.group(1)]), safe=""), self.path)
+
+
+def _norm(s: str) -> str:
+    """'UniFi OS' -> 'unifi_os', so a tag filter can name an API the way people write it."""
+    return re.sub(r"[\s-]+", "_", s.strip().lower())
 
 
 def _load_spec(path: Path | None) -> dict[str, Any]:
@@ -208,7 +220,11 @@ class Registry:
                     continue
                 op_id = op.get("operationId")
                 tag = (op.get("tags") or [""])[0]
-                if not op_id or op_id in EXCLUDED_OPERATION_IDS or not tag.startswith(INCLUDED_TAG_PREFIXES):
+                api = op.get("x-unifi-api")
+                if op_id and api not in KNOWN_APIS:
+                    # A missing or misspelt value would otherwise drop the operation without a trace.
+                    raise ValueError(f"{op_id}: x-unifi-api must be one of {sorted(KNOWN_APIS)}, got {api!r}")
+                if not op_id or op_id in EXCLUDED_OPERATION_IDS or api not in INCLUDED_APIS:
                     continue
                 params = tuple(self._param(spec, p) for p in [*shared, *op.get("parameters", [])])
                 body = op.get("requestBody")
@@ -223,6 +239,7 @@ class Registry:
                     method=method.upper(),
                     path=path,
                     tag=tag,
+                    api=api,
                     summary=op.get("summary", ""),
                     description=(op.get("description") or "").strip(),
                     params=params,
@@ -246,12 +263,15 @@ class Registry:
             raise KeyError(f"Unknown operationId '{operation_id}'.{hint}") from None
 
     def all(self) -> list[Operation]:
-        return sorted(self._ops.values(), key=lambda o: (o.tag, o.path, o.method))
+        return sorted(self._ops.values(), key=lambda o: (o.tag, o.api, o.path, o.method))
 
     def search(self, text: str | None = None, tag: str | None = None, access: str | None = None) -> list[Operation]:
         out = self.all()
         if tag:
-            out = [o for o in out if tag.lower() in o.tag.lower()]
+            # Matches the resource tag or the API, so 'Devices', 'Integration' and 'UniFi OS' all work. The old
+            # combined form 'Controller · Devices' still works: every part must match one or the other.
+            parts = [_norm(p) for p in tag.split("·") if p.strip()]
+            out = [o for o in out if all(p in _norm(o.tag) or p in o.api for p in parts)]
         if access and access != "all":
             out = [o for o in out if o.access == access]
         if text:

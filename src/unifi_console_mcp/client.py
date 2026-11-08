@@ -27,8 +27,16 @@ import httpx
 from .config import Settings
 
 LOGIN_PATH = "/api/auth/login"
+SITE_MANAGER_URL = "https://api.ui.com"
 MAX_LOGIN_FAILURES = 2
 LOGIN_FAILURE_WINDOW_S = 300
+# What to do about a console login error code. The code itself is always shown, so an unknown one is still useful.
+LOGIN_CODE_HINTS = {
+    "MFA_AUTH_REQUIRED": "The account requires MFA, which this server cannot complete. Use a local-only account without MFA.",
+    "AUTHENTICATION_FAILED_LIMIT_REACHED": (
+        "The console has locked this login after too many failures. Wait, then check the credentials."
+    ),
+}
 
 
 class UniFiError(Exception):
@@ -37,6 +45,19 @@ class UniFiError(Exception):
 
 class AuthError(UniFiError):
     pass
+
+
+def _console_error_code(resp: httpx.Response) -> str:
+    """The console's own error code from a failed login body, or '' when there is none.
+
+    Only a short upper-case identifier is accepted, so free text from the response is never echoed back.
+    """
+    try:
+        body = resp.json()
+    except ValueError:
+        return ""
+    code = body.get("code") if isinstance(body, dict) else None
+    return code if isinstance(code, str) and re.fullmatch(r"[A-Z0-9_]{3,64}", code) else ""
 
 
 @dataclass
@@ -68,6 +89,7 @@ class UniFiClient:
         self.settings = settings
         self._transport = transport
         self._http: httpx.AsyncClient | None = None
+        self._cloud: httpx.AsyncClient | None = None
         self._csrf: str | None = None
         self._login_lock = asyncio.Lock()
         self._login_failures: list[float] = []
@@ -95,10 +117,26 @@ class UniFiClient:
             )
         return self._http
 
+    async def _cloud_client(self) -> httpx.AsyncClient:
+        if self._cloud is None:
+            # A public service with a CA-signed certificate: always verified. The console's verify_ssl and certificate
+            # pin are about its self-signed certificate and must not loosen this.
+            self._cloud = httpx.AsyncClient(
+                base_url=SITE_MANAGER_URL,
+                verify=True,
+                timeout=httpx.Timeout(30.0, connect=10.0),
+                transport=self._transport,
+                headers={"Accept": "application/json", "User-Agent": "unifi-console-mcp/0.1"},
+            )
+        return self._cloud
+
     async def aclose(self) -> None:
         if self._http is not None:
             await self._http.aclose()
             self._http = None
+        if self._cloud is not None:
+            await self._cloud.aclose()
+            self._cloud = None
 
     async def _check_pin(self) -> None:
         if not self.settings.pinned_sha256 or self._pin_checked or self._transport is not None:
@@ -146,8 +184,11 @@ class UniFiClient:
                 401: "Wrong username or password.",
                 403: "The account is not allowed to log in (disabled, or MFA is required).",
                 429: "The console is rate-limiting logins; wait a few minutes.",
+                499: "The console refused the login, usually because the account needs MFA or is temporarily locked.",
             }.get(resp.status_code, "Unexpected response from the console.")
-            raise AuthError(f"Login failed with HTTP {resp.status_code}. {hint}")
+            code = _console_error_code(resp)
+            message = f"Login failed with HTTP {resp.status_code}. {LOGIN_CODE_HINTS.get(code, hint)}"
+            raise AuthError(f"{message} (console code: {code})" if code else message)
         csrf = resp.headers.get("x-csrf-token")
         if not csrf:
             token = http.cookies.get("TOKEN") or ""
@@ -224,6 +265,35 @@ class UniFiClient:
             return resp
         return resp  # pragma: no cover - loop always returns
 
+    async def cloud_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        json_body: Any = None,
+        send_body: bool = False,
+    ) -> httpx.Response:
+        """One call to the Site Manager API. No session, no retry: a 429 goes back to the caller with its Retry-After."""
+        if not self.settings.site_manager_api_key:
+            raise AuthError(
+                "Site Manager operations need a cloud API key but UNIFI_SITE_MANAGER_API_KEY is not set. Create one at "
+                "https://unifi.ui.com/settings/api-keys (it is not the console's Integration API key)."
+            )
+        http = await self._cloud_client()
+        headers = {"X-API-Key": self.settings.site_manager_api_key}
+        kwargs: dict[str, Any] = {"params": _clean_params(params)}
+        if send_body:
+            kwargs["content"] = json.dumps(json_body).encode()
+            headers["Content-Type"] = "application/json"
+        try:
+            return await http.request(method, path, headers=headers, **kwargs)
+        except httpx.ConnectError as exc:
+            # The generic message blames the console address, which would send the user to the wrong setting.
+            raise UniFiError(
+                f"Could not connect to {SITE_MANAGER_URL}: {exc}. Check this machine's internet access."
+            ) from None
+
     async def download(
         self, path: str, params: dict[str, Any] | None, dest_dir: Path, fallback_name: str, needs_session: bool = True
     ) -> DownloadResult:
@@ -286,6 +356,36 @@ def _clean_params(params: dict[str, Any] | None) -> dict[str, Any] | None:
 def _filename_from_disposition(value: str) -> str:
     match = re.search(r'filename\*?=(?:UTF-8\'\')?"?([^";]+)"?', value, re.IGNORECASE)
     return match.group(1) if match else ""
+
+
+def explain_cloud_status(resp: httpx.Response, path: str) -> str:
+    """A Site Manager error as a next step. Its error body is {code, httpStatusCode, message, traceId}."""
+    status = resp.status_code
+    try:
+        body = resp.json()
+        detail = str(body.get("message") or body.get("code") or "") if isinstance(body, dict) else ""
+    except ValueError:
+        detail = resp.text.strip().replace("\n", " ")[:200]
+    suffix = f" ({detail})" if detail else ""
+    if status == 401:
+        return (
+            f"401 Unauthorized from Site Manager{suffix}. UNIFI_SITE_MANAGER_API_KEY is wrong or revoked; create a new "
+            "key at https://unifi.ui.com/settings/api-keys."
+        )
+    if status == 403:
+        return f"403 Forbidden from Site Manager for {path}{suffix}. The key's UI account cannot see this resource."
+    if status == 404:
+        return f"404 Not Found from Site Manager for {path}{suffix}. An id in the path is probably wrong."
+    if status == 429:
+        wait = resp.headers.get("retry-after")
+        when = f"at least {wait} seconds" if wait else "a minute"
+        return f"429 Too Many Requests from Site Manager{suffix}. Wait {when} before retrying."
+    if status == 502:
+        return (
+            f"502 from Site Manager for {path}{suffix}: the console behind it did not answer. Check that it is online "
+            "in unifi.ui.com, then retry."
+        )
+    return f"HTTP {status} from Site Manager for {path}{suffix}"
 
 
 def explain_status(status: int, path: str, body: str = "") -> str:

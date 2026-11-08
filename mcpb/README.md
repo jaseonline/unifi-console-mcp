@@ -33,6 +33,7 @@ PyPI for the first launch (about a minute). Python 3.12+ is fetched by `uv` if n
 |---|---|---|
 | Console address | `UNIFI_LOCAL_HOST` | none: needed in the field or the variable |
 | Integration API key | `UNIFI_MCP_API_KEY` | none |
+| Site Manager API key | `UNIFI_SITE_MANAGER_API_KEY` | none: Site Manager operations are refused |
 | Local admin username / password | `UNIFI_MCP_USERNAME` / `UNIFI_MCP_PASSWORD` | none |
 | Site | `UNIFI_DEFAULT_SITE`, `UNIFI_NETWORK_SITE` | `default` |
 | HTTPS port | `UNIFI_LOCAL_PORT`, `UNIFI_NETWORK_PORT` | `443` |

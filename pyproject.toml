@@ -1,6 +1,6 @@
 [project]
 name = "unifi-console-mcp"
-version = "0.1.0"
+version = "0.2.2"
 description = "MCP server for the undocumented UniFi OS / Network console APIs, with typed, gated write tools"
 readme = "README.md"
 license = { text = "MIT" }
@@ -13,6 +13,8 @@ dependencies = [
     "mcp>=2.3,<3",
     "pydantic>=2.10",
     "pyyaml>=6.0",
+    # Optional at runtime: reads the password-manager credential cache (Windows Credential Manager).
+    "keyring>=25",
 ]
 
 [project.scripts]

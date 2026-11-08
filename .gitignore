@@ -10,7 +10,8 @@ probe_out/
 
 # Browser captures contain session cookies: never commit
 *.har
-har-files/
+# The folder har-files/ needs to be disabled for Claude to read DO NOT COMMIT ANYTHING WHILE THIS FOLDER IS COMMENTED OUT
+har-files/ 
 .claude
 
 # Never commit local state, captures or logs
@@ -28,3 +29,6 @@ _pub/
 # MCPB build output
 dist/
 *.mcpb
+
+# openapi-format output (copies of the spec)
+src/unifi_console_mcp/formatted*.yaml

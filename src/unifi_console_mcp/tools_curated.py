@@ -122,6 +122,9 @@ class FirewallHitsInput(BaseModel):
     include_predefined: bool = Field(default=False, description="Include system-defined policies.")
     search: str | None = Field(default=None, description="Substring match on policy name.")
     limit: int = Field(default=50, ge=1, le=300, description="Maximum policies to return.")
+    offset: int = Field(
+        default=0, ge=0, description="Skip this many policies. Pass meta.next_offset for the next page."
+    )
 
 
 class DeviceMacInput(BaseModel):
@@ -356,6 +359,10 @@ def register(mcp: MCPServer, api: Api) -> None:
         Finds unused rules (zero hits), noisy rules and stale rules. The Integration API does not expose hit
         counts. Read-only: to change policies use the existing firewall tools.
 
+        Results are paged after sorting. When meta has next_offset, pass it as offset for the next page. The default
+        sort (hits ascending) puts the busiest rules last, so they are the ones a short page leaves out: raise limit,
+        page on, or set descending=true.
+
         Returns JSON: {"ok", "meta", "data": [{"name", "id", "index", "action", "enabled", "predefined",
         "hits", "last_hit", "logging", "source_zone", "destination_zone"}]}.
         """
@@ -405,7 +412,9 @@ def register(mcp: MCPServer, api: Api) -> None:
                 "last_hit": lambda r: r["last_hit"] or "",
             }[params.sort_by]
             rows.sort(key=key, reverse=params.descending)
-            return api.render(RunResult(result.operation_id, result.status, rows), limit=params.limit)
+            return api.render(
+                RunResult(result.operation_id, result.status, rows), offset=params.offset, limit=params.limit
+            )
         except Exception as exc:  # noqa: BLE001
             return error_text(exc)
 

@@ -34,6 +34,8 @@ Reading
   run it with unifi_console_read_operation. It only runs reads and never changes anything.
 - unifi_console_call_operation is for file downloads (backups, support files) and safe writes (generate a backup or
   support file). Those need confirm=true. It never applies configuration changes.
+- Site Manager operations (api 'site_manager') read every console on the UI account from api.ui.com. They are
+  read-only, need UNIFI_SITE_MANAGER_API_KEY, and page with next_token instead of offset.
 - Secrets are redacted from every result. Large results are cut; narrow them with fields, search, limit and offset.
 
 Changing configuration (preview, then confirm)

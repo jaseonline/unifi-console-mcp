@@ -2,7 +2,7 @@
   "manifest_version": "0.4",
   "name": "unifi-console-mcp",
   "display_name": "UniFi Console",
-  "version": "0.1.0",
+  "version": "0.2.2",
   "description": "Read, audit and (optionally) change your UniFi Network from Claude, with a preview-then-confirm flow for every change.",
   "long_description": "UniFi Console connects Claude to your own UniFi console over your local network. It covers the documented Integration API plus the controller and UniFi OS APIs: system log, firewall policy hit counts, PoE budget, switch ports, access review, backups and support files. Read tools are always safe. Configuration changes are off by default; when you turn them on, every change is previewed first and applied only after you approve it, with an audit journal and secrets always redacted. Everything runs on your computer and talks only to your console.",
   "author": {
@@ -53,6 +53,7 @@
       "env": {
         "UNIFI_BUNDLE_HOST": "${user_config.console_host}",
         "UNIFI_BUNDLE_API_KEY": "${user_config.api_key}",
+        "UNIFI_BUNDLE_SITE_MANAGER_API_KEY": "${user_config.site_manager_api_key}",
         "UNIFI_BUNDLE_USERNAME": "${user_config.username}",
         "UNIFI_BUNDLE_PASSWORD": "${user_config.password}",
         "UNIFI_BUNDLE_SITE": "${user_config.site}",
@@ -130,7 +131,7 @@
     },
     {
       "name": "unifi_console_list_operations",
-      "description": "Search the UniFi OpenAPI spec for operations (undocumented controller / UniFi OS APIs plus the Integration API)."
+      "description": "Search the UniFi OpenAPI spec for operations (undocumented controller / UniFi OS APIs, the Integration API and the cloud Site Manager API)."
     },
     {
       "name": "unifi_console_logging_levels",
@@ -226,6 +227,13 @@
       "sensitive": true,
       "required": false,
       "description": "UniFi Network Integration API key (Network > Settings > Control Plane > Integrations). Used for the documented Integration API. Blank uses the UNIFI_MCP_API_KEY system variable."
+    },
+    "site_manager_api_key": {
+      "type": "string",
+      "title": "Site Manager API key",
+      "sensitive": true,
+      "required": false,
+      "description": "Cloud key from unifi.ui.com > API (not the Integration API key). Used read-only for every console on the UI account: hosts, sites, devices, ISP metrics and SD-WAN. Blank uses the UNIFI_SITE_MANAGER_API_KEY system variable; with neither, Site Manager operations are refused."
     },
     "username": {
       "type": "string",

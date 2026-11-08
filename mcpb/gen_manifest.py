@@ -25,6 +25,7 @@ ENV = {
     for key in (
         "console_host",
         "api_key",
+        "site_manager_api_key",
         "username",
         "password",
         "site",
@@ -53,6 +54,13 @@ USER_CONFIG = {
         "sensitive": True,
         "required": False,
         "description": "UniFi Network Integration API key (Network > Settings > Control Plane > Integrations). Used for the documented Integration API. Blank uses the UNIFI_MCP_API_KEY system variable.",
+    },
+    "site_manager_api_key": {
+        "type": "string",
+        "title": "Site Manager API key",
+        "sensitive": True,
+        "required": False,
+        "description": "Cloud key from unifi.ui.com > API (not the Integration API key). Used read-only for every console on the UI account: hosts, sites, devices, ISP metrics and SD-WAN. Blank uses the UNIFI_SITE_MANAGER_API_KEY system variable; with neither, Site Manager operations are refused.",
     },
     "username": {
         "type": "string",

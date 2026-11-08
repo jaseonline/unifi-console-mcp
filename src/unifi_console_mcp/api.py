@@ -7,10 +7,10 @@ messages are enforced in exactly one place.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
-from .client import DownloadResult, UniFiClient, UniFiError, explain_status
+from .client import DownloadResult, UniFiClient, UniFiError, explain_cloud_status, explain_status
 from .config import Settings
 from .redact import filter_text, fit, page, project_fields, redact, unwrap
 from .registry import EMPTY_BODY_POSTS, NULL_BODY_POSTS, TYPED_WRITE_TOOLS, Operation, Registry
@@ -22,6 +22,7 @@ class RunResult:
     status: int
     data: Any
     download: DownloadResult | None = None
+    extra: dict[str, Any] = field(default_factory=dict)  # added to the envelope, e.g. Site Manager's next_token
 
 
 class Api:
@@ -117,6 +118,8 @@ class Api:
             or op.operation_id in NULL_BODY_POSTS
             or (op.method != "GET" and op.body_schema is not None)
         )
+        if op.api == "site_manager":
+            return await self._run_cloud(op, path, query, body, send_body)
         resp = await self.client.request(
             op.method, path, params=query, json_body=body, needs_session=op.needs_session, send_body=send_body
         )
@@ -138,6 +141,23 @@ class Api:
         else:
             data = resp.text[:2_000]
         return RunResult(operation_id, resp.status_code, redact(unwrap(data)))
+
+    async def _run_cloud(
+        self, op: Operation, path: str, query: dict[str, Any] | None, body: Any, send_body: bool
+    ) -> RunResult:
+        """Site Manager (api.ui.com). Its envelope is {data, httpStatusCode, traceId, nextToken?}."""
+        resp = await self.client.cloud_request(op.method, path, params=query, json_body=body, send_body=send_body)
+        if resp.status_code >= 400:
+            raise UniFiError(explain_cloud_status(resp, path))
+        payload: Any = resp.json() if resp.content and "json" in resp.headers.get("content-type", "") else None
+        extra: dict[str, Any] = {}
+        if isinstance(payload, dict) and "data" in payload:
+            # nextToken is the only way to the next page, so it must survive the unwrap. offset/limit only slice
+            # the page already fetched.
+            if payload.get("nextToken"):
+                extra["next_token"] = payload["nextToken"]
+            payload = payload["data"]
+        return RunResult(op.operation_id, resp.status_code, redact(payload), extra=extra)
 
     # ---------------------------------------------------------------- present
     def render(
@@ -168,6 +188,7 @@ class Api:
         data = filter_text(result.data, search)
         data = project_fields(data, fields, field_pattern)
         data, page_meta = page(data, offset, limit)
+        envelope.update(result.extra)
         envelope.update(extra or {})
         body, fit_meta = fit(data, max(1_000, self.settings.max_chars - 600))
         meta = {**page_meta, **fit_meta}

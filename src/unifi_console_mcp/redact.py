@@ -26,13 +26,18 @@ def is_secret_key(key: str) -> bool:
     return any(part in lowered for part in _SECRET_SUBSTRINGS)
 
 
+def _hides_secret(key: Any, value: Any) -> bool:
+    # A boolean cannot carry a secret, and flags such as `private_preshared_keys_enabled` or `x_ssh_enabled`
+    # are useful to see. Empty values are left alone too, so "not set" stays visible.
+    if not isinstance(key, str) or isinstance(value, bool) or value in (None, "", [], {}):
+        return False
+    return is_secret_key(key)
+
+
 def redact(value: Any) -> Any:
     """Return a deep copy of `value` with secret-looking fields replaced."""
     if isinstance(value, dict):
-        return {
-            k: (REDACTED if isinstance(k, str) and is_secret_key(k) and v not in (None, "", [], {}) else redact(v))
-            for k, v in value.items()
-        }
+        return {k: (REDACTED if _hides_secret(k, v) else redact(v)) for k, v in value.items()}
     if isinstance(value, list):
         return [redact(v) for v in value]
     return value

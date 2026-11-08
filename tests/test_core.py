@@ -19,10 +19,41 @@ def registry() -> Registry:
 
 # ---------------------------------------------------------------- registry
 def test_registry_covers_undocumented_apis(registry):
-    tags = {o.tag.split(" · ")[0] for o in registry.all()}
-    assert {"Controller", "UniFi OS"} <= tags
-    assert "Cloud" not in tags
+    apis = {o.api for o in registry.all()}
+    assert apis == {"integration", "controller", "unifi_os", "site_manager"}
     assert len(registry.all()) > 150
+
+
+def test_tags_name_resources_not_apis(registry):
+    """Tags group one resource across APIs; the API lives in x-unifi-api, so no tag may carry an API prefix."""
+    tags = {o.tag for o in registry.all()}
+    assert not any("·" in t for t in tags), tags
+    assert {o.api for o in registry.all() if o.tag == "Devices"} == {"integration", "controller", "site_manager"}
+
+
+def test_every_operation_names_a_known_api(tmp_path):
+    """A missing x-unifi-api must fail loudly, not silently drop the operation."""
+    spec = tmp_path / "spec.json"
+    spec.write_text(
+        json.dumps({"info": {}, "paths": {"/x": {"get": {"operationId": "noApi", "tags": ["Devices"]}}}}),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="noApi"):
+        Registry(spec)
+
+
+@pytest.mark.parametrize(
+    ("tag", "expected_api"),
+    [("Integration", "integration"), ("UniFi OS", "unifi_os"), ("controller", "controller")],
+)
+def test_tag_filter_matches_api_names(registry, tag, expected_api):
+    found = registry.search(tag=tag, access="all")
+    assert found and {o.api for o in found} == {expected_api}
+
+
+def test_tag_filter_accepts_old_combined_form(registry):
+    combined = registry.search(tag="Controller · Devices", access="all")
+    assert combined and all(o.api == "controller" and o.tag == "Devices" for o in combined)
 
 
 def test_policy_ids_exist_in_spec(registry):
@@ -76,6 +107,21 @@ def test_redact_removes_x_fields_and_secrets():
     assert "hunter2" not in json.dumps(out)
 
 
+def test_redact_leaves_boolean_flags_visible():
+    data = {
+        "private_preshared_keys_enabled": False,
+        "x_ssh_enabled": True,
+        "private_preshared_keys": [{"password": "hunter2", "networkconf_id": "n1"}],
+        "psk_length": 12,
+    }
+    out = redact(data)
+    assert out["private_preshared_keys_enabled"] is False and out["x_ssh_enabled"] is True
+    assert out["private_preshared_keys"] == "[redacted]"
+    # Only booleans are exempt; other secret-named values are still hidden.
+    assert out["psk_length"] == "[redacted]"
+    assert "hunter2" not in json.dumps(out)
+
+
 def test_fit_truncates_lists_on_item_boundaries():
     items = [{"i": i, "pad": "x" * 100} for i in range(500)]
     text, meta = fit(items, 5_000)
@@ -122,6 +168,35 @@ async def test_login_failure_backoff_protects_account(settings, console):
     with pytest.raises(AuthError, match="paused to avoid locking"):
         await client.request("GET", "/x")
     assert console.logins == 2  # third attempt never reached the console
+    await client.aclose()
+
+
+async def test_login_499_with_mfa_code_explains_mfa(settings):
+    def refuse(request):
+        return httpx.Response(499, json={"code": "MFA_AUTH_REQUIRED", "message": "MFA Authentication Required"})
+
+    client = UniFiClient(settings, transport=httpx.MockTransport(refuse))
+    with pytest.raises(AuthError, match="HTTP 499.*requires MFA.*console code: MFA_AUTH_REQUIRED"):
+        await client.request("GET", "/x")
+    await client.aclose()
+
+
+async def test_login_499_without_body_gets_generic_hint(settings):
+    client = UniFiClient(settings, transport=httpx.MockTransport(lambda request: httpx.Response(499)))
+    with pytest.raises(AuthError, match="HTTP 499.*needs MFA or is temporarily locked") as info:
+        await client.request("GET", "/x")
+    assert "console code" not in str(info.value)
+    await client.aclose()
+
+
+async def test_login_error_code_that_is_free_text_is_not_echoed(settings):
+    def refuse(request):
+        return httpx.Response(401, json={"code": "please enter secret-ish text here", "message": "nope"})
+
+    client = UniFiClient(settings, transport=httpx.MockTransport(refuse))
+    with pytest.raises(AuthError, match="Wrong username or password") as info:
+        await client.request("GET", "/x")
+    assert "secret-ish" not in str(info.value) and "console code" not in str(info.value)
     await client.aclose()
 
 

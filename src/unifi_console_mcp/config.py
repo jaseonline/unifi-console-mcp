@@ -5,10 +5,18 @@ The UNIFI_CONSOLE_* group is specific to this server.
 
 The MCPB install form supplies UNIFI_BUNDLE_* variables. A filled-in form field wins; a blank one falls
 through to the system variable, so values set in the user's Windows environment keep working.
+
+Credentials (username, password, API key, Site Manager API key) have one more source. After a filled-in form field and
+before the system variables, the server reads a credential cache in the OS credential store (Windows Credential
+Manager, service CACHE_SERVICE, entry "unifi-mcp/<field>"). A password manager stays the source of truth; a separate
+sync step refreshes the cache, so a rotation reaches the server without editing the form or the Windows environment.
+A stale system variable left over from before a rotation can no longer override it. Set UNIFI_CONSOLE_KEYRING=off to
+skip the cache.
 """
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from dataclasses import dataclass, field
@@ -77,6 +85,43 @@ def _pick(*names: str) -> str:
     return ""
 
 
+CACHE_SERVICE = "unifi-mcp-cache"  # credential-store service written by the password-manager sync step
+CACHE_ENTRY = "unifi-mcp"  # entries are named "unifi-mcp/<field>"
+_log = logging.getLogger(__name__)
+
+
+def _credential_cached(field: str) -> str:
+    """A secret from the password-manager credential cache, or '' when there is none.
+
+    The `keyring` package is optional: if it is missing, the store has no usable backend or it cannot be read, this
+    quietly returns '' and the caller falls through to the next source. UNIFI_CONSOLE_KEYRING=off skips the cache.
+    """
+    if os.environ.get("UNIFI_CONSOLE_KEYRING", "").strip().lower() in _FALSE:
+        return ""
+    try:
+        import keyring
+
+        value = keyring.get_password(CACHE_SERVICE, f"{CACHE_ENTRY}/{field}")
+    except Exception:  # noqa: BLE001 - no backend, locked store or no package: use the next source
+        return ""
+    return value.strip() if value and value.strip() else ""
+
+
+def _secret(field: str, *names: str) -> str:
+    """Credential lookup order: the install-form field, the credential cache, then the system variables.
+
+    names[0] is the UNIFI_BUNDLE_* form field and wins when filled in; the rest are the system variables.
+    """
+    value = _pick(names[0])
+    if value:
+        return value
+    value = _credential_cached(field)
+    if value:
+        _log.debug("UniFi %s taken from the credential cache", field)
+        return value
+    return _pick(*names[1:])
+
+
 def _env(name: str, default: str = "") -> str:
     """Read a variable. UNIFI_CONSOLE_X is looked up as UNIFI_BUNDLE_X (install form), UNIFI_CONSOLE_X, then UNIFI_EXT_X."""
     if name.startswith("UNIFI_CONSOLE_"):
@@ -119,6 +164,8 @@ class Settings:
     username: str = field(default="", repr=False)
     password: str = field(default="", repr=False)
     api_key: str = field(default="", repr=False)
+    # Site Manager (api.ui.com) key: a cloud key from unifi.ui.com, separate from the console's Integration API key.
+    site_manager_api_key: str = field(default="", repr=False)
     verify_ssl: bool = True
     pinned_sha256: str = ""
     enable_writes: bool = False
@@ -160,9 +207,12 @@ class Settings:
             host=host,
             port=_int(("UNIFI_BUNDLE_PORT", "UNIFI_LOCAL_PORT", "UNIFI_NETWORK_PORT"), 443),
             site=_pick("UNIFI_BUNDLE_SITE", "UNIFI_DEFAULT_SITE", "UNIFI_NETWORK_SITE") or "default",
-            username=_pick("UNIFI_BUNDLE_USERNAME", "UNIFI_MCP_USERNAME"),
-            password=_pick("UNIFI_BUNDLE_PASSWORD", "UNIFI_MCP_PASSWORD"),
-            api_key=_pick("UNIFI_BUNDLE_API_KEY", "UNIFI_MCP_API_KEY"),
+            username=_secret("username", "UNIFI_BUNDLE_USERNAME", "UNIFI_MCP_USERNAME"),
+            password=_secret("password", "UNIFI_BUNDLE_PASSWORD", "UNIFI_MCP_PASSWORD"),
+            api_key=_secret("api_key", "UNIFI_BUNDLE_API_KEY", "UNIFI_MCP_API_KEY"),
+            site_manager_api_key=_secret(
+                "site_manager_api_key", "UNIFI_BUNDLE_SITE_MANAGER_API_KEY", "UNIFI_SITE_MANAGER_API_KEY"
+            ),
             verify_ssl=_flag(("UNIFI_BUNDLE_VERIFY_SSL", "UNIFI_LOCAL_VERIFY_SSL"), True),
             pinned_sha256=_env("UNIFI_CONSOLE_CERT_SHA256").replace(":", "").strip().lower(),
             enable_writes=_flag("UNIFI_CONSOLE_ENABLE_WRITES", False),

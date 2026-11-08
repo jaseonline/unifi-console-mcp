@@ -83,3 +83,15 @@ def no_machine_environment(monkeypatch):
     # Persistent user variables are also inherited by the process that runs pytest, so clear them here too
     for name in [n for n in os.environ if n.upper().startswith("UNIFI_")]:
         monkeypatch.delenv(name)
+
+
+@pytest.fixture(autouse=True)
+def _no_credential_cache(monkeypatch):
+    """Never read the developer's real credential cache during tests.
+
+    The function is replaced rather than switched off through an environment variable, because some tests rebuild
+    the whole process environment and would otherwise reach the real credential store.
+    """
+    from unifi_console_mcp import config
+
+    monkeypatch.setattr(config, "_credential_cached", lambda field: "")

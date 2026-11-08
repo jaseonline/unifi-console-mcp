@@ -48,6 +48,12 @@ versions. Where a finding explains a design choice in a tool, it says so.
   The `_id` changes after a remove and re-adopt, so the tool always reads it live.
 * A restart is checked by watching the device leave and return (or its uptime drop); adopt and remove by the adopted flag.
 * Firmware updates cannot run while scheduled upgrades are on, so they are not offered.
+* Captured from the UI, not run by this server: a custom firmware update or a Revert is `POST cmd/devmgr` with
+  `cmd: "upgrade-external"`, the device MAC and the image `url`. Revert takes the URL from `fw-revert-options`
+  (`previous_firmware_url`). The console answers `rc: ok` with empty `data` as soon as the upgrade starts.
+* **Reverting the Network application is not app-only.** Reverting Network 11.0.97 to 11.0.81 in UniFi OS restores the
+  backup taken with the earlier version (here 3 November), so every configuration change made since that backup is lost.
+  Device firmware Revert has not been tested and may behave differently.
 * **Verified live** with `scripts/device_live_check.py` on a small switch with two clients: locate on and off, rename and back
   (a partial `PUT` carrying only the name), LED override off and back, disable then enable (the device reconnected), and a hard
   restart (seen leaving and returning). Remove and adopt have also been run live (as two separate runs on the same switch) and
@@ -77,6 +83,10 @@ versions. Where a finding explains a design choice in a tool, it says so.
 * A new policy can be created disabled; enabling and disabling go through a batch call; reordering uses
   `batch-reorder`; deletion uses `batch-delete`.
 * Editing or deleting a policy can regenerate its automatic return policy; verified only on an empty zone pair.
+* In the controller policy list, custom policies have a UUID `_id`, but system-defined ones have a composite id: the
+  source zone UUID, the destination zone UUID and the index run together (`2147483647` for the default block,
+  `30000` and up for system allow rules). Fetching one policy by id works only for custom policies; a composite id
+  returns 404 (checked November 2026). Read system policies from the list instead.
 
 ## Clients
 * The console accepts a partial fixed-IP update without the network id, and accepts `name` without `display_name`.
@@ -85,3 +95,5 @@ versions. Where a finding explains a design choice in a tool, it says so.
 ## Still unverified
 Enabled QoS or traffic objects on real traffic; overlapping enabled QoS rules; firewall policies on real zone pairs;
 switch storm-control units; WAN identity changes; data retention writes on consoles not in manual mode.
+Site Manager (`api.ui.com`) operations are built from the official v1.0.0 spec and tested against a fake, not yet
+against the live service.

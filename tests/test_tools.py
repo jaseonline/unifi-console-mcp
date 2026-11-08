@@ -196,6 +196,26 @@ async def test_firewall_hits_sorts_and_filters(open_session):
         assert [r["name"] for r in unused["data"]] == ["Old rule"]
 
 
+async def test_firewall_hits_pages_with_offset(open_session):
+    async with open_session() as (client, console, _):
+        console.routes[("GET", f"{SITE}/firewall-policies")] = [
+            {"_id": str(i), "name": f"Rule {i}", "hits": i, "index": i, "enabled": True, "predefined": False}
+            for i in range(1, 6)
+        ]
+        console.routes[("GET", f"{SITE}/firewall/zone")] = []
+        tool = "unifi_console_firewall_policy_hits"
+        first = await call(client, tool, {"params": {"limit": 2}})
+        assert [r["name"] for r in first["data"]] == ["Rule 1", "Rule 2"]
+        assert first["meta"] == {"total": 5, "offset": 0, "returned": 2, "next_offset": 2}
+        second = await call(client, tool, {"params": {"limit": 2, "offset": first["meta"]["next_offset"]}})
+        assert [r["name"] for r in second["data"]] == ["Rule 3", "Rule 4"]
+        last = await call(client, tool, {"params": {"limit": 2, "offset": second["meta"]["next_offset"]}})
+        assert [r["name"] for r in last["data"]] == ["Rule 5"]
+        assert "next_offset" not in last["meta"]
+        busiest_first = await call(client, tool, {"params": {"limit": 1, "descending": True}})
+        assert [r["name"] for r in busiest_first["data"]] == ["Rule 5"]
+
+
 async def test_switch_port_detail_trims_and_redacts(open_session):
     async with open_session() as (client, console, _):
         big = {

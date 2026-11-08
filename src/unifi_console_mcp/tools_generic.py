@@ -25,7 +25,8 @@ class ListOperationsInput(BaseModel):
         description="Words to match against operationId, summary, path and description, e.g. 'system log' or 'stp'.",
     )
     tag: str | None = Field(
-        default=None, description="Substring of the spec tag, e.g. 'Controller', 'Devices', 'UniFi OS', 'Integration'."
+        default=None,
+        description="Resource tag or API to filter on, e.g. 'Devices', 'Firewall', 'Integration', 'Controller', 'UniFi OS', 'Site Manager'.",
     )
     access: Literal["read", "sensitive_read", "safe_write", "blocked", "all"] = Field(
         default="read",
@@ -108,14 +109,17 @@ def register(mcp: MCPServer, api: Api) -> None:
         },
     )
     async def unifi_console_list_operations(params: ListOperationsInput) -> str:
-        """Search the UniFi OpenAPI spec for operations (undocumented controller / UniFi OS APIs plus the Integration API).
+        """Search the UniFi OpenAPI spec for operations (undocumented controller / UniFi OS APIs, the Integration API and
+        the cloud Site Manager API).
 
         Use this first to find an operationId, then unifi_console_describe_operation, then unifi_console_read_operation (reads) or
         unifi_console_call_operation (file downloads and safe writes).
         Does not call the console.
 
-        Returns JSON: {"ok": true, "total": int, "operations": [{"operation_id", "method", "path", "tag",
-        "summary", "access"}], "next_offset": int|null}. By default only operations callable right now are shown.
+        Returns JSON: {"ok": true, "total": int, "operations": [{"operation_id", "method", "path", "tag", "api",
+        "summary", "access"}], "next_offset": int|null}. "tag" is the resource (Devices, Firewall, ...); "api" is
+        integration, controller, unifi_os or site_manager (api.ui.com: every console on the UI account, read-only).
+        By default only operations callable right now are shown.
         """
         ops = api.registry.search(params.search, params.tag, params.access)
         sliced = ops[params.offset : params.offset + params.limit]
@@ -131,6 +135,7 @@ def register(mcp: MCPServer, api: Api) -> None:
                         "method": o.method,
                         "path": o.path,
                         "tag": o.tag,
+                        "api": o.api,
                         "summary": o.summary,
                         "access": o.access,
                     }
@@ -169,10 +174,11 @@ def register(mcp: MCPServer, api: Api) -> None:
                 "method": op.method,
                 "path": op.path,
                 "tag": op.tag,
+                "api": op.api,
                 "summary": op.summary,
                 "access": op.access,
                 "x_destructive": op.destructive,
-                "auth": "login session (cookie + CSRF)" if op.needs_session else "API key",
+                "auth": op.auth,
                 "parameters": [
                     {
                         "name": p.name,
@@ -210,8 +216,10 @@ def register(mcp: MCPServer, api: Api) -> None:
         safe writes, or the typed tool named in the refusal for configuration changes.
         Secrets (x_* fields, passwords, keys) are always redacted. Large results are cut to fit; use
         fields/search/limit/offset to narrow them.
+        Site Manager operations (api 'site_manager') page on the server: when the result has "next_token", pass it
+        back as query {"nextToken": ...} for the next page.
 
-        Returns JSON: {"ok": true, "operation", "http_status", "meta"?, "data"} or {"ok": false, "error"}.
+        Returns JSON: {"ok": true, "operation", "http_status", "meta"?, "next_token"?, "data"} or {"ok": false, "error"}.
         """
         try:
             try:
