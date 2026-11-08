@@ -56,6 +56,18 @@ def test_tag_filter_accepts_old_combined_form(registry):
     assert combined and all(o.api == "controller" and o.tag == "Devices" for o in combined)
 
 
+def test_tag_filter_matches_secondary_tags(tmp_path):
+    """Listing and sorting use the first tag; the filter matches any of them."""
+    op = {"operationId": "radios", "tags": ["WiFi", "Devices"], "x-unifi-api": "controller"}
+    spec = tmp_path / "spec.json"
+    spec.write_text(json.dumps({"info": {}, "paths": {"/r": {"get": op}}}), encoding="utf-8")
+    reg = Registry(spec)
+    (found,) = reg.all()
+    assert found.tag == "WiFi" and found.tags == ("WiFi", "Devices")
+    assert [o.operation_id for o in reg.search(tag="Devices", access="all")] == ["radios"]
+    assert [o.operation_id for o in reg.search(tag="WiFi", access="all")] == ["radios"]
+
+
 def test_policy_ids_exist_in_spec(registry):
     """Drift guard: every operationId named in the access policy must still exist in the spec."""
     for op_id in READ_ONLY_POSTS | SAFE_WRITES | DOWNLOADS:

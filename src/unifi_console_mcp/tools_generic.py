@@ -174,6 +174,7 @@ def register(mcp: MCPServer, api: Api) -> None:
                 "method": op.method,
                 "path": op.path,
                 "tag": op.tag,
+                "tags": list(op.tags),
                 "api": op.api,
                 "summary": op.summary,
                 "access": op.access,

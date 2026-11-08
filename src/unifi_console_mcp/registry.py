@@ -135,7 +135,7 @@ class Operation:
     operation_id: str
     method: str
     path: str
-    tag: str
+    tag: str  # first tag: the one place the operation is listed and sorted
     api: str
     summary: str
     description: str
@@ -145,6 +145,9 @@ class Operation:
     destructive: bool
     needs_session: bool
     extra: dict[str, Any] = field(default_factory=dict)
+    # Every tag, first included. Only the tag filter reads it, so an operation tagged [WiFi, Devices] is listed once
+    # under WiFi but still found by a Devices filter.
+    tags: tuple[str, ...] = ()
 
     @property
     def is_download(self) -> bool:
@@ -219,7 +222,8 @@ class Registry:
                 if method not in ("get", "post", "put", "patch", "delete") or not isinstance(op, dict):
                     continue
                 op_id = op.get("operationId")
-                tag = (op.get("tags") or [""])[0]
+                tags = tuple(op.get("tags") or ())
+                tag = tags[0] if tags else ""
                 api = op.get("x-unifi-api")
                 if op_id and api not in KNOWN_APIS:
                     # A missing or misspelt value would otherwise drop the operation without a trace.
@@ -239,6 +243,7 @@ class Registry:
                     method=method.upper(),
                     path=path,
                     tag=tag,
+                    tags=tags,
                     api=api,
                     summary=op.get("summary", ""),
                     description=(op.get("description") or "").strip(),
@@ -269,9 +274,10 @@ class Registry:
         out = self.all()
         if tag:
             # Matches the resource tag or the API, so 'Devices', 'Integration' and 'UniFi OS' all work. The old
-            # combined form 'Controller · Devices' still works: every part must match one or the other.
+            # combined form 'Controller · Devices' still works: every part must match one or the other. Any of the
+            # operation's tags counts, not just the first one it is listed under.
             parts = [_norm(p) for p in tag.split("·") if p.strip()]
-            out = [o for o in out if all(p in _norm(o.tag) or p in o.api for p in parts)]
+            out = [o for o in out if all(any(p in _norm(t) for t in o.tags) or p in o.api for p in parts)]
         if access and access != "all":
             out = [o for o in out if o.access == access]
         if text:
