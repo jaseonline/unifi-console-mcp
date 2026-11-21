@@ -1,7 +1,7 @@
 # Documentation
 
 | Page | Read it when |
-|---|---|
+| --- | --- |
 | [Getting started](getting-started.md) | You are setting the server up for the first time |
 | [Write safety](write-safety.md) | You want to know what protects your network when writes are on |
 | [Write tools](write-tools.md) | You want to know what each typed tool can and cannot change |

@@ -8,4 +8,5 @@ Thanks for your interest. This project drives undocumented APIs, so evidence mat
   the in-memory fake console and, if you have a console to test on, a live check that touches only throwaway objects.
 * **No personal data.** Use documentation values: MACs `02:00:00:00:00:xx`, addresses from `192.0.2.0/24` or `10.x`
   examples, domains `example.home`. `tests/test_no_personal_data.py` checks MAC addresses.
-* Run `uv run pytest` before opening a pull request.
+* Run `uv run pytest` before opening a pull request. If you change Markdown, also run
+  `npx @redocly/cli recheck <files>` (rules in `redocly.yaml`; `--fix` repairs most structural findings).

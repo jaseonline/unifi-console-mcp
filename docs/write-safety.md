@@ -1,6 +1,7 @@
 # Write safety
 
 ## The flow
+
 Every configuration write goes through one engine:
 
 1. **Read** the object (and any lists the validator needs). A failed read blocks the write.
@@ -13,6 +14,7 @@ Every configuration write goes through one engine:
    gives the exact `rollback` call. Nothing is retried automatically.
 
 ## Gates
+
 1. `UNIFI_CONSOLE_ENABLE_WRITES=true` in the server's own environment.
 2. The entity key is in `UNIFI_CONSOLE_WRITE_ENTITIES` (default: none).
 3. `confirm=true` with the matching `fingerprint`.
@@ -22,6 +24,7 @@ Tiers: **A** reversible, local effect. **B** changes how traffic or names resolv
 settings. **C** can cut connectivity or expose the network.
 
 ## Request body rules
+
 * Legacy `rest/*` endpoints: send only the changed fields (arrays are replaced whole, so member helpers compute the
   full array).
 * v2 endpoints and arrays of settings (switch `port_overrides`): read, change, send the whole object.
@@ -29,6 +32,7 @@ settings. **C** can cut connectivity or expose the network.
 * Read-back verification is the safety net: if the stored object does not match the request the result says so.
 
 ## Guards
+
 * **Journal:** `~/.unifi-console-mcp/journal/YYYY-MM.jsonl`, two lines per write (attempt, then result). If the journal
   cannot be written, nothing is sent. Secret fields are redacted, so a rollback never restores a secret.
 * **Rollback instruction** in every result: update back to `before`, delete what was created, or recreate what was
@@ -47,5 +51,6 @@ settings. **C** can cut connectivity or expose the network.
   previews, results or the journal.
 
 ## Testing approach
+
 Unit tests run against an in-memory fake console that reproduces known console behaviour (for example rejecting a PUT
 that omits a required key). Live checks touch only throwaway `zz-` objects, or one nominated client restored afterwards.

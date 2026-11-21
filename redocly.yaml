@@ -1,0 +1,27 @@
+extends:
+  - recommended # OpenAPI lint ruleset (the default when no config exists); suppressions in .redocly.lint-ignore.yaml
+  - recheck/markdown
+  - recheck/prose
+recheck:
+  rules:
+    # Off: paragraphs are written one per line; reflowing every file would churn diffs and the public mirror
+    # without changing what readers see.
+    recheck/line-length: off
+    # first-line-h1: both READMEs open with a logo banner instead of an H1, so they suppress it inline
+    # (an excludes glob of README.md would also skip every nested README).
+    recheck/no-inline-html:
+      assertions:
+        no-inline-html:
+          # p and img make up the README logo banner.
+          allowedElements: [p, img]
+    recheck/capitalization:
+      assertions:
+        capitalization:
+          match: $sentence
+          # UniFi product and UI names, and acronyms, keep their casing in headings.
+          exceptions: [UniFi Console, Network, Control Plane, Admin, QoS, Wi-Fi]
+    recheck/consistency:
+      exceptions:
+        lines:
+          # The LICENSE file name in a link target is not prose; without this it clashes with UK "licence".
+          - '](LICENSE)'

@@ -4,6 +4,7 @@ Findings from live testing on a Cloud Key Gen2 Plus running Network 11.0.81 (Oct
 versions. Where a finding explains a design choice in a tool, it says so.
 
 ## Login and session
+
 * A local-only account logs in once, no MFA. Session lifetime follows the login's `rememberMe` flag: false is 2 hours,
   true is 30 days. The server uses false and logs in again once on a 401.
 * No CSRF token rotation was seen across reads or a state-changing POST. The client still follows
@@ -12,14 +13,17 @@ versions. Where a finding explains a design choice in a tool, it says so.
   The server turns these into actionable errors.
 
 ## Permissions
+
 * Control Plane View is not enough for backups, support files, firmware, syslog settings or API keys (`403`).
 * Backups needed more than Control Plane Admin on a custom role; the full Super Admin role worked.
 
 ## Support files and backups
+
 * The support-file download answers `423 Locked` while the file is being built; poll until it returns 200 (about 90 s).
 * Backup creation returns 204 and the backup appears in the list within seconds.
 
 ## Writes: general
+
 * Creating on a v2 endpoint returns 201; deleting a single item on some v2 endpoints is still a **POST** to a
   `batch-delete` route with a JSON array of ids (204), not a DELETE.
 * The console accepts some values that make no sense (for example Dynamic DNS on a `wan2` interface of a one-WAN site,
@@ -27,6 +31,7 @@ versions. Where a finding explains a design choice in a tool, it says so.
 * A fixed IP applies when the client renews its lease.
 
 ## Application blocks
+
 * The console keeps **one collection** at `firewall-app-blocks`. Every write is a `POST` of the complete array: an entry without
   `_id` is created, one with its `_id` is updated, one left out is deleted, and `[]` deletes everything. The UI sends one request
   for all the changes made before Apply, so the tool does too.
@@ -40,6 +45,7 @@ versions. Where a finding explains a design choice in a tool, it says so.
   marked not verified are still open.
 
 ## Devices
+
 * Locate, restart and adopt are `POST cmd/devmgr` with the device **MAC** (`set-locate`, `unset-locate`, `restart` with
   `reboot_type: "hard"`, `adopt` with `client: "web"`). There is no soft reset. Remove is `POST cmd/sitemgr` with a list of MACs
   and `cmd: "delete-device"`.
@@ -62,6 +68,7 @@ versions. Where a finding explains a design choice in a tool, it says so.
   script lists that, and the per-port settings, as not restored.
 
 ## Traffic objects and QoS
+
 * Traffic objects use the v2 `object-oriented-network-config` resource. QoS limits are stored in **kbit/s**.
 * The console rejects **PRIORITIZE with a limit or burst switched on** (`Invalid QoS rule objective`, HTTP 400). The
   traffic object tool switches both off when the mode becomes PRIORITIZE and refuses to set one in that mode.
@@ -70,16 +77,19 @@ versions. Where a finding explains a design choice in a tool, it says so.
   it on an application destination, so the tool does not send it on the source.
 
 ## DNS over HTTPS
+
 * A DoH save works with only the DoH POST. States are off, auto, manual (predefined) and custom.
 * Auto sends the resolver names `cloudflare` and `google` and clears the custom list. A custom entry is a DNS stamp.
 * The gateway answers REFUSED for some random names under certain domains but NXDOMAIN under others, so the safety
   probe tries several zones and only fails when none gets a good answer.
 
 ## Networks and Wi-Fi
+
 * Editing a network makes the gateway re-provision (about 20 seconds).
 * DHCP DNS servers are the keys `dhcpd_dns_1` to `dhcpd_dns_4`.
 
 ## Firewall policies
+
 * A new policy can be created disabled; enabling and disabling go through a batch call; reordering uses
   `batch-reorder`; deletion uses `batch-delete`.
 * Editing or deleting a policy can regenerate its automatic return policy; verified only on an empty zone pair.
@@ -89,10 +99,12 @@ versions. Where a finding explains a design choice in a tool, it says so.
   returns 404 (checked November 2026). Read system policies from the list instead.
 
 ## Clients
+
 * The console accepts a partial fixed-IP update without the network id, and accepts `name` without `display_name`.
 * Client live fields (last seen, last IP, uplink) change while connected and are excluded from the fingerprint.
 
 ## Still unverified
+
 Enabled QoS or traffic objects on real traffic; overlapping enabled QoS rules; firewall policies on real zone pairs;
 switch storm-control units; WAN identity changes; data retention writes on consoles not in manual mode.
 Site Manager (`api.ui.com`) operations are built from the official v1.0.0 spec and tested against a fake, not yet

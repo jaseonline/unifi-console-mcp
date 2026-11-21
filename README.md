@@ -1,4 +1,5 @@
-![unifi-console-mcp](https://socialify.git.ci/jaseonline/unifi-console-mcp/image?description=1&font=Raleway&forks=1&issues=1&language=1&name=1&owner=1&pattern=Solid&pulls=1&stargazers=1&theme=Dark)
+<!-- recheck-disable-next-line first-line-h1 -->
+<img src=".github/gh-social.png" alt="unifi-console-mcp" title="unifi-console-mcp" align="center" />
 
 An [MCP](https://modelcontextprotocol.io) server for the **undocumented** UniFi OS and Network console APIs, with
 typed, gated write tools. Most UniFi MCP servers use the supported Integration API or a fixed set of legacy calls.
@@ -10,14 +11,14 @@ cover.
 > update. The write tools were proven live against **one console (Cloud Key Gen2 Plus) running Network 11.0.81**.
 > Anything else is untested. Writes are **off by default**. If you turn them on, an AI client can change your network,
 > including DNS, firewall rules and the WAN. Start with read-only, use a dedicated account, keep a backup, and read
-> every preview before confirming. Provided as-is, without warranty (see [LICENSE](LICENSE)).
+> every preview before confirming. Provided as-is, without warranty (see [Licence](#licence)).
 
 ## What it does
 
 **Generic tools** reach every operation in the spec (about 180) without registering 180 tools:
 
 | Tool | Purpose |
-|---|---|
+| --- | --- |
 | `unifi_console_list_operations` | Search the spec by words, tag or access level |
 | `unifi_console_describe_operation` | Parameters, body schema and the spec's own warnings |
 | `unifi_console_read_operation` | Run one read operation (including the read-only POST queries). Annotated read-only, so a client can allow it without prompting |
@@ -84,7 +85,7 @@ below. See [mcpb/README.md](mcpb/README.md).
 ## Configuration
 
 | Variable | Meaning |
-|---|---|
+| --- | --- |
 | `UNIFI_LOCAL_HOST` | Console address, e.g. `192.168.1.2` |
 | `UNIFI_LOCAL_PORT` / `UNIFI_DEFAULT_SITE` | HTTPS port (default 443) / site name (default `default`); `UNIFI_NETWORK_PORT` / `UNIFI_NETWORK_SITE` are also read |
 | `UNIFI_MCP_USERNAME` / `UNIFI_MCP_PASSWORD` | Dedicated local account (no MFA) |

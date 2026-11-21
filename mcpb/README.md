@@ -1,4 +1,4 @@
-# UniFi Console as an MCP Bundle (MCPB)
+# UniFi Console as an MCP bundle (MCPB)
 
 `unifi-console-mcp-<version>.mcpb` packages the server so Claude Desktop (or any MCPB host) can install it with a
 double-click and a settings form, with no JSON editing and no environment variables to manage by hand.
@@ -30,7 +30,7 @@ PyPI for the first launch (about a minute). Python 3.12+ is fetched by `uv` if n
 ### Settings
 
 | Field | System variables used when the field is blank, in order | Default |
-|---|---|---|
+| --- | --- | --- |
 | Console address | `UNIFI_LOCAL_HOST` | none: needed in the field or the variable |
 | Integration API key | `UNIFI_MCP_API_KEY` | none |
 | Site Manager API key | `UNIFI_SITE_MANAGER_API_KEY` | none: Site Manager operations are refused |

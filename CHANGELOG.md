@@ -16,7 +16,7 @@ All notable changes to this project. Versions follow `__version__` in `src/unifi
   page could not be continued, and because the default sort is hits ascending, the busiest rules were the ones a short
   page left out.
 - Credentials (username, password, API key, Site Manager API key) are also read from a password-manager credential cache in
-  the OS credential store (service "unifi-mcp-cache", entries "unifi-mcp/<field>"). Order: filled-in form field, cache, then
+  the OS credential store (service "unifi-mcp-cache", entries `"unifi-mcp/<field>"`). Order: filled-in form field, cache, then
   system variables, so a stale variable cannot override a rotated secret. Needs the optional `keyring` package; set
   UNIFI_CONSOLE_KEYRING=off to skip it.
 - Spec: response schemas for 12 controller v2 reads that had none, captured live on 2026-11-08 (SSL inspection defaults

@@ -5,7 +5,7 @@ All are off until `UNIFI_CONSOLE_ENABLE_WRITES=true` and the entity key is liste
 afterwards); see [verified behaviours](verified-behaviours.md) for what was found.
 
 | Tool (entity key) | Edits | Tier | Notes |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `unifi_console_port_forward` (`port_forward`) | Port forward rules | A | New rules start disabled. Optional source IP/CIDR limit. Enabling states what becomes reachable. |
 | `unifi_console_network_list` (`network_list`) | Port, IPv4, IPv6 and domain lists | A | Member helpers; deletion blocked while a policy uses the list. |
 | `unifi_console_client` (`client`) | Alias, note, fixed IP, local DNS name | A | Checks the address is free, in range, and not the gateway. |
@@ -28,6 +28,7 @@ afterwards); see [verified behaviours](verified-behaviours.md) for what was foun
 | `unifi_console_logging_levels` (`logging_levels`) | Per-service debug levels | B | The console has no read for this, so `verified` is null; rollback is the defaults. |
 
 ## Not offered
+
 VPN and tunnels, device adoption/restart/upgrade, backup restore, hotspot and vouchers, RADIUS, user and admin
 management, gateway-wide settings (UPnP, MSS, timeouts), SSL inspection writes, device-type override. Use another tool
 for these, or see [adding an entity](adding-an-entity.md).
