@@ -3,7 +3,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 downloads/
-.env
 *.tgz
 *.unifi
 probe_out/
@@ -12,7 +11,6 @@ probe_out/
 *.har
 # The folder har-files/ needs to be disabled for Claude to read DO NOT COMMIT ANYTHING WHILE THIS FOLDER IS COMMENTED OUT
 har-files/ 
-.claude
 
 # Never commit local state, captures or logs
 *.log
@@ -20,10 +18,12 @@ har-files/
 journal/
 .env*
 !.env.example
-.claude/
 .vscode/
-*.har
 *.jsonl
+
+# Local Claude Code state stays out; project skills are tracked (sync_public.py still keeps .claude/ off the public repo)
+.claude/*
+!.claude/skills/
 _pub/
 
 # MCPB build output
