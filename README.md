@@ -118,6 +118,8 @@ environment variables only; they are never accepted as tool arguments and never 
 
 ## Documentation
 
+* [API reference](https://jaseonline.github.io/unifi-console-mcp/api/): every operation in the bundled spec, rendered
+  with Redoc
 * [Getting started](docs/getting-started.md): account, permissions, certificate pinning, enabling writes
 * [Write safety](docs/write-safety.md): the preview, confirm, verify, rollback flow and its guards
 * [Write tools](docs/write-tools.md): what each typed tool edits and what it leaves alone
