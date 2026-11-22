@@ -1,3 +1,18 @@
+openapi:
+  hideDownloadButtons: false
+  sanitize: true
+  hideReplay: false
+asyncapi:
+  jsonSamplesDepth: 4
+graphql:
+  showBuiltInScalars: true
+logo:
+  image: src/unifi_console_mcp/assets/unifi-dark.svg
+  altText: UniFi Console MCP
+colorMode: 
+  modes: 
+    - 'dark'
+    - 'light'
 extends:
   - recommended # OpenAPI lint ruleset (the default when no config exists); suppressions in .redocly.lint-ignore.yaml
   - recheck/markdown
