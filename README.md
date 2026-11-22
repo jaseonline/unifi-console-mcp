@@ -1,5 +1,5 @@
 <!-- recheck-disable-next-line first-line-h1 -->
-<p align="center"><img src=".github/unifi-console-mcp.svg" alt="unifi-console-mcp" width="640" height="320" /></p>
+<img src=".github/gh-social.png" alt="unifi-console-mcp" title="unifi-console-mcp" align="center" />
 
 An [MCP](https://modelcontextprotocol.io) server for the **undocumented** UniFi OS and Network console APIs, with
 typed, gated write tools. Most UniFi MCP servers use the supported Integration API or a fixed set of legacy calls.
