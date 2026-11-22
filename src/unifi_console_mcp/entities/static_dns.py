@@ -26,7 +26,9 @@ from ..writes import EntitySpec, Findings, WriteEngine
 KEY = "static_dns"
 TOOL = "unifi_console_static_dns"
 TYPES = ("A", "AAAA", "CNAME", "MX", "SRV", "TXT")
-HOME_DOMAIN = os.environ.get("UNIFI_HOME_DOMAIN", "example.home").lower()   # names outside this domain override public DNS: the preview warns
+HOME_DOMAIN = os.environ.get(
+    "UNIFI_HOME_DOMAIN", "example.home"
+).lower()  # names outside this domain override public DNS: the preview warns
 _LABEL = re.compile(r"^(?!-)[a-z0-9_-]{1,63}(?<!-)$")
 FIELDS = ("record_type", "key", "value", "enabled", "ttl", "priority", "port", "weight")
 HOST_TYPES = ("CNAME", "MX", "SRV")
@@ -224,9 +226,7 @@ class StaticDnsInput(BaseModel):
     record_type: Literal["A", "AAAA", "CNAME", "MX", "SRV", "TXT"] | None = Field(
         default=None, description="create only; fixed afterwards."
     )
-    key: str | None = Field(
-        default=None, description="Record name, e.g. nas.example.home. Lower-cased; no wildcards."
-    )
+    key: str | None = Field(default=None, description="Record name, e.g. nas.example.home. Lower-cased; no wildcards.")
     value: str | None = Field(
         default=None, description="IPv4 for A, IPv6 for AAAA, a host name for CNAME/MX/SRV, text for TXT."
     )

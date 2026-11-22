@@ -31,7 +31,7 @@ SYSLOG = {
     "ip": "192.168.1.65",
     "netconsole_port": "514",
 }
-MAPS_KEY = "AIza" + "SyFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE0"   # split so secret scanners do not flag a fake
+MAPS_KEY = "AIza" + "SyFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE0"  # split so secret scanners do not flag a fake
 MGMT = {
     "_id": "0f8f4e1e",
     "key": "super_mgmt",

@@ -398,9 +398,7 @@ async def test_subnet_change_needs_a_new_dhcp_range_and_warns_about_pointers_int
 async def test_enabled_is_not_an_update_field_and_wan_is_refused(make_session, dns):
     async with make_session(FakeNet(dns)) as c:
         assert "enable or disable action" in await raw(c, {"action": "update", "target": "LAN_IoT", "enabled": False})
-        assert "only handles corporate and guest" in await raw(
-            c, {"action": "update", "target": "WAN1", "name": "x"}
-        )
+        assert "only handles corporate and guest" in await raw(c, {"action": "update", "target": "WAN1", "name": "x"})
         pre = await call(c, {"action": "disable", "target": "WAN1"})
         assert any("only corporate and guest" in e for e in pre["errors"])
 

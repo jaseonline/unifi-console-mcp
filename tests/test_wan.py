@@ -303,9 +303,7 @@ async def test_the_network_tool_refuses_the_wan_and_names_this_one(make_session,
     async with make_session(fake) as c:
         text = await raw(c, {"action": "update", "target": "WAN1", "name": "x"}, tool="unifi_console_network")
         assert "unifi_console_wan" in text
-        assert "cannot be deleted" in await raw(
-            c, {"action": "delete", "target": "WAN1"}, tool="unifi_console_network"
-        )
+        assert "cannot be deleted" in await raw(c, {"action": "delete", "target": "WAN1"}, tool="unifi_console_network")
         pre = json.loads(await raw(c, {"action": "disable", "target": "WAN1"}, tool="unifi_console_network"))
         assert any("unifi_console_wan" in e for e in pre["errors"])
         refused = await raw(

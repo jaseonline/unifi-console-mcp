@@ -33,7 +33,9 @@ from unifi_console_mcp.entities.client import FIELDS, LIVE, SPEC
 from unifi_console_mcp.server import create_server
 from unifi_console_mcp.writes import WriteEngine
 
-HUB_MAC = os.environ.get("UNIFI_LIVE_CHECK_CLIENT_MAC", "02:00:00:00:00:23").lower()  # a harmless client on YOUR console
+HUB_MAC = os.environ.get(
+    "UNIFI_LIVE_CHECK_CLIENT_MAC", "02:00:00:00:00:23"
+).lower()  # a harmless client on YOUR console
 HUB_NAME = "Harmony Hub"
 TOOL = "unifi_console_client"
 TEST_NOTE = "zz live check"

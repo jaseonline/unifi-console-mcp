@@ -328,7 +328,9 @@ async def test_switching_an_existing_wpa_ssid_to_open_is_not_offered(make_sessio
 
 async def test_enabled_is_not_an_update_field_and_unknown_target_is_refused(make_session):
     async with make_session(FakeWifi()) as (c, _):
-        assert "enable or disable action" in await raw(c, {"action": "update", "target": "ExampleNet", "enabled": False})
+        assert "enable or disable action" in await raw(
+            c, {"action": "update", "target": "ExampleNet", "enabled": False}
+        )
         assert "No SSID" in await raw(c, {"action": "update", "target": "Nope", "hide_ssid": True})
 
 
