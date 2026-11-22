@@ -9,9 +9,9 @@ this repository rather than opening a public issue. Include the version, what yo
 
 * This server talks to **undocumented** console APIs with a real account. Run it with a dedicated, least-privilege
   local account, never your own admin account.
-* Configuration writes are off by default. Turning them on (`UNIFI_CONSOLE_ENABLE_WRITES=true`) and listing entities
-  in `UNIFI_CONSOLE_WRITE_ENTITIES` lets an MCP client change your network, including DNS, firewall and WAN settings.
-  Enable only the entities you need, and read the preview before confirming.
+* Configuration writes are allowed by default, each after a preview and an explicit confirm, and they let an MCP
+  client change your network, including DNS, firewall and WAN settings. Set `UNIFI_CONSOLE_READ_ONLY=true` to refuse
+  them all, or list entities in `UNIFI_CONSOLE_DISABLE_ENTITIES` to switch those off. Read the preview before confirming.
 * Backups and support files contain credentials in plain text. They are saved to disk, never returned to the
   conversation. Store them in an encrypted location and do not commit them.
 * Never commit HAR captures, journals or logs. They contain session cookies, tokens and details of your network.

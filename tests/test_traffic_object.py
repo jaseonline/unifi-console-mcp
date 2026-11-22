@@ -324,8 +324,8 @@ async def test_entity_switch_and_previews_when_writes_are_off(make_session):
         pre = await call(c, NEW)
         res = await raw(c, {**NEW, "confirm": True, "fingerprint": pre["fingerprint"]})
     assert (
-        "not enabled for writes" in pre["apply_blocked_reason"]
-        and "not enabled for writes" in res
+        "WRITE_ENTITIES allowlist" in pre["apply_blocked_reason"]
+        and "WRITE_ENTITIES allowlist" in res
         and net.writes() == []
     )
 

@@ -185,8 +185,7 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
         again with the same fields plus confirm=true and that fingerprint to apply. With no fields, or setting_preference=auto,
         everything returns to the console's defaults (warn). The console does not report the current levels, so the preview
         has no before and the result cannot be read back (verified is null). Debug is chatty and fills storage: use it for
-        diagnosis and put it back. Applying also needs UNIFI_CONSOLE_ENABLE_WRITES=true and 'logging_levels' in
-        UNIFI_CONSOLE_WRITE_ENTITIES. Every write is journalled.
+        diagnosis and put it back. Applying is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true). Every write is journalled.
         """
         try:
             return json.dumps(await run(engine, params), separators=(",", ":"), default=str)

@@ -207,7 +207,7 @@ async def test_entity_must_be_enabled(make_session, dns):
     async with make_session(net, entities=frozenset({"port_forward"})) as c:
         pre = await call(c, ADD_GOOGLE)
         text = await raw(c, {**ADD_GOOGLE, "confirm": True, "fingerprint": pre["fingerprint"], "approval_note": NOTE})
-    assert "not enabled for writes" in text and net.writes() == []
+    assert "WRITE_ENTITIES allowlist" in text and net.writes() == []
 
 
 async def test_stale_preview_is_refused(make_session, dns):

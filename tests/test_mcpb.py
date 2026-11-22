@@ -113,7 +113,7 @@ def test_unfilled_placeholders_are_treated_as_unset(monkeypatch):
     s = Settings.from_env()
     assert (s.username, s.password, s.api_key) == ("", "", "")
     assert s.site == "default" and s.port == 443 and s.verify_ssl is True
-    assert s.enable_writes is False and s.write_entities == frozenset()
+    assert s.enable_writes is True and s.write_entities == frozenset()
     assert s.log_level == "INFO" and s.pinned_sha256 == ""
     assert s.download_dir == Path.home() / ".unifi-console-mcp" / "downloads"
 

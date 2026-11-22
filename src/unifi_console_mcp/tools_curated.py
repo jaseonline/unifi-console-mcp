@@ -192,7 +192,7 @@ class GatewayConfigInput(BaseModel):
     )
     refresh: bool = Field(
         default=False,
-        description="Generate a new console support file first (about 90 s). Needs confirm=true, UNIFI_CONSOLE_ENABLE_WRITES=true and Control Plane = Admin.",
+        description="Generate a new console support file first (about 90 s). Needs confirm=true, a server that is not read-only, and Control Plane = Admin.",
     )
     max_age_minutes: int = Field(
         default=1440,
@@ -491,7 +491,7 @@ def register(mcp: MCPServer, api: Api) -> None:
     async def unifi_console_backup(params: BackupInput) -> str:
         """List, create or download UniFi OS console backups (whole console, not just the Network app).
 
-        list is read-only. create makes a new backup on the console and needs UNIFI_CONSOLE_ENABLE_WRITES=true and
+        list is read-only. create makes a new backup on the console and needs a server that is not read-only and
         confirm=true. download builds a fresh archive and saves it under the server's download folder (never
         returned here; it contains credentials) and needs confirm=true. Console-level calls need the MCP
         account's Control Plane permission raised from View to Admin.
@@ -543,7 +543,7 @@ def register(mcp: MCPServer, api: Api) -> None:
         The console bundle holds Network logs, remote syslog from every adopted device, configs and topology: the
         place to look when regular logs do not explain a fault (e.g. an STP problem visible only in device syslog).
         It contains secrets in plain text, so it is saved locally and never returned. Takes about a minute.
-        Needs UNIFI_CONSOLE_ENABLE_WRITES=true, confirm=true, and Control Plane = Admin on the MCP account.
+        Needs a server that is not read-only, confirm=true, and Control Plane = Admin on the MCP account.
         scope='device' starts generation and reports status only.
 
         Returns JSON: {"ok", "saved_file": {...}} (console) or {"ok", "data": {"status": ...}} (device).
@@ -619,7 +619,7 @@ def register(mcp: MCPServer, api: Api) -> None:
                 raise UniFiError(
                     f"No console support file newer than {params.max_age_minutes} minutes in "
                     f"{settings.download_dir}. Call again with refresh=true and confirm=true (about 90 s; "
-                    "needs UNIFI_CONSOLE_ENABLE_WRITES=true and Control Plane = Admin), or raise max_age_minutes."
+                    "needs a server that is not read-only and Control Plane = Admin), or raise max_age_minutes."
                 )
             gateways = await asyncio.to_thread(gateway_config.load_gateways, archive)
             if params.device_mac:

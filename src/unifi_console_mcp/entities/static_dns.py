@@ -269,8 +269,7 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
         re-read first, so a stale preview is refused. The gateway answers these names for every client, so the preview
         warns when a name is outside example.home (it replaces the public answer), refuses duplicates, the CNAME
         rule and names a client already publishes, and lists CNAME records that point at a record you change or remove.
-        The console only accepts the whole record, so updates send all of it. Applying also needs
-        UNIFI_CONSOLE_ENABLE_WRITES=true and 'static_dns' in UNIFI_CONSOLE_WRITE_ENTITIES. After applying, the record is
+        The console only accepts the whole record, so updates send all of it. Applying is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true). After applying, the record is
         read back and the result reports verified true/false, the diff, and the exact rollback call. Every write is journalled.
         """
         try:

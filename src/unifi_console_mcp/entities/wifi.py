@@ -499,7 +499,7 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
         environment variable in the server's environment; it is write-only and is not read back, previewed or journalled.
         Changes that force clients to reconnect, and deletes, are refused while clients are connected unless
         acknowledge_disconnect=true; open security needs acknowledge_open=true. There is no automatic restore. Applying also
-        needs UNIFI_CONSOLE_ENABLE_WRITES=true and 'wifi' in UNIFI_CONSOLE_WRITE_ENTITIES. Every write is journalled.
+        is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true). Every write is journalled.
         """
         try:
             if params.action in ("enable", "disable", "delete") and params.changes():

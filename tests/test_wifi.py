@@ -385,9 +385,9 @@ async def test_gates_stale_fingerprint_and_tier_c_note(make_session):
     args = {"action": "update", "target": "ExampleNet", "l2_isolation": True}
     async with make_session(net, writes=False) as (c, _):
         pre = await call(c, args)
-        assert "Writes are disabled" in pre["apply_blocked_reason"]
+        assert "read-only" in pre["apply_blocked_reason"]
     async with make_session(net, entities=frozenset({"port_forward"})) as (c, _):
-        assert "not enabled for writes" in (await call(c, args))["apply_blocked_reason"]
+        assert "WRITE_ENTITIES allowlist" in (await call(c, args))["apply_blocked_reason"]
     async with make_session(net) as (c, _):
         pre = await call(c, args)
         assert "approval_note" in await raw(c, {**args, "confirm": True, "fingerprint": pre["fingerprint"]})

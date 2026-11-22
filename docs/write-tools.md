@@ -1,6 +1,6 @@
 # Write tools
 
-All are off until `UNIFI_CONSOLE_ENABLE_WRITES=true` and the entity key is listed in `UNIFI_CONSOLE_WRITE_ENTITIES`.
+All are refused when `UNIFI_CONSOLE_READ_ONLY=true` or when the entity key is listed in `UNIFI_CONSOLE_DISABLE_ENTITIES`.
 "Proven live" means the tool was run against a real console using throwaway objects (or one nominated client restored
 afterwards); see [verified behaviours](verified-behaviours.md) for what was found.
 

@@ -917,8 +917,7 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
         policies and the generated "(Return)" copies are never changed. An enabled ALLOW from External that matches everything,
         or an enabled BLOCK/REJECT that cuts DNS/DHCP/internet for the console's own network, is refused unless
         acknowledge_exposure / acknowledge_outage is passed. A change touching an enabled policy is wrapped in a DNS test
-        before and after; if it fails afterwards the previous state is put back automatically, once. Applying also needs
-        UNIFI_CONSOLE_ENABLE_WRITES=true and 'firewall_policy' in UNIFI_CONSOLE_WRITE_ENTITIES. Every write is journalled.
+        before and after; if it fails afterwards the previous state is put back automatically, once. Applying is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true). Every write is journalled.
         """
         try:
             console_net = await _console_network(engine)

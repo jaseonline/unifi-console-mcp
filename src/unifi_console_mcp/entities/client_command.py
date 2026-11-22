@@ -291,8 +291,7 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
         fingerprint); call again with the same fields plus confirm=true and that fingerprint to apply. block and unblock
         are read back and are each other's rollback. reconnect disconnects a connected wireless client once. forget
         deletes an offline client's history, name, note, fixed IP and Local DNS record for good, so it also needs
-        discard_history=true and has no rollback. UniFi devices are refused. Applying needs UNIFI_CONSOLE_ENABLE_WRITES=true
-        and 'client' in UNIFI_CONSOLE_WRITE_ENTITIES (the same switch as the client record tool). Every command is journalled.
+        discard_history=true and has no rollback. UniFi devices are refused. Applying is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true) (the same switch as the client record tool). Every command is journalled.
         """
         try:
             result = await run(

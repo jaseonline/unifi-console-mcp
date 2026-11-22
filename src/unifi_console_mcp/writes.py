@@ -8,8 +8,9 @@ Nothing here is specific to one entity. An entity is described by an `EntitySpec
 how its update body is shaped, how to validate it); the typed MCP tool for the entity lives in its own module.
 
 Gates, all of which must pass before anything is sent:
-  1. UNIFI_CONSOLE_ENABLE_WRITES=true
-  2. the entity key is listed in UNIFI_CONSOLE_WRITE_ENTITIES
+  1. the server is not read-only (UNIFI_CONSOLE_READ_ONLY is not true)
+  2. the entity key is not in UNIFI_CONSOLE_DISABLE_ENTITIES (and, while it still exists, is in the deprecated
+     UNIFI_CONSOLE_WRITE_ENTITIES allowlist when that is set)
   3. confirm=true together with the fingerprint of the preview (the object is re-read, so a stale preview is refused)
   4. tier "C" entities also need a non-empty approval_note (the reference to the plan the operator approved)
 
@@ -34,6 +35,10 @@ from .redact import is_secret_key, redact, unwrap
 ACTIONS = ("create", "update", "enable", "disable", "delete", "move")
 # Fields the console maintains itself; never compared, never sent as a change, never part of a fingerprint.
 VOLATILE = frozenset({"site_id", "attr_hidden_id", "attr_no_delete", "attr_no_edit"})
+
+
+READBACK_TRIES = 4  # read-backs per write while the stored value still differs
+READBACK_DELAY = 1.0  # seconds between them
 
 
 @dataclass
@@ -97,7 +102,7 @@ class RestoreStep:
 
 @dataclass(frozen=True)
 class EntitySpec:
-    key: str  # name used in UNIFI_CONSOLE_WRITE_ENTITIES, e.g. "port_forward"
+    key: str  # name used in UNIFI_CONSOLE_DISABLE_ENTITIES, e.g. "port_forward"
     label: str  # for messages, e.g. "port forward"
     tier: str  # "A" reversible and local, "B" affects several clients, "C" can cut or expose the network
     list_op: str
@@ -161,6 +166,11 @@ class EntitySpec:
     wrap_rows: Callable[[list[dict[str, Any]]], list[dict[str, Any]]] | None = None
     # Keys of the changes that the entity's own `verify` checks, so the generic read-back comparison skips them.
     verify_skip: frozenset[str] = frozenset()
+    # When set, the fingerprint covers only these keys of the existing object (an allowlist) instead of everything not in
+    # `ignore`. For objects that carry live counters (a device record: _uptime, total_used_power...), where a denylist
+    # would have to name every field the console may add. The request body is still part of the fingerprint, so a change
+    # to anything that would be sent still makes a stale preview fail.
+    fingerprint_keys: tuple[str, ...] = ()
 
 
 # ----------------------------------------------------------------------------------------------- helpers
@@ -400,7 +410,10 @@ class WriteEngine:
             findings = spec.validate(action, before, after or {}, others)
 
         no_change = action in ("update", "enable", "disable", "move") and not effective
-        stable_before = {k: v for k, v in (before or {}).items() if k not in spec.ignore}
+        if spec.fingerprint_keys:
+            stable_before = {k: v for k, v in (before or {}).items() if k in spec.fingerprint_keys}
+        else:
+            stable_before = {k: v for k, v in (before or {}).items() if k not in spec.ignore}
         fingerprint = hashlib.sha256(
             _canon(
                 {
@@ -481,11 +494,16 @@ class WriteEngine:
     def blocked_reason(self, spec: EntitySpec, approval_note: str | None) -> str | None:
         s = self.api.settings
         if not s.enable_writes:
-            return "Writes are disabled: set UNIFI_CONSOLE_ENABLE_WRITES=true in the server environment."
-        if spec.key not in s.write_entities:
             return (
-                f"'{spec.key}' is not enabled for writes: add it to UNIFI_CONSOLE_WRITE_ENTITIES "
-                f"(currently: {', '.join(sorted(s.write_entities)) or 'none'})."
+                "This server is running read-only (UNIFI_CONSOLE_READ_ONLY=true, or the deprecated "
+                "UNIFI_CONSOLE_ENABLE_WRITES=false), so no change can be applied."
+            )
+        if spec.key in s.disabled_entities:
+            return f"'{spec.key}' changes are switched off on this server (UNIFI_CONSOLE_DISABLE_ENTITIES)."
+        if s.write_entities and spec.key not in s.write_entities:
+            return (
+                f"'{spec.key}' is not in the deprecated UNIFI_CONSOLE_WRITE_ENTITIES allowlist "
+                f"(currently: {', '.join(sorted(s.write_entities))})."
             )
         if spec.tier == "C" and not (approval_note or "").strip():
             return "This is a tier C change (it can cut or expose the network): pass approval_note naming the plan that was approved."
@@ -643,34 +661,40 @@ class WriteEngine:
             if isinstance(created, dict):
                 new_id = str(created.get(spec.id_field) or "") or None
 
-        rows = await self._rows(spec)
-        stored: dict[str, Any] | None = None
-        if plan.action == "create" and not new_id:
-            name = (plan.after or {}).get(spec.name_field)
-            match = [r for r in rows if r.get(spec.name_field) == name]
-            if len(match) > 1:  # several objects may share a name (DNS records): narrow by what was sent
-                match = [r for r in match if all(same(r.get(k), v) for k, v in plan.changes.items())]
-            stored = match[0] if len(match) == 1 else None
-            new_id = str(stored[spec.id_field]) if stored else None
-        elif new_id:
-            stored = next((r for r in rows if str(r.get(spec.id_field)) == new_id), None)
+        # The console can apply a change a moment after it answers, so a read-back that looks wrong is re-read a few
+        # times before it counts as a mismatch.
+        for attempt in range(READBACK_TRIES):
+            rows = await self._rows(spec)
+            stored: dict[str, Any] | None = None
+            if plan.action == "create" and not new_id:
+                name = (plan.after or {}).get(spec.name_field)
+                match = [r for r in rows if r.get(spec.name_field) == name]
+                if len(match) > 1:  # several objects may share a name (DNS records): narrow by what was sent
+                    match = [r for r in match if all(same(r.get(k), v) for k, v in plan.changes.items())]
+                stored = match[0] if len(match) == 1 else None
+                new_id = str(stored[spec.id_field]) if stored else None
+            elif new_id:
+                stored = next((r for r in rows if str(r.get(spec.id_field)) == new_id), None)
 
-        mismatches: list[dict[str, Any]] = []
-        # Secret fields (tokens, passwords) are write-only: never compared and never echoed, even in a mismatch.
-        secrets_sent = sorted(k for k in plan.changes if is_secret_key(k))
-        if plan.action == "delete":
-            if stored is not None:
-                mismatches.append({"field": "(object)", "requested": "deleted", "stored": "still present"})
-        elif stored is None:
-            mismatches.append({"field": "(object)", "requested": "present", "stored": "not found on read-back"})
-        elif plan.action != "move":
-            for key, wanted in plan.changes.items():
-                if key in spec.ignore or key in spec.verify_skip or is_secret_key(key):
-                    continue
-                if not (covers if spec.loose_verify else same)(stored.get(key), wanted):
-                    mismatches.append({"field": key, "requested": wanted, "stored": stored.get(key)})
-        if spec.verify:
-            mismatches.extend(spec.verify(plan, rows, stored))
+            mismatches: list[dict[str, Any]] = []
+            # Secret fields (tokens, passwords) are write-only: never compared and never echoed, even in a mismatch.
+            secrets_sent = sorted(k for k in plan.changes if is_secret_key(k))
+            if plan.action == "delete":
+                if stored is not None:
+                    mismatches.append({"field": "(object)", "requested": "deleted", "stored": "still present"})
+            elif stored is None:
+                mismatches.append({"field": "(object)", "requested": "present", "stored": "not found on read-back"})
+            elif plan.action != "move":
+                for key, wanted in plan.changes.items():
+                    if key in spec.ignore or key in spec.verify_skip or is_secret_key(key):
+                        continue
+                    if not (covers if spec.loose_verify else same)(stored.get(key), wanted):
+                        mismatches.append({"field": key, "requested": wanted, "stored": stored.get(key)})
+            if spec.verify:
+                mismatches.extend(spec.verify(plan, rows, stored))
+            if not mismatches or attempt == READBACK_TRIES - 1:
+                break
+            await asyncio.sleep(READBACK_DELAY)
         verified = not mismatches
 
         guard_result: dict[str, Any] | None = None

@@ -296,7 +296,9 @@ async def test_the_entity_switch_and_previews_when_writes_are_off(make_session):
         res = await c.call_tool(
             TOOL, {"action": "delete", "target": "cams-id", "confirm": True, "fingerprint": pre["fingerprint"]}
         )
-    assert "not enabled for writes" in pre["apply_blocked_reason"] and "not enabled for writes" in res.content[0].text
+    assert (
+        "WRITE_ENTITIES allowlist" in pre["apply_blocked_reason"] and "WRITE_ENTITIES allowlist" in res.content[0].text
+    )
     assert net.writes() == []
 
 

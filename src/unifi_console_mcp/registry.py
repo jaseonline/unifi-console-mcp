@@ -39,7 +39,7 @@ READ_ONLY_POSTS = frozenset(
 )
 
 # Writes that create a file or entry but change no configuration. Enabled only with
-# UNIFI_CONSOLE_ENABLE_WRITES=true and confirm=true.
+# confirm=true, and the server not being read-only.
 SAFE_WRITES = frozenset(
     {
         "generateSupportFile",

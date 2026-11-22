@@ -188,7 +188,7 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
         uses the group, a fingerprint); call again with the same fields plus confirm=true and that fingerprint to apply.
         The group is re-read first, so a stale preview is refused. Members are MAC addresses (any common spelling is
         normalised to aa:bb:cc:dd:ee:ff); use add_members/remove_members to change a few, or members to replace all.
-        Applying also needs UNIFI_CONSOLE_ENABLE_WRITES=true and 'client_group' in UNIFI_CONSOLE_WRITE_ENTITIES. A group
+        Applying is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true). A group
         that firewall policies or traffic objects still use cannot be deleted, and editing one warns that the change takes
         effect for them at once. The console only accepts the whole group, so updates send all of it. After applying, the
         group is read back and the result reports verified true/false, the diff, and the exact rollback call. Every

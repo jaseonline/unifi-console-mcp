@@ -220,8 +220,8 @@ async def test_gates_apply_to_all_three(make_session):
             ("unifi_console_logging_levels", {"sdn": "debug"}),
         ):
             pre = await call(c, tool, args)
-            assert "Writes are disabled" in pre["apply_blocked_reason"]
+            assert "read-only" in pre["apply_blocked_reason"]
     async with make_session(net, entities=frozenset({"wifi"})) as (c, _):
         pre = await call(c, "unifi_console_syslog", {"debug": True})
-        assert "not enabled" in pre["apply_blocked_reason"]
+        assert "WRITE_ENTITIES" in pre["apply_blocked_reason"]
     assert net.posts == [] and net.system == []

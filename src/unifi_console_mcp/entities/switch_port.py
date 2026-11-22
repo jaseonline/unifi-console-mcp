@@ -471,9 +471,11 @@ def rollback(plan: Plan, new_id: str | None) -> dict[str, Any]:
         elif k == "lldpmed_enabled":
             args["lldpmed"] = bool(be.get(k))
         elif k.startswith("stormctrl_"):
-            _, short, field = k.split("_", 2)
-            kind = {v: n for n, v in STORM.items()}.get(short)
+            # stormctrl_<bcast|mcast|ucast>_<enabled|rate>; stormctrl_type has only two parts and is set by the tool itself.
+            parts = k.split("_", 2)
+            kind = {v: n for n, v in STORM.items()}.get(parts[1]) if len(parts) == 3 else None
             if kind:
+                field = parts[2]
                 args.setdefault("storm_control", {}).setdefault(kind, {})[field] = be.get(k)
     return {"tool": TOOL, "arguments": args}
 
@@ -528,6 +530,10 @@ SPEC = EntitySpec(
     name_field="name",
     match_fields=("mac",),
     ignore=IGNORE,
+    # The device record carries live counters (_uptime, total_used_power, satisfaction...) that change on every read, so
+    # the fingerprint covers only the switch's identity. What is being changed is covered by the body: the whole
+    # port_overrides array as it would be sent, so an edit to any port in the meantime still refuses a stale preview.
+    fingerprint_keys=("_id", "mac"),
     body_keys=("port_overrides",),
     prepare_ctx=prepare_ctx,
     context_ops=(("networks", "listNetworkConfig"), ("clients", "listActiveClientsLegacy")),
@@ -619,8 +625,7 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
         VLANs, isolation, BPDU guard, flow control, storm control) on uplink and infrastructure ports are refused unless
         acknowledge_infrastructure=true; a name change is always allowed. After a change every device that was connected must still
         be connected, otherwise the previous settings are put back automatically, once. Disabling a port, STP edge mode, port
-        profiles and the other switch settings are not offered. Applying also needs UNIFI_CONSOLE_ENABLE_WRITES=true and
-        'switch_port' in UNIFI_CONSOLE_WRITE_ENTITIES. Every write is journalled.
+        profiles and the other switch settings are not offered. Applying is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true). Every write is journalled.
         """
         try:
             console_ip = None

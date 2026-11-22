@@ -2,7 +2,7 @@
 
     uv run python scripts/live_writes.py
 
-Needs: UNIFI_CONSOLE_ENABLE_WRITES=true and the MCP account's Control Plane permission set to Admin.
+Needs: a server that is not read-only (UNIFI_CONSOLE_READ_ONLY unset) and the MCP account's Control Plane permission set to Admin.
 It creates ONE console backup and ONE support file and saves them to the download folder
 (owner-only permissions). File contents are never printed; only names, sizes and hashes.
 It changes no configuration.

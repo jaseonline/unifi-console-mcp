@@ -241,7 +241,7 @@ async def test_config_write_is_refused(settings, console, registry):
 
 async def test_safe_write_needs_flag_and_confirm(settings, console, registry):
     api = make_api(settings, console, registry)
-    with pytest.raises(UniFiError, match="Writes are disabled"):
+    with pytest.raises(UniFiError, match="read-only"):
         await api.run("createConsoleBackup", query={"destination": "local"}, confirm=True)
     on = dataclasses.replace(settings, enable_writes=True)
     api = make_api(on, console, registry)

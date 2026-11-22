@@ -752,7 +752,7 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
         a network used by an SSID or switch port cannot be deleted; disabling it or disruptive edits with clients connected need
         acknowledge_disconnect=true. After a change that touches an enabled network every connected device must still be
         connected and DNS must still work, otherwise the previous state is restored once. WAN, VPN, IPv6 and DHCP options are not
-        offered. Applying also needs UNIFI_CONSOLE_ENABLE_WRITES=true and 'network' in UNIFI_CONSOLE_WRITE_ENTITIES. Every write is journalled.
+        offered. Applying is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true). Every write is journalled.
         """
         try:
             if params.action in ("enable", "disable", "delete") and params.changes():

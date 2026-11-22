@@ -193,8 +193,7 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
 
         Two steps, always: call with confirm=false to get a read-only preview (before, after, diff, warnings, what
         uses the list, a fingerprint); call again with the same fields plus confirm=true and that fingerprint to apply.
-        The list is re-read first, so a stale preview is refused. Applying also needs UNIFI_CONSOLE_ENABLE_WRITES=true
-        and 'network_list' in UNIFI_CONSOLE_WRITE_ENTITIES. A list that firewall policies or traffic objects still use
+        The list is re-read first, so a stale preview is refused. Applying is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true). A list that firewall policies or traffic objects still use
         cannot be deleted, and editing one warns that the change takes effect for them at once. After applying, the
         list is read back and the result reports verified true/false, the diff, and the exact rollback call. Every write
         is journalled.

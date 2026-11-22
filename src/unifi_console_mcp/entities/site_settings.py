@@ -332,8 +332,7 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
         call again with the same fields plus confirm=true and that fingerprint to apply. Fields: enabled, netconsole_enabled,
         netconsole_host, netconsole_port, contents, log_all_contents, this_controller, this_controller_encrypted_only, debug.
         The host and port are also written to ip and port as the UI does. Changing or stopping the destination ends the feed
-        to the current receiver, and the preview says so. Applying also needs UNIFI_CONSOLE_ENABLE_WRITES=true and 'syslog'
-        in UNIFI_CONSOLE_WRITE_ENTITIES. The group is read back and verified. Every write is journalled.
+        to the current receiver, and the preview says so. Applying is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true). The group is read back and verified. Every write is journalled.
         """
         try:
             changes = params.changes()
@@ -369,7 +368,7 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
         data_retention_setting_preference (auto or manual) and, with manual, hours_5minutes, hours_hourly, hours_daily,
         hours_monthly, hours_others. The rest of the group (auto-backup, analytics and a Google Maps key) is sent back exactly
         as read and never shown. Shortening retention deletes older data at the next prune; longer retention uses more
-        storage. Applying also needs UNIFI_CONSOLE_ENABLE_WRITES=true and 'data_retention' in UNIFI_CONSOLE_WRITE_ENTITIES.
+        storage. Applying is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true).
         Every write is journalled.
         """
         try:

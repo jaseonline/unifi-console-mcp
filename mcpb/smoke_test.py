@@ -133,7 +133,7 @@ async def main() -> None:
         assert not leaked, f"unexpected files in bundle: {leaked}"
 
         base = {"console_host": "127.0.0.1", "port": "9", "verify_ssl": "false", "log_level": "DEBUG"}
-        await scenario("filled configuration, writes off", manifest, dirname, {**base, "enable_writes": "false"})
+        await scenario("filled configuration, writes off", manifest, dirname, {**base, "read_only": "true"})
 
         blanks = {k: "" for k in manifest["user_config"] if k not in base}
         await scenario("optional fields blank (empty strings)", manifest, dirname, {**base, **blanks})

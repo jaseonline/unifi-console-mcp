@@ -831,8 +831,7 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
         enable is tier B; disable is tier C. update changes only the fields you pass (name, LED, SNMP, STP priority; the management
         network and IP are tier C). adopt takes a device the console lists as not adopted. remove forgets a device: tier C, needs
         acknowledge_removal=true and has no undo short of adopting it again. Tier C actions also need approval_note. The device running
-        the console is refused (except locate). Firmware updates are not offered. Applying needs UNIFI_CONSOLE_ENABLE_WRITES=true and
-        'device' in UNIFI_CONSOLE_WRITE_ENTITIES. Every action is journalled and read back where the console shows a result.
+        the console is refused (except locate). Firmware updates are not offered. Applying is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true). Every action is journalled and read back where the console shows a result.
         """
         try:
             result = await run(

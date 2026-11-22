@@ -32,6 +32,8 @@ ENV = {
         "port",
         "verify_ssl",
         "cert_sha256",
+        "read_only",
+        "disable_entities",
         "enable_writes",
         "write_entities",
         "download_dir",
@@ -101,17 +103,29 @@ USER_CONFIG = {
         "required": False,
         "description": "Optional. SHA-256 fingerprint of the console's certificate. When set, only that certificate is accepted, which is the safe way to use a self-signed console.",
     },
+    "read_only": {
+        "type": "string",
+        "title": "Read-only mode",
+        "required": False,
+        "description": "true to refuse every configuration change; blank uses UNIFI_CONSOLE_READ_ONLY, then false. Changes are otherwise allowed, each only after a preview and an explicit confirm.",
+    },
+    "disable_entities": {
+        "type": "string",
+        "title": "Entities switched off",
+        "required": False,
+        "description": "Comma-separated list of entities that can never be changed, for example 'wan,doh'. Blank uses UNIFI_CONSOLE_DISABLE_ENTITIES; empty means none are switched off.",
+    },
     "enable_writes": {
         "type": "string",
-        "title": "Allow configuration changes",
+        "title": "Allow configuration changes (deprecated)",
         "required": False,
-        "description": "true or false; blank uses UNIFI_CONSOLE_ENABLE_WRITES, then false (read-only). When on, typed write tools can change configuration, but only for the entities listed below and only after a preview and an explicit confirm.",
+        "description": "Deprecated; use Read-only mode. 'false' still makes the server read-only and 'true' is ignored. Blank uses UNIFI_CONSOLE_ENABLE_WRITES.",
     },
     "write_entities": {
         "type": "string",
-        "title": "Entities that may be changed",
+        "title": "Entities that may be changed (deprecated)",
         "required": False,
-        "description": "Comma-separated list, for example 'wifi,network,firewall_policy'. Blank uses UNIFI_CONSOLE_WRITE_ENTITIES. Ignored unless writes are enabled; empty means nothing can be changed.",
+        "description": "Deprecated; use Entities switched off. A non-empty list still restricts changes to those entities. Blank uses UNIFI_CONSOLE_WRITE_ENTITIES.",
     },
     "download_dir": {
         "type": "directory",
@@ -169,8 +183,8 @@ def build(version: str, tools: list[dict[str, str]]) -> dict:
         "long_description": (
             "UniFi Console connects Claude to your own UniFi console over your local network. It covers the documented "
             "Integration API plus the controller and UniFi OS APIs: system log, firewall policy hit counts, PoE budget, "
-            "switch ports, access review, backups and support files. Read tools are always safe. Configuration changes are "
-            "off by default; when you turn them on, every change is previewed first and applied only after you approve it, "
+            "switch ports, access review, backups and support files. Read tools are always safe. Configuration changes can be "
+            "switched off with Read-only mode; otherwise every change is previewed first and applied only after you approve it, "
             "with an audit journal and secrets always redacted. Everything runs on your computer and talks only to your console."
         ),
         "author": {"name": "jaseonline", "url": "https://github.com/jaseonline"},

@@ -40,7 +40,7 @@ configured correctly.
 
 ## 5. Enable writes, one entity at a time
 
-Set `UNIFI_CONSOLE_ENABLE_WRITES=true` and list only the entities you need in `UNIFI_CONSOLE_WRITE_ENTITIES`.
+Writes are on by default. Set `UNIFI_CONSOLE_READ_ONLY=true` to refuse them all, or switch off individual entities with `UNIFI_CONSOLE_DISABLE_ENTITIES`.
 Previews work without either; they state why applying would be refused. Take a console backup first
 (`unifi_console_backup`).
 

@@ -403,8 +403,7 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
         objective: LIMIT (download_limit / upload_limit in kbit/s, 10000 = 10 Mbit/s, with download_burst / upload_burst OFF,
         SHORT or LONG) or PRIORITIZE (no limits). Other source and destination types and schedules other than ALWAYS have
         not been captured and are not edited. A new rule starts switched off unless enabled=true; once enabled it takes
-        effect at once. Use action enable or disable to switch one. Applying also needs UNIFI_CONSOLE_ENABLE_WRITES=true and
-        'qos_rule' in UNIFI_CONSOLE_WRITE_ENTITIES. The console only accepts the whole rule, so updates send all of it. After
+        effect at once. Use action enable or disable to switch one. Applying is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true). The console only accepts the whole rule, so updates send all of it. After
         applying, the rule is read back and the result reports verified true/false, the diff, and the exact rollback call.
         Every write is journalled. Delete uses the console's batch-delete call.
         """

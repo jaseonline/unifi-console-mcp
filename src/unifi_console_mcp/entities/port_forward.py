@@ -266,8 +266,7 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
 
         Two steps, always: call with confirm=false to get a read-only preview (before, after, diff, warnings, a
         fingerprint); call again with the same fields plus confirm=true and that fingerprint to apply. The rule is
-        re-read first, so a stale preview is refused. Applying also needs UNIFI_CONSOLE_ENABLE_WRITES=true and
-        'port_forward' in UNIFI_CONSOLE_WRITE_ENTITIES. A new rule is created disabled; enabling one exposes a
+        re-read first, so a stale preview is refused. Applying is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true). A new rule is created disabled; enabling one exposes a
         host to the internet and the preview says exactly what. After applying, the rule is read back and the
         result reports verified true/false, the diff, and the exact rollback call. Every write is journalled.
         """

@@ -39,8 +39,10 @@ PyPI for the first launch (about a minute). Python 3.12+ is fetched by `uv` if n
 | HTTPS port | `UNIFI_LOCAL_PORT`, `UNIFI_NETWORK_PORT` | `443` |
 | Verify TLS certificate | `UNIFI_LOCAL_VERIFY_SSL` | on |
 | Pinned certificate fingerprint | `UNIFI_CONSOLE_CERT_SHA256` | none |
-| Allow configuration changes | `UNIFI_CONSOLE_ENABLE_WRITES` | off |
-| Entities that may be changed | `UNIFI_CONSOLE_WRITE_ENTITIES` | none |
+| Read-only mode | `UNIFI_CONSOLE_READ_ONLY` | off |
+| Entities switched off | `UNIFI_CONSOLE_DISABLE_ENTITIES` | none |
+| Allow configuration changes | `UNIFI_CONSOLE_ENABLE_WRITES` (deprecated; use `UNIFI_CONSOLE_READ_ONLY`) | on |
+| Entities that may be changed | `UNIFI_CONSOLE_WRITE_ENTITIES` (deprecated; use `UNIFI_CONSOLE_DISABLE_ENTITIES`) | all |
 | Download folder | `UNIFI_CONSOLE_DOWNLOAD_DIR` | `~/.unifi-console-mcp/downloads` |
 | Change journal folder | `UNIFI_CONSOLE_JOURNAL_DIR` | `~/.unifi-console-mcp/journal` |
 | Log level | `UNIFI_CONSOLE_LOG_LEVEL` | `INFO` |

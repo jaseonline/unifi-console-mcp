@@ -397,7 +397,7 @@ def test_server_identity_has_instructions_and_light_and_dark_icons():
         "confirm=true",
         "fingerprint",
         "unifi_console_read_operation",
-        "UNIFI_CONSOLE_ENABLE_WRITES",
+        "UNIFI_CONSOLE_READ_ONLY",
     ):
         assert phrase in server.INSTRUCTIONS, phrase
     icons = server._icons()

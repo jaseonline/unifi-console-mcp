@@ -267,7 +267,7 @@ async def test_stale_preview_and_entity_switch(make_session):
     async with make_session(FakeQos(), entities=frozenset({"port_forward"})) as c:
         pre = await call(c, NEW)
         res = await raw(c, {**NEW, "confirm": True, "fingerprint": pre["fingerprint"]})
-    assert "not enabled for writes" in res
+    assert "WRITE_ENTITIES allowlist" in res
 
 
 @pytest.mark.parametrize(

@@ -47,8 +47,8 @@ class Api:
         if access == "safe_write":
             if not self.settings.enable_writes:
                 raise UniFiError(
-                    f"{op.operation_id} creates state on the console (a file or backup). Writes are disabled: "
-                    "set UNIFI_CONSOLE_ENABLE_WRITES=true in the server environment to allow this class of action."
+                    f"{op.operation_id} creates state on the console (a file or backup), and this server is running "
+                    "read-only (UNIFI_CONSOLE_READ_ONLY=true)."
                 )
             if not confirm:
                 raise UniFiError(
@@ -61,8 +61,7 @@ class Api:
             raise UniFiError(
                 f"{op.operation_id} changes configuration, so it is not available through the generic tool. "
                 f"Use {typed}: it previews the change, needs confirm=true with the preview's fingerprint, journals "
-                "the write and reads it back. It also needs UNIFI_CONSOLE_ENABLE_WRITES=true and the entity listed "
-                "in UNIFI_CONSOLE_WRITE_ENTITIES."
+                "the write and reads it back. It is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true)."
             )
         raise UniFiError(
             f"{op.operation_id} ({op.method} {op.path}) changes configuration"

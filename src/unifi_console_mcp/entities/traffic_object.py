@@ -778,7 +778,7 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
         internet access for the targets, and route_* sends traffic out through another WAN or VPN client network; both need
         acknowledge_blocking / acknowledge_reroute when the object is switched on. A new object starts switched off unless
         enabled=true; once enabled it takes effect at once. App, domain and region matchers and the local-network block are not
-        edited. Applying also needs UNIFI_CONSOLE_ENABLE_WRITES=true and 'traffic_object' in UNIFI_CONSOLE_WRITE_ENTITIES.
+        edited. Applying is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true).
         The console only accepts the whole object, so updates send all of it. After applying, the object is read back and the
         result reports verified true/false, the diff, and the exact rollback call. Every write is journalled.
         """

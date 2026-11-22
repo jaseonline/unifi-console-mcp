@@ -214,7 +214,7 @@ async def test_locate_needs_no_fingerprint_and_is_read_back(make_session):
 async def test_gates_apply_to_locate_too(make_session):
     async with make_session(FakeDevices(), entities=frozenset({"client"})) as c:
         res = await c.call_tool(TOOL, {"action": "locate", "target": "AP-Lounge", "confirm": True})
-        assert "not enabled for writes" in res.content[0].text
+        assert "WRITE_ENTITIES allowlist" in res.content[0].text
 
 
 # ------------------------------------------------------------------------------------------ update

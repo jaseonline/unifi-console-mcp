@@ -334,11 +334,11 @@ async def test_blocking_the_whole_private_network_needs_approval_note(make_sessi
 
 async def test_gates_still_apply(make_session):
     net = FakeBlocks()
-    async with make_session(net, entities=frozenset()) as c:
+    async with make_session(net, entities=frozenset({"wifi"})) as c:
         pre = await call(c, {"changes": [create_op()]})
         assert "UNIFI_CONSOLE_WRITE_ENTITIES" in pre["apply_blocked_reason"]
         res = await c.call_tool(TOOL, {"changes": [create_op()], "confirm": True, "fingerprint": pre["fingerprint"]})
-    assert "not enabled for writes" in res.content[0].text and net.writes() == []
+    assert "WRITE_ENTITIES allowlist" in res.content[0].text and net.writes() == []
 
 
 async def test_changes_and_replace_all_are_exclusive(make_session):

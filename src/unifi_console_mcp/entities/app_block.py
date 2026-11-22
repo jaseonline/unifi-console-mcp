@@ -553,8 +553,7 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
         applications (`apps`: application ids) or categories (`categories`: category ids), with a `schedule` (ALWAYS,
         EVERY_DAY, EVERY_WEEK, ONE_TIME_ONLY or CUSTOM). A new block starts blocking as soon as it is applied, so create
         needs an explicit schedule. Blocking a whole protected network such as LAN_Private also needs approval_note.
-        `replace_all` sets the exact list (this is what a recorded rollback uses; [] removes every block). Applying also needs
-        UNIFI_CONSOLE_ENABLE_WRITES=true and 'app_block' in UNIFI_CONSOLE_WRITE_ENTITIES. After applying, the set is read
+        `replace_all` sets the exact list (this is what a recorded rollback uses; [] removes every block). Applying is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true). After applying, the set is read
         back and checked, the generated firewall policies are checked, the result reports verified true/false, the diff and
         the rollback call, and the change is journalled.
         """

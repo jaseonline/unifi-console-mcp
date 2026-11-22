@@ -15,8 +15,8 @@ Every configuration write goes through one engine:
 
 ## Gates
 
-1. `UNIFI_CONSOLE_ENABLE_WRITES=true` in the server's own environment.
-2. The entity key is in `UNIFI_CONSOLE_WRITE_ENTITIES` (default: none).
+1. The server is not read-only (`UNIFI_CONSOLE_READ_ONLY` is unset or false).
+2. The entity key is not in `UNIFI_CONSOLE_DISABLE_ENTITIES` (default: none disabled).
 3. `confirm=true` with the matching `fingerprint`.
 4. Tier C entities also need a non-empty `approval_note`, stored in the journal.
 

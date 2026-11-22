@@ -148,6 +148,10 @@ def _flag(names: str | tuple[str, ...], default: bool) -> bool:
     return default
 
 
+def _entity_set(raw: str) -> frozenset[str]:
+    return frozenset(e.strip().lower() for e in raw.split(",") if e.strip())
+
+
 def _clean_host(raw: str) -> str:
     host = raw.strip()
     for prefix in ("https://", "http://"):
@@ -168,8 +172,16 @@ class Settings:
     site_manager_api_key: str = field(default="", repr=False)
     verify_ssl: bool = True
     pinned_sha256: str = ""
-    enable_writes: bool = False
+    # Writes are allowed unless the server is started read-only (UNIFI_CONSOLE_READ_ONLY=true). The field keeps its old
+    # name so the engine and tests read the same attribute; only its default and its environment variable changed.
+    enable_writes: bool = True
+    # Deprecated allowlist (UNIFI_CONSOLE_WRITE_ENTITIES). Empty means every entity; when set it still restricts, so an
+    # existing install does not become more permissive than it was.
     write_entities: frozenset[str] = frozenset()
+    # Entities switched off with UNIFI_CONSOLE_DISABLE_ENTITIES (for example "wan,doh").
+    disabled_entities: frozenset[str] = frozenset()
+    # Human-readable notes about deprecated variables that were found; logged once at startup.
+    deprecations: tuple[str, ...] = ()
     journal_dir: Path = Path.home() / ".unifi-console-mcp" / "journal"
     download_dir: Path = Path.home() / ".unifi-console-mcp" / "downloads"
     spec_path: Path | None = None
@@ -202,7 +214,28 @@ class Settings:
         spec = _env("UNIFI_CONSOLE_SPEC_PATH").strip()
         download = _env("UNIFI_CONSOLE_DOWNLOAD_DIR").strip()
         journal = _env("UNIFI_CONSOLE_JOURNAL_DIR").strip()
-        entities = frozenset(e.strip().lower() for e in _env("UNIFI_CONSOLE_WRITE_ENTITIES").split(",") if e.strip())
+        entities = _entity_set(_env("UNIFI_CONSOLE_WRITE_ENTITIES"))
+        disabled = _entity_set(_env("UNIFI_CONSOLE_DISABLE_ENTITIES"))
+        read_only = _flag("UNIFI_CONSOLE_READ_ONLY", False)
+        notes: list[str] = []
+        if _env("UNIFI_CONSOLE_ENABLE_WRITES").strip():
+            # Deprecated master gate. An explicit false still means read-only; true no longer does anything.
+            legacy_on = _flag("UNIFI_CONSOLE_ENABLE_WRITES", False)
+            if not legacy_on:
+                read_only = True
+            notes.append(
+                "UNIFI_CONSOLE_ENABLE_WRITES is deprecated and will be removed: writes are on by default now. "
+                + (
+                    "It was ignored because it is true; remove it."
+                    if legacy_on
+                    else "It is false, so this server runs read-only; use UNIFI_CONSOLE_READ_ONLY=true instead."
+                )
+            )
+        if entities:
+            notes.append(
+                "UNIFI_CONSOLE_WRITE_ENTITIES is deprecated and will be removed: it still limits writes to "
+                f"{', '.join(sorted(entities))}. To block entities, use UNIFI_CONSOLE_DISABLE_ENTITIES instead."
+            )
         return cls(
             host=host,
             port=_int(("UNIFI_BUNDLE_PORT", "UNIFI_LOCAL_PORT", "UNIFI_NETWORK_PORT"), 443),
@@ -215,8 +248,10 @@ class Settings:
             ),
             verify_ssl=_flag(("UNIFI_BUNDLE_VERIFY_SSL", "UNIFI_LOCAL_VERIFY_SSL"), True),
             pinned_sha256=_env("UNIFI_CONSOLE_CERT_SHA256").replace(":", "").strip().lower(),
-            enable_writes=_flag("UNIFI_CONSOLE_ENABLE_WRITES", False),
+            enable_writes=not read_only,
             write_entities=entities,
+            disabled_entities=disabled,
+            deprecations=tuple(notes),
             journal_dir=Path(journal) if journal else Path.home() / ".unifi-console-mcp" / "journal",
             download_dir=Path(download) if download else Path.home() / ".unifi-console-mcp" / "downloads",
             spec_path=Path(spec) if spec else None,

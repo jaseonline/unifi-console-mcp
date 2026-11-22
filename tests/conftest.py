@@ -86,6 +86,14 @@ def no_machine_environment(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_readback_delay(monkeypatch):
+    """Re-reads after a write are not slowed down in tests."""
+    from unifi_console_mcp import writes
+
+    monkeypatch.setattr(writes, "READBACK_DELAY", 0.0)
+
+
+@pytest.fixture(autouse=True)
 def _no_credential_cache(monkeypatch):
     """Never read the developer's real credential cache during tests.
 

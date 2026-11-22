@@ -289,8 +289,7 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
         approval_note to apply. Fields: state (off, auto, manual or custom), server_names (manual) and custom_servers (custom);
         the list that does not apply is cleared, as the UI does. Before applying, DNS is tested through the gateway; if it is
         already failing, the change is refused. After applying, DNS is tested again and, if it fails, the previous values are
-        put back automatically (once) and the result says applied=false with auto_restored=true. Applying also needs
-        UNIFI_CONSOLE_ENABLE_WRITES=true and 'doh' in UNIFI_CONSOLE_WRITE_ENTITIES. SSL inspection is a separate setting and
+        put back automatically (once) and the result says applied=false with auto_restored=true. Applying is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true). SSL inspection is a separate setting and
         is not changed here. Every write is journalled; scripts/doh_restore.py can put the last values back from the journal.
         """
         try:

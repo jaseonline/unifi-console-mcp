@@ -135,14 +135,14 @@ async def test_preview_works_when_writes_disabled_and_says_why(make_session):
     net = FakePortForwards()
     async with make_session(net, writes=False) as c:
         out = await call(c, NEW)
-    assert "UNIFI_CONSOLE_ENABLE_WRITES" in out["apply_blocked_reason"]
+    assert "UNIFI_CONSOLE_READ_ONLY" in out["apply_blocked_reason"]
     assert net.writes() == []
 
 
 async def test_apply_refused_when_writes_disabled_or_entity_not_listed(make_session):
     for kwargs, needle in (
-        ({"writes": False}, "ENABLE_WRITES"),
-        ({"entities": frozenset()}, "UNIFI_CONSOLE_WRITE_ENTITIES"),
+        ({"writes": False}, "READ_ONLY"),
+        ({"entities": frozenset({"wifi"})}, "UNIFI_CONSOLE_WRITE_ENTITIES"),
     ):
         net = FakePortForwards()
         async with make_session(net, **kwargs) as c:

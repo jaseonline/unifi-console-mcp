@@ -575,9 +575,9 @@ async def test_gates_stale_fingerprint_and_tier_c_note(make_session, dns):
     fake = FakeNet(dns)
     args = {"action": "update", "target": "LAN_Sonos", "dhcp_lease_seconds": 43200, "acknowledge_disconnect": True}
     async with make_session(fake, writes=False) as c:
-        assert "Writes are disabled" in (await call(c, args))["apply_blocked_reason"]
+        assert "read-only" in (await call(c, args))["apply_blocked_reason"]
     async with make_session(fake, entities=frozenset({"wifi"})) as c:
-        assert "not enabled for writes" in (await call(c, args))["apply_blocked_reason"]
+        assert "WRITE_ENTITIES allowlist" in (await call(c, args))["apply_blocked_reason"]
     async with make_session(fake) as c:
         pre = await call(c, args)
         assert "approval_note" in await raw(c, {**args, "confirm": True, "fingerprint": pre["fingerprint"]})

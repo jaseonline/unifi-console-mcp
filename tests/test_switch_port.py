@@ -128,6 +128,10 @@ class FakeSwitchNet:
         self.ap_down_on_put = False
         self.fail_after = None
         self.n_writes = 0
+        self.drift = False  # live counters on the device record change on every read, as on a real console
+        self.reads = 0
+        self.stale_reads = 0  # device reads served from before the write, as when the console applies a change late
+        self._stale_snapshot = None
 
     def sw(self):
         return self.devs[0]
@@ -144,6 +148,17 @@ class FakeSwitchNet:
         wrap = lambda x: {"meta": {"rc": "ok"}, "data": x}
         if method == "GET":
             if path == DEVICES:
+                if self.stale_reads:
+                    if self._stale_snapshot is None:
+                        self._stale_snapshot = copy.deepcopy(self.devs)
+                    elif self.n_writes > 0:
+                        self.stale_reads -= 1
+                        return httpx.Response(200, json=wrap(copy.deepcopy(self._stale_snapshot)))
+                if self.drift:
+                    self.reads += 1
+                    self.sw().update(
+                        {"_uptime": 1000 + self.reads, "total_used_power": 18.0 - self.reads / 7, "satisfaction": 100}
+                    )
                 return httpx.Response(200, json=wrap(copy.deepcopy(self.devs)))
             if path == BASIC:
                 return httpx.Response(
@@ -268,6 +283,31 @@ async def test_rename_a_port_without_an_entry_adds_one_and_sends_everything_else
     assert out["rollback"]["arguments"] == {"action": "update", "target": "Switch A", "port": 6, "reset": True}
 
 
+async def test_fingerprint_ignores_live_counters_on_the_device_record(make_session):
+    """Regression: `_uptime` and `total_used_power` changed on every read, so no preview could ever be confirmed."""
+    net = FakeSwitchNet()
+    net.drift = True
+    args = {"target": "Switch A", "port": 5, "isolation": True}
+    async with make_session(net) as c:
+        first, second = await call(c, args), await call(c, args)
+        assert first["fingerprint"] == second["fingerprint"]
+        out = await call(c, {**args, "confirm": True, "fingerprint": first["fingerprint"], "approval_note": NOTE})
+    assert out["applied"] and out["verified"]
+    assert ent(net.ov(), 5)["isolation"] is True
+
+
+async def test_preview_is_still_stale_when_another_port_changes_meanwhile(make_session):
+    net = FakeSwitchNet()
+    net.drift = True
+    args = {"target": "Switch A", "port": 5, "isolation": True}
+    async with make_session(net) as c:
+        pre = await call(c, args)
+        ent(net.sw()["port_overrides"], 3)["name"] = "AP renamed in the UI"  # someone edits another port
+        res = await raw(c, {**args, "confirm": True, "fingerprint": pre["fingerprint"], "approval_note": NOTE})
+    assert "differs from the preview" in res
+    assert net.writes() == []
+
+
 async def test_edit_an_uneven_entry_changes_only_the_asked_fields(make_session):
     net = FakeSwitchNet()
     before = net.ov()
@@ -312,6 +352,26 @@ async def test_storm_control_and_native_network_by_name(make_session):
         and e["stormctrl_ucast_enabled"] is True
         and e["stormctrl_ucast_rate"] == 500
     )
+
+
+async def test_storm_control_rollback_survives_the_two_part_stormctrl_type_key(make_session):
+    # Setting a storm threshold also writes stormctrl_type, a key with only two parts; building the rollback used to
+    # unpack it as three and raised after the write had already succeeded.
+    net = FakeSwitchNet()
+    async with make_session(net) as c:
+        _, out = await apply(c, {"target": "Switch A", "port": 2, "storm_control": {"unicast": {"enabled": False}}})
+        assert out["verified"] and out["rollback"]["arguments"]["target"] == "Switch A"
+        _, out = await apply(c, {"target": "Switch A", "port": 5, "storm_control": {"unicast": {"rate": 700}}})
+        assert out["verified"] and "rollback" in out
+
+
+async def test_a_stale_first_read_back_is_retried_before_it_counts_as_a_mismatch(make_session):
+    net = FakeSwitchNet()
+    net.stale_reads = 2
+    async with make_session(net) as c:
+        _, out = await apply(c, {"target": "Switch A", "port": 5, "storm_control": {"unicast": {"rate": 700}}})
+    assert out["verified"], out
+    assert ent(net.ov(), 5)["stormctrl_ucast_rate"] == 700
 
 
 async def test_blocked_networks_need_customize_mode(make_session):
@@ -462,7 +522,7 @@ async def test_gates_and_stale_fingerprint(make_session):
         assert (await call(c, args))["apply_blocked_reason"]
     async with make_session(net, entities=frozenset({"port_forward"})) as c:
         pre = await call(c, args)
-        assert "not enabled for writes" in await raw(
+        assert "WRITE_ENTITIES allowlist" in await raw(
             c, {**args, "confirm": True, "fingerprint": pre["fingerprint"], "approval_note": NOTE}
         )
     async with make_session(net) as c:

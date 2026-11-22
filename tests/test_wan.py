@@ -348,12 +348,12 @@ async def test_gates_block_apply(make_session, dns):
     fake = FakeWan(dns)
     async with make_session(fake, writes=False) as c:
         pre = await call(c, FLIP)
-        assert "Writes are disabled" in await raw(
+        assert "read-only" in await raw(
             c, {**FLIP, "confirm": True, "fingerprint": pre["fingerprint"], "approval_note": NOTE}
         )
     async with make_session(fake, entities=frozenset({"network"})) as c:
         pre = await call(c, FLIP)
-        assert "not enabled for writes" in await raw(
+        assert "WRITE_ENTITIES allowlist" in await raw(
             c, {**FLIP, "confirm": True, "fingerprint": pre["fingerprint"], "approval_note": NOTE}
         )
     async with make_session(fake) as c:

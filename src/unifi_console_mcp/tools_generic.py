@@ -30,7 +30,7 @@ class ListOperationsInput(BaseModel):
     )
     access: Literal["read", "sensitive_read", "safe_write", "blocked", "all"] = Field(
         default="read",
-        description="read = callable now; sensitive_read = file downloads needing confirm; safe_write = creates files/backups (needs UNIFI_CONSOLE_ENABLE_WRITES + confirm); blocked = configuration writes, not exposed; all = everything.",
+        description="read = callable now; sensitive_read = file downloads needing confirm; safe_write = creates files/backups (needs confirm, refused on a read-only server); blocked = configuration writes, not exposed; all = everything.",
     )
     limit: int = Field(default=25, ge=1, le=100, description="Maximum operations to return.")
     offset: int = Field(default=0, ge=0, description="Operations to skip, for paging.")
@@ -267,7 +267,7 @@ def register(mcp: MCPServer, api: Api) -> None:
         prompting. This tool still runs reads, but it is annotated as able to write because it also creates
         backups and support files. Read-only POST queries (system log, traffic flows) are treated as reads. File downloads (backups,
         support files) are saved to disk, never returned, and need confirm=true. Safe writes (generate a
-        support file or backup) also need UNIFI_CONSOLE_ENABLE_WRITES=true on the server.
+        support file or backup) are refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true).
         Secrets (x_* fields, passwords, keys) are always redacted. Large results are cut to fit; use
         fields/search/limit/offset to narrow them.
 

@@ -434,7 +434,7 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
         acknowledge_identity=true. The uplink password and everything not listed are not offered. Applying re-provisions the gateway
         (about 20 seconds). After the change the gateway must be connected again, all devices that were connected must still be, the
         WAN must report ok, an internet probe and DNS must work; otherwise the previous state is restored once, automatically.
-        Applying also needs UNIFI_CONSOLE_ENABLE_WRITES=true and 'wan' in UNIFI_CONSOLE_WRITE_ENTITIES. Every write is journalled.
+        Applying is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true). Every write is journalled.
         """
         try:
             snap_spec = replace(SPEC, validate_ctx=make_validate(params.acknowledge_identity))

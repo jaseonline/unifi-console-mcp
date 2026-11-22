@@ -310,8 +310,7 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
         fingerprint); call again with the same fields plus confirm=true and that fingerprint to apply. The client is
         re-read first, so a stale preview is refused. A fixed IP is checked against the real LAN subnets, the gateway
         and broadcast addresses, other clients' fixed IPs and the addresses in use right now; a Local DNS name is checked
-        against other clients and the static DNS records. Applying also needs UNIFI_CONSOLE_ENABLE_WRITES=true and
-        'client' in UNIFI_CONSOLE_WRITE_ENTITIES. After applying, the client is read back and the result reports
+        against other clients and the static DNS records. Applying is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true). After applying, the client is read back and the result reports
         verified true/false, the diff, and the exact rollback call. Every write is journalled. A fixed IP takes
         effect when the client next renews its lease.
         """

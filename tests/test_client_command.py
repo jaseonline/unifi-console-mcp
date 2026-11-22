@@ -160,10 +160,10 @@ async def test_gates_and_stale_fingerprint(make_session):
     net = FakeStamgr()
     async with make_session(net, writes=False) as c:
         pre = await call(c, {"command": "block", "target": HUB})
-        assert "Writes are disabled" in pre["apply_blocked_reason"]
+        assert "read-only" in pre["apply_blocked_reason"]
     async with make_session(net, entities=frozenset({"wifi"})) as c:
         pre = await call(c, {"command": "block", "target": HUB})
-        assert "not enabled" in pre["apply_blocked_reason"]
+        assert "WRITE_ENTITIES" in pre["apply_blocked_reason"]
     async with make_session(net) as c:
         pre = await call(c, {"command": "block", "target": HUB})
         net.known[HUB]["name"] = "Renamed"

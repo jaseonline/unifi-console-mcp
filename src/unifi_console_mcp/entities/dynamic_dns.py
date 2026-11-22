@@ -233,8 +233,7 @@ def register(mcp: MCPServer, engine: WriteEngine) -> None:
         token_env, the name of a UNIFI_DDNS_* environment variable in the server's environment. The token is write-only,
         so it is not read back (the result lists it under secret_fields_not_verified) and it is not journalled.
         Deleting an entry discards its token for good: the delete needs discard_token=true, and its rollback can only
-        recreate the entry with a fresh token. Applying also needs UNIFI_CONSOLE_ENABLE_WRITES=true and 'dynamic_dns' in
-        UNIFI_CONSOLE_WRITE_ENTITIES. Every write is journalled.
+        recreate the entry with a fresh token. Applying is refused when the server is read-only (UNIFI_CONSOLE_READ_ONLY=true). Every write is journalled.
         """
         try:
             if params.action == "delete":

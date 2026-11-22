@@ -24,8 +24,9 @@ DESCRIPTION = (
 WEBSITE_URL = "https://github.com/jaseonline/unifi-console-mcp"
 
 INSTRUCTIONS = """\
-UniFi Network console server. Reads are always available; configuration changes are off unless the server is started
-with UNIFI_CONSOLE_ENABLE_WRITES=true and the entity is listed in UNIFI_CONSOLE_WRITE_ENTITIES.
+UniFi Network console server. Reads are always available. Configuration changes are available through the typed tools
+unless the server was started read-only (UNIFI_CONSOLE_READ_ONLY=true) or the entity was switched off
+(UNIFI_CONSOLE_DISABLE_ENTITIES).
 
 Reading
 - Use a curated tool when one fits (system log, firewall policy hits, PoE overview, switch port detail, access review,
@@ -47,7 +48,7 @@ Changing configuration (preview, then confirm)
 - Step 2: call again with the same fields plus confirm=true, the fingerprint from the preview and an approval_note
   recording the user's approval. The server re-reads the object, refuses a stale preview, journals the attempt, sends
   the change, reads it back to verify it, and returns the diff with the exact call that rolls it back.
-- If a write is refused because writes are disabled or the entity is not allowed, say so; do not look for another route.
+- If a write is refused because the server is read-only or the entity is switched off, say so; do not look for another route.
 """.strip()
 
 
@@ -96,12 +97,14 @@ def main() -> None:
         raise SystemExit(2) from None
     mcp, _ = create_server(settings)
     # stdout carries the protocol; anything human-readable goes to stderr.
-    entities = ", ".join(sorted(settings.write_entities)) or "none"
+    off = ", ".join(sorted(settings.disabled_entities)) or "none"
     print(
-        f"unifi_console_mcp ready on stdio (console {settings.host}, writes "
-        f"{'enabled' if settings.enable_writes else 'disabled'}, writable entities: {entities})",
+        f"unifi_console_mcp ready on stdio (console {settings.host}, "
+        f"{'writes on' if settings.enable_writes else 'READ-ONLY'}, switched-off entities: {off})",
         file=sys.stderr,
     )
+    for note in settings.deprecations:
+        print(f"unifi_console_mcp: deprecated: {note}", file=sys.stderr)
     mcp.run()
 
 

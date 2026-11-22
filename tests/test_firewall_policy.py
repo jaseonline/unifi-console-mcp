@@ -490,7 +490,7 @@ async def test_gates(make_session, dns):
         assert pre["apply_blocked_reason"]
     async with make_session(net, entities=frozenset({"port_forward"})) as c:
         pre = await call(c, NEW)
-        assert "not enabled for writes" in await raw(
+        assert "WRITE_ENTITIES allowlist" in await raw(
             c, {**NEW, "confirm": True, "fingerprint": pre["fingerprint"], "approval_note": NOTE}
         )
     async with make_session(net) as c:
