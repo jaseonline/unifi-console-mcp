@@ -1,5 +1,5 @@
 <!-- recheck-disable-next-line first-line-h1 -->
-<img src=".github/gh-social.png" alt="unifi-console-mcp" title="unifi-console-mcp" align="center" />
+<p align="center"><img src=".github/unifi-console-mcp.svg" alt="unifi-console-mcp" width="640" height="320" /></p>
 
 An [MCP](https://modelcontextprotocol.io) server for the **undocumented** UniFi OS and Network console APIs, with
 typed, gated write tools. Most UniFi MCP servers use the supported Integration API or a fixed set of legacy calls.
@@ -87,8 +87,10 @@ below. See [mcpb/README.md](mcpb/README.md).
 | Variable | Meaning |
 | --- | --- |
 | `UNIFI_LOCAL_HOST` | Console address, e.g. `192.168.1.2` |
-| `UNIFI_LOCAL_PORT` / `UNIFI_DEFAULT_SITE` | HTTPS port (default 443) / site name (default `default`); `UNIFI_NETWORK_PORT` / `UNIFI_NETWORK_SITE` are also read |
-| `UNIFI_MCP_USERNAME` / `UNIFI_MCP_PASSWORD` | Dedicated local account (no MFA) |
+| `UNIFI_LOCAL_PORT` | HTTPS port (default 443); `UNIFI_NETWORK_PORT` also read |
+| `UNIFI_DEFAULT_SITE` | Site name (default `default`); `UNIFI_NETWORK_SITE` also read |
+| `UNIFI_MCP_USERNAME`  | Dedicated local username |
+| `UNIFI_MCP_PASSWORD` | Dedicated local password (no MFA) |
 | `UNIFI_MCP_API_KEY` | Integration API key (only for Integration operations) |
 | `UNIFI_SITE_MANAGER_API_KEY` | Site Manager key from unifi.ui.com > API, for the read-only cloud operations on `api.ui.com` (not the Integration key) |
 | `UNIFI_CONSOLE_CERT_SHA256` | Pin the console certificate by SHA-256 fingerprint (preferred) |
