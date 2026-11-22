@@ -16,9 +16,9 @@ SAFETY
 from __future__ import annotations
 
 import asyncio
-import os
 import dataclasses
 import json
+import os
 import sys
 from typing import Any
 
@@ -32,7 +32,7 @@ from unifi_console_mcp.writes import WriteEngine
 PREFIX = "zz-qosrule-check"
 RENAMED = PREFIX + "-renamed"
 TOOL = "unifi_console_qos_rule"
-HUB = os.environ.get("UNIFI_LIVE_CHECK_CLIENT_MAC", "02:00:00:00:00:23").lower()   # a harmless client on YOUR console
+HUB = os.environ.get("UNIFI_LIVE_CHECK_CLIENT_MAC", "02:00:00:00:00:23").lower()  # a harmless client on YOUR console
 APPS = [393220, 393245]
 WAN = "WAN1"
 

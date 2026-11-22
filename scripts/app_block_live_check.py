@@ -16,9 +16,9 @@ SAFETY
 from __future__ import annotations
 
 import asyncio
-import os
 import dataclasses
 import json
+import os
 import sys
 from typing import Any
 
@@ -30,7 +30,7 @@ from unifi_console_mcp.writes import WriteEngine
 
 PREFIX = "zz-appblock-check"
 TOOL = "unifi_console_app_block"
-HUB = os.environ.get("UNIFI_LIVE_CHECK_CLIENT_MAC", "02:00:00:00:00:23").lower()   # a harmless client on YOUR console
+HUB = os.environ.get("UNIFI_LIVE_CHECK_CLIENT_MAC", "02:00:00:00:00:23").lower()  # a harmless client on YOUR console
 APP = 1114144
 ONE_TIME = {"mode": "ONE_TIME_ONLY", "date": "2030-01-01", "time_range_start": "03:00", "time_range_end": "03:05"}
 CUSTOM = {

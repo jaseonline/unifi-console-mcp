@@ -144,7 +144,7 @@ async def main(run: bool, transport: Any = None) -> int:
                 failures += not out["verified"] or len(stored.get("targets") or []) != 1
 
                 print("\n[8] extras (object stays off)")
-                hub = os.environ.get("UNIFI_LIVE_CHECK_CLIENT_MAC", "02:00:00:00:00:23").lower()
+                hub = os.environ.get("UNIFI_LIVE_CHECK_CLIENT_MAC", "02:00:00:00:00:23").lower()  # a harmless client on YOUR console
                 steps = [
                     ("client target", {"clients": [hub]}, ["target_type", "targets"]),
                     (

@@ -20,9 +20,9 @@ SAFETY
 from __future__ import annotations
 
 import asyncio
-import os
 import dataclasses
 import json
+import os
 import sys
 from typing import Any
 
@@ -37,7 +37,7 @@ PREFIX = "zz-groupcheck"
 RENAMED = PREFIX + "-renamed"
 TOOL = "unifi_console_client_group"
 F1, F2, F3 = "02:00:00:aa:bb:01", "02:00:00:aa:bb:02", "02:00:00:aa:bb:03"
-HUB_MAC = os.environ.get("UNIFI_LIVE_CHECK_CLIENT_MAC", "02:00:00:00:00:23").lower()   # a harmless client on YOUR console
+HUB_MAC = os.environ.get("UNIFI_LIVE_CHECK_CLIENT_MAC", "02:00:00:00:00:23").lower()  # a harmless client on YOUR console
 
 PLAN = f"""\
 1. list the existing client groups (read only) and remember every one, member by member
