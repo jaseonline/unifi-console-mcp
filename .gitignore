@@ -32,3 +32,6 @@ dist/
 
 # openapi-format output (copies of the spec)
 src/unifi_console_mcp/formatted*.yaml
+
+# Redocly generate-client output: regenerate it from the spec, never commit it
+src/unifi_console_mcp/client.ts
