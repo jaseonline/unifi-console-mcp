@@ -8,8 +8,6 @@ on:
     branches: [main]
     paths:
       - src/unifi_console_mcp/openapi.yaml
-      # The README and docs are the rest of the site, so a change to them must redeploy it too.
-      - README.md
       - docs/**
       - .github/workflows/pages.yml
   workflow_dispatch:
@@ -33,7 +31,7 @@ jobs:
       # also stops jekyll-readme-index turning the README into the home page. /api/ keeps the README's existing link.
       - name: Build Redoc API reference
         run: |
-          npx --yes @redocly/cli@2.82.0 build-docs src/unifi_console_mcp/openapi.yaml --output index.html
+          npx --yes @redocly/cli@2.82.0 build-docs --config=redocly.yaml src/unifi_console_mcp/openapi.yaml --output index.html
           mkdir -p api && cp index.html api/index.html
       - uses: actions/jekyll-build-pages@44a6e6beabd48582f863aeeb6cb2151cc1716697 # v1.0.13
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
