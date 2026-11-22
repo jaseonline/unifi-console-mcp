@@ -151,7 +151,7 @@ async def main(run: bool, transport: Any = None, pause: float = LIVE_SECONDS) ->
         row = find(await engine._rows(SPEC))
         print(
             f"  applied={out['applied']} verified={out['verified']} enabled={row and row.get('enabled')} "
-            f"network_ok={bool(row) and row.get('networkconf_id') is not None} secrets_not_verified={out.get('secret_fields_not_verified')}"
+            f"network_ok={bool(row) and row.get('networkconf_id') is not None} passphrase_write_only={'x_passphrase' in (out.get('secret_fields_not_verified') or [])}"
         )
         bad += not (
             out["applied"]
@@ -170,7 +170,7 @@ async def main(run: bool, transport: Any = None, pause: float = LIVE_SECONDS) ->
             bad += not (out["verified"] and set(out["diff"]) == {"hide_ssid"})
         out = await apply(client, {"action": "update", "target": NAME, "passphrase_env": ENV_B})
         print(
-            f"  passphrase: applied={out['applied']} secret_fields_not_verified={out.get('secret_fields_not_verified')}"
+            f"  passphrase: applied={out['applied']} passphrase_write_only={'x_passphrase' in (out.get('secret_fields_not_verified') or [])}"
         )
         bad += not (out["applied"] and "x_passphrase" in (out.get("secret_fields_not_verified") or []))
 

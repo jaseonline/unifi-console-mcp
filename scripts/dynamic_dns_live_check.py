@@ -119,7 +119,7 @@ async def main(run: bool, transport: Any = None) -> int:
                 )
                 created_id = out["id"]
                 print(
-                    f"  verified={out['verified']} id={created_id} not verified (write-only): {out.get('secret_fields_not_verified')}"
+                    f"  verified={out['verified']} id={created_id} password write-only: {out.get('secret_fields_not_verified') == ['x_password']}"
                 )
                 failures += not out["verified"] or out.get("secret_fields_not_verified") != ["x_password"]
 
@@ -151,7 +151,7 @@ async def main(run: bool, transport: Any = None) -> int:
                 ok = row is not None and all(row.get(k) == v for k, v in want.items()) and out["id"] == created_id
                 print(
                     f"  verified={out['verified']} same id={out['id'] == created_id} stored fields match: {ok} "
-                    f"diff keys={sorted(out['diff'])} not verified (write-only): {out.get('secret_fields_not_verified')}"
+                    f"diff keys={sorted(out['diff'])} password write-only: {out.get('secret_fields_not_verified') == ['x_password']}"
                 )
                 failures += not (out["verified"] and ok)
 
