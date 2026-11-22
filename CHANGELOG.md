@@ -11,6 +11,9 @@ All notable changes to this project. Versions follow `__version__` in `src/unifi
   `createRole`, `updateRole`), documented but blocked; and Network reads (`listDhcpOptions`, `listDpiAppRules`,
   `listDpiGroups`, `listCountryCodes`, `listHotspotPackages`, `getHotspotInfo`, `listVpnUsers`, `listRadiusUsers`,
   `listTestConfigs`, `suggestNetworkSubnets`, `listTimezones`).
+- Spec: NAT rule writes from UI captures (`createNatRule`, `updateNatRule`, `deleteNatRule`), documented but blocked,
+  and a `NatRule` schema for `listNatRules` (type, IP version, protocol, outbound interface, translated address and
+  port, source and destination filters).
 - Redaction hides `nfc_token` (the UniFi Access card credential on console user records).
 - Spec: operations are regrouped by function into 40 tags (was 20), e.g. Backup, Firmware, Logs, Ports & PoE, WAN,
   VPN, DoH, Firewall policies, Groups, SSL inspection, Device management. The largest tag is now 17 operations (Firewall

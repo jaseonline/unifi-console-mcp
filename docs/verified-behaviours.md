@@ -29,7 +29,8 @@ versions. Where a finding explains a design choice in a tool, it says so.
 ## Writes: general
 
 * Creating on a v2 endpoint returns 201; deleting a single item on some v2 endpoints is still a **POST** to a
-  `batch-delete` route with a JSON array of ids (204), not a DELETE.
+  `batch-delete` route with a JSON array of ids (204), not a DELETE. NAT rules are an exception: the UI deletes one
+  with a plain `DELETE nat/{id}` (200, no body). The NAT writes are in the spec from UI captures but are **blocked**.
 * The console accepts some values that make no sense (for example Dynamic DNS on a `wan2` interface of a one-WAN site,
   or MAC addresses it has never seen in a client group), so the tools validate more strictly than the console.
 * A fixed IP applies when the client renews its lease.

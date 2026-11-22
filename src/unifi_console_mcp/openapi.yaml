@@ -6716,7 +6716,10 @@ paths:
     get:
       operationId: listNatRules
       summary: NAT rules (masquerade, source and destination NAT)
-      description: 'Shape not yet captured (empty on this site).'
+      description: |
+        Custom NAT rules from the Settings > Routing > NAT page (UI captures, November 2026). Port forwards are a separate
+        resource (`listPortForwards`). `type` seen: `MASQUERADE` and `SNAT`; `DNAT` appears only in UI strings and is
+        not verified.
       tags: [Port forwarding & NAT]
       x-unifi-api: controller
       security: [{ControllerSession: []}]
@@ -6727,7 +6730,76 @@ paths:
             application/json:
               schema:
                 type: array
-                items: {type: object, additionalProperties: true}
+                items: {$ref: '#/components/schemas/NatRule'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+    post:
+      operationId: createNatRule
+      summary: Create a NAT rule
+      description: |
+        UI capture: POST of the rule without `_id`; HTTP 201 with the stored rule. Blocked: not callable through the
+        generic tool, and no typed tool exists.
+      x-destructive: true
+      tags: [Port forwarding & NAT]
+      x-unifi-api: controller
+      security: [{ControllerSession: [], CsrfToken: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/NatRule'}
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/NatRule'}
+        '400': {description: Validation failed}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+
+  /proxy/network/v2/api/site/{site}/nat/{id}:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    put:
+      operationId: updateNatRule
+      summary: Update a NAT rule (whole rule)
+      description: |
+        UI capture: the UI sends the whole rule including `_id` (HTTP 200). Blocked: not callable through the generic
+        tool, and no typed tool exists.
+      x-destructive: true
+      tags: [Port forwarding & NAT]
+      x-unifi-api: controller
+      security: [{ControllerSession: [], CsrfToken: []}]
+      parameters:
+        - {name: id, in: path, required: true, description: Rule id (from `listNatRules`), schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/NatRule'}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/NatRule'}
+        '400': {description: Validation failed}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+    delete:
+      operationId: deleteNatRule
+      summary: Delete a NAT rule
+      description: |
+        UI capture: a plain DELETE (not a `batch-delete` POST); HTTP 200 with no body. Blocked: not callable through the
+        generic tool, and no typed tool exists.
+      x-destructive: true
+      tags: [Port forwarding & NAT]
+      x-unifi-api: controller
+      security: [{ControllerSession: [], CsrfToken: []}]
+      parameters:
+        - {name: id, in: path, required: true, description: Rule id (from `listNatRules`), schema: {type: string}}
+      responses:
+        '200': {description: Deleted (no body)}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '500': {$ref: '#/components/responses/LegacyServerError'}
 
@@ -13239,6 +13311,44 @@ components:
                 valid_from: {type: integer, description: 'Epoch ms'}
                 valid_to: {type: integer, description: 'Epoch ms'}
                 version: {type: integer, description: 'X.509 version'}
+    NatRule:
+      type: object
+      description: A custom NAT rule (`listNatRules`). Values are from UI captures; unlisted enum values may exist.
+      additionalProperties: true
+      properties:
+        _id: {type: string, description: Rule id; absent on create}
+        type:
+          type: string
+          description: '`DNAT` is not verified (seen only in UI strings).'
+          enum: [MASQUERADE, SNAT, DNAT]
+        description: {type: string}
+        enabled: {type: boolean}
+        ip_version: {type: string, enum: [IPV4, IPV6]}
+        protocol: {type: string, description: 'Seen: all, tcp, tcp_udp, dccp', example: tcp_udp}
+        out_interface: {type: string, format: uuid, description: Outbound network or WAN id}
+        ip_address: {type: string, description: Translated address (SNAT), example: 203.0.113.10}
+        port: {type: string, description: Translated port or range, example: '8080'}
+        rule_index: {type: integer}
+        exclude: {type: boolean, description: Exempt matching traffic from NAT}
+        logging: {type: boolean}
+        is_predefined: {type: boolean}
+        pppoe_use_base_interface: {type: boolean}
+        setting_preference: {type: string, description: 'Seen: manual'}
+        source_filter: {$ref: '#/components/schemas/NatFilter'}
+        destination_filter: {$ref: '#/components/schemas/NatFilter'}
+    NatFilter:
+      type: object
+      description: Source or destination match of a NAT rule.
+      additionalProperties: true
+      properties:
+        filter_type: {type: string, enum: [NONE, ADDRESS_AND_PORT, IID_AND_PORT]}
+        address: {type: string, description: Address or CIDR, example: 192.0.2.0/24}
+        address_matching_type: {type: string, description: 'Seen: SPECIFIC'}
+        iid: {type: string, description: IPv6 interface identifier (IID_AND_PORT), example: '::10'}
+        port: {type: string, example: '443'}
+        invert_address: {type: boolean}
+        invert_port: {type: boolean}
+        firewall_group_ids: {type: array, items: {type: string}}
     CertificateName:
       type: object
       properties:
