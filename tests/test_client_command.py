@@ -115,7 +115,7 @@ async def test_unblock_and_already_in_state_sends_nothing(make_session):
 async def test_reconnect_needs_a_connected_wireless_client(make_session):
     net = FakeStamgr()
     async with make_session(net) as c:
-        pre, out = await apply(c, {"command": "reconnect", "target": HUB})
+        _pre, out = await apply(c, {"command": "reconnect", "target": HUB})
         assert net.sent == [{"macs": [HUB], "cmd": "kick-sta"}] and out["verified"] is None and out["rollback"] is None
         wired = await call(c, {"command": "reconnect", "target": ECHO})
         offline = await call(c, {"command": "reconnect", "target": OLD})
@@ -177,5 +177,5 @@ async def test_a_command_the_console_ignores_is_reported_unverified(make_session
     net = FakeStamgr()
     net.ignore = True
     async with make_session(net) as c:
-        pre, out = await apply(c, {"command": "block", "target": HUB})
+        _pre, out = await apply(c, {"command": "block", "target": HUB})
     assert out["verified"] is False and "attention" in out

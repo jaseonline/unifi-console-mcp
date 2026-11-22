@@ -266,7 +266,7 @@ async def test_backup_create_and_download_gating(open_session):
 
 
 async def test_support_file_console_polls_until_ready(open_session, monkeypatch):
-    async with open_session() as (client, console, api):
+    async with open_session() as (client, console, _api):
         monkeypatch.setattr("unifi_console_mcp.tools_curated.asyncio.sleep", lambda s: _noop())
         calls = {"n": 0}
 

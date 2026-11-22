@@ -3,7 +3,8 @@
 import json
 import sys
 
-har = json.load(open(sys.argv[1], encoding="utf-8"))
+with open(sys.argv[1], encoding="utf-8") as fh:
+    har = json.load(fh)
 keys = ("name", "enabled", "wlan_bands", "wlan_band", "security", "is_guest", "hide_ssid", "networkconf_id")
 for i, e in enumerate(har["log"]["entries"]):
     r = e["request"]
@@ -12,10 +13,10 @@ for i, e in enumerate(har["log"]["entries"]):
         continue
     print(f"#{i} {e.get('startedDateTime')} {r['method']} {u.split('/api/')[-1]} -> {e['response']['status']}")
 
-    def show(label, txt):
+    def show(label, txt, method):
         try:
             d = json.loads(txt)
-        except Exception:
+        except (ValueError, TypeError):
             return
         rows = d.get("data", d) if isinstance(d, dict) else d
         if isinstance(rows, dict):
@@ -23,9 +24,9 @@ for i, e in enumerate(har["log"]["entries"]):
         if not isinstance(rows, list):
             return
         for w in rows:
-            if isinstance(w, dict) and (w.get("name") == "apple" or r["method"] != "GET"):
+            if isinstance(w, dict) and (w.get("name") == "apple" or method != "GET"):
                 print("   ", label, {k: w.get(k) for k in keys if k in w})
 
     if r["method"] != "GET" and r.get("postData"):
-        show("REQ ", r["postData"].get("text", ""))
-    show("RESP", e["response"]["content"].get("text", "") or "")
+        show("REQ ", r["postData"].get("text", ""), r["method"])
+    show("RESP", e["response"]["content"].get("text", "") or "", r["method"])

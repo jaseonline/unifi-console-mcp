@@ -5076,6 +5076,203 @@ paths:
         '200': {$ref: '#/components/responses/LegacyList'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/api/s/{site}/rest/dhcpoption:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    get:
+      operationId: listDhcpOptions
+      summary: Custom DHCP options
+      description: 'Custom DHCP options that networks can hand out. Empty when captured, so record fields are not known.'
+      tags: [Networks]
+      x-unifi-api: controller
+      security: [{ControllerSession: []}]
+      responses:
+        '200': {$ref: '#/components/responses/LegacyList'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/api/s/{site}/rest/dpiapp:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    get:
+      operationId: listDpiAppRules
+      summary: DPI application entries (controller format)
+      description: 'Controller DPI application entries used by DPI groups. Empty when captured, so record fields are not known. For the DPI catalogue use `listDpiApplications`.'
+      tags: [Supporting resources]
+      x-unifi-api: controller
+      security: [{ControllerSession: []}]
+      responses:
+        '200': {$ref: '#/components/responses/LegacyList'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/api/s/{site}/rest/dpigroup:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    get:
+      operationId: listDpiGroups
+      summary: DPI groups (controller format)
+      description: 'Named groups of DPI applications, referenced by a network''s `dpigroup_id`. Empty when captured, so record fields are not known.'
+      tags: [Supporting resources]
+      x-unifi-api: controller
+      security: [{ControllerSession: []}]
+      responses:
+        '200': {$ref: '#/components/responses/LegacyList'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/api/s/{site}/stat/ccode:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    get:
+      operationId: listCountryCodes
+      summary: Country codes for the Wi-Fi regulatory domain
+      description: 'Countries the console accepts for the site''s regulatory domain: `code` (numeric, as a string), `key` (ISO 3166 alpha-2) and `name`.'
+      tags: [Supporting resources]
+      x-unifi-api: controller
+      security: [{ControllerSession: []}]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - {$ref: '#/components/schemas/LegacyEnvelope'}
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            code: {type: string, examples: ['826']}
+                            key: {type: string, examples: [GB]}
+                            name: {type: string, examples: [United Kingdom]}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/api/stat/s/{site}/hotspotpackages:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    get:
+      operationId: listHotspotPackages
+      summary: Hotspot payment packages
+      description: 'Paid hotspot packages (price, duration, quota). Note the path order `stat/s/{site}`, unlike other controller paths. Empty when captured, so record fields are not known.'
+      tags: [Hotspot]
+      x-unifi-api: controller
+      security: [{ControllerSession: []}]
+      responses:
+        '200': {$ref: '#/components/responses/LegacyList'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/v2/api/site/{site}/hotspot/info:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    get:
+      operationId: getHotspotInfo
+      summary: Whether the Hotspot Manager is shown
+      description: '`show_hotspot_manager` is true once a guest hotspot (portal, vouchers or packages) is set up on the site.'
+      tags: [Hotspot]
+      x-unifi-api: controller
+      security: [{ControllerSession: []}]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  show_hotspot_manager: {type: boolean}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/v2/api/site/{site}/vpn/users:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    get:
+      operationId: listVpnUsers
+      summary: VPN users (Network application)
+      description: 'Users with VPN server credentials on the gateway. Empty array when captured, so item fields are not known.'
+      tags: [VPN]
+      x-unifi-api: controller
+      security: [{ControllerSession: []}]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {type: array, items: {type: object, additionalProperties: true}}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/v2/api/site/{site}/radius/users:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    get:
+      operationId: listRadiusUsers
+      summary: Users on the gateway's built-in RADIUS server
+      description: 'Accounts on the built-in RADIUS server (802.1X, WPA-Enterprise, L2TP). Empty array when captured, so item fields are not known; any password fields are redacted.'
+      tags: [Supporting resources]
+      x-unifi-api: controller
+      security: [{ControllerSession: []}]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {type: array, items: {type: object, additionalProperties: true}}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/v2/api/site/{site}/test-configs:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    get:
+      operationId: listTestConfigs
+      summary: Test configurations (purpose not confirmed)
+      description: 'Requested by the UI on the Settings pages. Empty array when captured; purpose and item fields not confirmed.'
+      tags: [Settings]
+      x-unifi-api: controller
+      security: [{ControllerSession: []}]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {type: array, items: {type: object, additionalProperties: true}}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/v2/api/site/{site}/network/suggest:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    get:
+      operationId: suggestNetworkSubnets
+      summary: Free subnets suggested for a new network
+      description: 'Subnets that do not overlap existing networks, grouped by prefix length (`mask`). Use before `unifi_console_network` creates a network.'
+      tags: [Networks]
+      x-unifi-api: controller
+      security: [{ControllerSession: []}]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    mask: {type: integer, examples: [24]}
+                    ip_subnets: {type: array, items: {type: string}, examples: [[192.168.2.1, 192.168.3.1]]}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/v2/api/timezones:
+    get:
+      operationId: listTimezones
+      summary: Time zones the console accepts
+      description: 'IANA time zone names with their current UTC offset, for site and schedule settings.'
+      tags: [Supporting resources]
+      x-unifi-api: controller
+      security: [{ControllerSession: []}]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    timezone: {type: string, examples: [Europe/London]}
+                    offset: {type: string, description: 'UTC offset (format not confirmed)'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
 
   # ================================================================== UNIFI OS: applications, updates, cloud backups
   /proxy/users/api/v2/ucore/controllers:
@@ -5362,6 +5559,467 @@ paths:
                             created_at: {type: string, format: date-time}
                             updated_at: {type: string, format: date-time}
                             last_used_at: {type: [string, 'null'], format: date-time}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /api/users/self:
+    get:
+      operationId: getConsoleSelf
+      summary: The logged-in user as UniFi OS core sees it (owner, super admin, masks)
+      description: |
+        UniFi OS core's view of the current account. Unlike `getCurrentUser` it says whether the account is the console
+        owner or a super admin (`isOwner`, `isSuperAdmin`) and gives the numeric `accessMask` / `permissionMask`.
+      tags: [Users]
+      x-unifi-api: unifi_os
+      security: [{ControllerSession: []}]
+      responses:
+        '200':
+          description: OK (no envelope)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - {$ref: '#/components/schemas/ConsoleUser'}
+                  - type: object
+                    properties:
+                      id: {type: string, format: uuid}
+                      role: {type: string}
+                      roleId: {type: string, format: uuid}
+                      isOwner: {type: boolean}
+                      isSuperAdmin: {type: boolean}
+                      isMember: {type: boolean}
+                      accessMask: {type: integer}
+                      permissionMask: {type: integer}
+                      ucorePermission:
+                        type: object
+                        properties:
+                          hasUpdateAndInstallPermission: {type: boolean}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/users/api/v2/users/search:
+    get:
+      operationId: searchConsoleUsers
+      summary: Console users (all, not only admins), paged
+      description: |
+        Every user in the console's identity directory, including users with no admin role (for example Wi-Fi or VPN-only
+        users) and deactivated users. `listConsoleAdmins` returns only administrators. `total` is the full count.
+      tags: [Users]
+      x-unifi-api: unifi_os
+      security: [{ControllerSession: []}]
+      parameters:
+        - {name: page_num, in: query, description: 'Page number, starting at 1', schema: {type: integer, default: 1}}
+        - {name: page_size, in: query, description: 'Users per page', schema: {type: integer, examples: [25]}}
+        - {name: user_type, in: query, description: 'User type filter. Only `regular` has been seen.', schema: {type: string, examples: [regular]}}
+        - {name: expand, in: query, description: 'Comma-separated extra fields to include. Values not captured.', schema: {type: string}}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - {$ref: '#/components/schemas/UsersEnvelope'}
+                  - {$ref: '#/components/schemas/UsersPage'}
+                  - type: object
+                    properties:
+                      data: {type: array, items: {$ref: '#/components/schemas/ConsoleUser'}}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/users/api/v2/user:
+    post:
+      operationId: createConsoleUser
+      summary: Create (invite) a console user
+      description: |
+        Creates a user in the console's identity directory and returns it. Captured with an e-mail invite; the new user
+        has no role until `setConsoleUserRole`. Blocked: not callable through the generic tool.
+      tags: [Users]
+      x-unifi-api: unifi_os
+      security: [{ControllerSession: [], CsrfToken: []}]
+      x-destructive: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_email, first_name, last_name, group_ids]
+              properties:
+                user_email: {type: string, format: email}
+                first_name: {type: string}
+                last_name: {type: string}
+                group_ids: {type: array, items: {type: string, format: uuid}, description: '`unique_id` values from `listUserGroups`'}
+            example: {user_email: new.user@example.com, first_name: New, last_name: User, group_ids: [7d1c2b3a-4e5f-4a6b-8c7d-9e0f1a2b3c4d]}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - {$ref: '#/components/schemas/UsersEnvelope'}
+                  - type: object
+                    properties:
+                      data: {$ref: '#/components/schemas/ConsoleUser'}
+        '400': {$ref: '#/components/responses/LegacyBadRequest'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/users/api/v2/user/{userId}:
+    parameters:
+      - {$ref: '#/components/parameters/ConsoleUserId'}
+    get:
+      operationId: getConsoleUser
+      summary: One console user, with roles, groups and permissions
+      description: One user from `searchConsoleUsers` by `unique_id`.
+      tags: [Users]
+      x-unifi-api: unifi_os
+      security: [{ControllerSession: []}]
+      parameters:
+        - {name: expand, in: query, description: 'Comma-separated extra fields to include. Values not captured.', schema: {type: string}}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - {$ref: '#/components/schemas/UsersEnvelope'}
+                  - type: object
+                    properties:
+                      data: {$ref: '#/components/schemas/ConsoleUser'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '404': {$ref: '#/components/responses/UsersNotFound'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+    put:
+      operationId: updateConsoleUser
+      summary: Update a console user (profile, e-mail, local username and password)
+      description: |
+        Partial update. Captured bodies: `onboard_time` / `avatar_url`; `email` with `only_local_account`; and `username`
+        with `password` and `only_local_account` to give the user a local login. Blocked: not callable through the generic
+        tool.
+      tags: [Users]
+      x-unifi-api: unifi_os
+      security: [{ControllerSession: [], CsrfToken: []}]
+      x-destructive: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: {type: string, format: email}
+                username: {type: string}
+                password: {type: string, format: password, writeOnly: true}
+                only_local_account: {type: boolean}
+                onboard_time: {type: integer, description: 'Epoch seconds'}
+                avatar_url: {type: string}
+            examples:
+              localLogin: {summary: 'Give the user a local login', value: {username: new.user, password: '********', only_local_account: true}}
+              email: {summary: 'Set the e-mail address', value: {email: new.user@example.com, only_local_account: false}}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - {$ref: '#/components/schemas/UsersEnvelope'}
+                  - type: object
+                    properties:
+                      data: {$ref: '#/components/schemas/ConsoleUser'}
+        '400': {$ref: '#/components/responses/LegacyBadRequest'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+    delete:
+      operationId: deleteConsoleUser
+      summary: Delete a console user
+      description: 'Captured reply: the users envelope with no `data`. Blocked: not callable through the generic tool.'
+      tags: [Users]
+      x-unifi-api: unifi_os
+      security: [{ControllerSession: [], CsrfToken: []}]
+      x-destructive: true
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/UsersEnvelope'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/users/api/v2/user/{userId}/role:
+    parameters:
+      - {$ref: '#/components/parameters/ConsoleUserId'}
+    put:
+      operationId: setConsoleUserRole
+      summary: Assign a role to a console user
+      description: 'Replaces the user''s role with `role_id` (a `unique_id` from `listRoles`). Blocked: not callable through the generic tool.'
+      tags: [Users]
+      x-unifi-api: unifi_os
+      security: [{ControllerSession: [], CsrfToken: []}]
+      x-destructive: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role_id]
+              properties:
+                role_id: {type: string, format: uuid}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - {$ref: '#/components/schemas/UsersEnvelope'}
+                  - type: object
+                    properties:
+                      data: {type: string}
+        '400': {$ref: '#/components/responses/LegacyBadRequest'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/users/api/v2/user/{userId}/deactivate:
+    parameters:
+      - {$ref: '#/components/parameters/ConsoleUserId'}
+    put:
+      operationId: deactivateConsoleUser
+      summary: Deactivate a console user
+      description: 'Sets `status` to `DEACTIVATED`; the user can no longer sign in. No body. Blocked: not callable through the generic tool.'
+      tags: [Users]
+      x-unifi-api: unifi_os
+      security: [{ControllerSession: [], CsrfToken: []}]
+      x-destructive: true
+      parameters:
+        - {name: isULP, in: query, description: 'Sent as `0` by the UI. Meaning not confirmed.', schema: {type: integer, enum: [0, 1]}}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/UsersEnvelope'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/users/api/v2/user/{userId}/active:
+    parameters:
+      - {$ref: '#/components/parameters/ConsoleUserId'}
+    put:
+      operationId: activateConsoleUser
+      summary: Reactivate a deactivated console user
+      description: 'Sets `status` back to `ACTIVE`. No body. Blocked: not callable through the generic tool.'
+      tags: [Users]
+      x-unifi-api: unifi_os
+      security: [{ControllerSession: [], CsrfToken: []}]
+      x-destructive: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/UsersEnvelope'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/users/api/v2/identity/user/{userId}/invitation_status:
+    parameters:
+      - {$ref: '#/components/parameters/ConsoleUserId'}
+    get:
+      operationId: getUserInvitationStatus
+      summary: Whether a user's invitation is pending or expired
+      description: '`invited_at` is epoch seconds; `expired` is true once the invite can no longer be accepted.'
+      tags: [Users]
+      x-unifi-api: unifi_os
+      security: [{ControllerSession: []}]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - {$ref: '#/components/schemas/UsersEnvelope'}
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          invited_at: {type: integer}
+                          expired: {type: boolean}
+                          devices: {type: array, items: {type: object, additionalProperties: true}}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/users/api/v2/custom_role:
+    post:
+      operationId: createRole
+      summary: Create a custom role
+      description: |
+        Creates a role from one level per permission area (see `listPermissionManifests`). Returns the role. Blocked: not
+        callable through the generic tool.
+      tags: [Users]
+      x-unifi-api: unifi_os
+      security: [{ControllerSession: [], CsrfToken: []}]
+      x-destructive: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ConsoleRoleWrite'}
+            example: {name: Network read-only, is_private: false, permissions: [{manifest_unique_key: network.management, formulas: [readonly]}], permission_resources: []}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - {$ref: '#/components/schemas/UsersEnvelope'}
+                  - type: object
+                    properties:
+                      data: {$ref: '#/components/schemas/ConsoleRole'}
+        '400': {$ref: '#/components/responses/LegacyBadRequest'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/users/api/v2/custom_role/{roleId}:
+    parameters:
+      - {name: roleId, in: path, required: true, description: 'Role `unique_id` from `listRoles`', schema: {type: string, format: uuid}}
+    put:
+      operationId: updateRole
+      summary: Replace a custom role's name and permissions
+      description: 'Full replacement: send every permission the role should keep. Blocked: not callable through the generic tool.'
+      tags: [Users]
+      x-unifi-api: unifi_os
+      security: [{ControllerSession: [], CsrfToken: []}]
+      x-destructive: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ConsoleRoleWrite'}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - {$ref: '#/components/schemas/UsersEnvelope'}
+                  - type: object
+                    properties:
+                      data: {$ref: '#/components/schemas/ConsoleRole'}
+        '400': {$ref: '#/components/responses/LegacyBadRequest'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/users/api/v2/user_groups:
+    get:
+      operationId: listUserGroups
+      summary: User groups, with member counts and resource access
+      description: |
+        Groups in the console's identity directory. `up_id` / `up_ids` give the parent chain. With `expand[]=resources` each
+        group says which resources (Wi-Fi, VPN, cameras and so on) its members get.
+      tags: [Users]
+      x-unifi-api: unifi_os
+      security: [{ControllerSession: []}]
+      parameters:
+        - name: expand[]
+          in: query
+          description: 'Extra data per group. Repeat the parameter for more than one.'
+          schema: {type: string, enum: [assignments, resources]}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - {$ref: '#/components/schemas/UsersEnvelope'}
+                  - type: object
+                    properties:
+                      data: {type: array, items: {$ref: '#/components/schemas/ConsoleUserGroup'}}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/users/api/v2/user_group/{groupId}/users:
+    parameters:
+      - {$ref: '#/components/parameters/UserGroupId'}
+    get:
+      operationId: listUserGroupMembers
+      summary: Members of a user group, paged
+      description: Users in one group from `listUserGroups`.
+      tags: [Users]
+      x-unifi-api: unifi_os
+      security: [{ControllerSession: []}]
+      parameters:
+        - {name: page_num, in: query, description: 'Page number, starting at 1', schema: {type: integer, default: 1}}
+        - {name: page_size, in: query, description: 'Users per page', schema: {type: integer, examples: [25]}}
+        - {name: expand, in: query, description: 'Comma-separated extra fields to include. Values not captured.', schema: {type: string}}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - {$ref: '#/components/schemas/UsersEnvelope'}
+                  - {$ref: '#/components/schemas/UsersPage'}
+                  - type: object
+                    properties:
+                      data: {type: array, items: {$ref: '#/components/schemas/ConsoleUser'}}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/users/api/v2/identity/assignments:
+    get:
+      operationId: listIdentityAssignments
+      summary: Resources assigned through the identity directory (Wi-Fi, VPN, cameras and so on)
+      description: 'Assignments of console resources to users and groups, one array per resource type. Every array was empty when captured, so item fields are not known.'
+      tags: [Users]
+      x-unifi-api: unifi_os
+      security: [{ControllerSession: []}]
+      parameters:
+        - {name: resource_type, in: query, description: 'Limit to one resource type. Values not captured; the response keys (`wifi`, `vpn`, ...) are likely candidates.', schema: {type: string}}
+      responses:
+        '200': {$ref: '#/components/responses/IdentityAssignments'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/users/api/v2/identity/group/{groupId}/assignments:
+    parameters:
+      - {$ref: '#/components/parameters/UserGroupId'}
+    get:
+      operationId: listGroupAssignments
+      summary: Resources assigned to one user group
+      description: The `listIdentityAssignments` view for a single group.
+      tags: [Users]
+      x-unifi-api: unifi_os
+      security: [{ControllerSession: []}]
+      parameters:
+        - {name: resource_type, in: query, description: 'Limit to one resource type. Values not captured.', schema: {type: string}}
+      responses:
+        '200': {$ref: '#/components/responses/IdentityAssignments'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/users/api/v2/identity/services/status:
+    get:
+      operationId: getIdentityServicesStatus
+      summary: Identity services per application (installed, enabled, assignable)
+      description: |
+        One entry per service that can be granted to users (`access`, `camera`, `drive`, `evstation`, `identity`,
+        `smart_iot`, `talk`, `vpn`, `wifi`): whether it is enabled, can be enabled, and the backing application's state.
+        `exceptions` explains why a service is unavailable (for example `CODE_IDENTITY_NOT_INSTALLED`).
+      tags: [Users]
+      x-unifi-api: unifi_os
+      security: [{ControllerSession: []}]
+      parameters:
+        - {name: expand, in: query, description: '`with_application` adds the backing application to each service', schema: {type: string, enum: [with_application]}}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - {$ref: '#/components/schemas/UsersEnvelope'}
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: {$ref: '#/components/schemas/IdentityServiceStatus'}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '500': {$ref: '#/components/responses/LegacyServerError'}
   # ================================================================== CLOUD (Site Manager)
@@ -7442,6 +8100,18 @@ components:
       required: true
       description: Aggregation interval.
       schema: {type: string, enum: [5m, 1h]}
+    ConsoleUserId:
+      name: userId
+      in: path
+      required: true
+      description: Console user `unique_id` from `searchConsoleUsers`.
+      schema: {type: string, format: uuid}
+    UserGroupId:
+      name: groupId
+      in: path
+      required: true
+      description: User group `unique_id` from `listUserGroups`.
+      schema: {type: string, format: uuid}
   headers:
     Retry-After:
       description: Seconds to wait before retrying.
@@ -7528,6 +8198,26 @@ components:
       content:
         application/json:
           schema: {$ref: '#/components/schemas/LegacyEnvelope'}
+    # ---- UniFi OS users API
+    UsersNotFound:
+      description: No such user or object (`codeS` `CODE_NOT_FOUND` or `CODE_NOT_EXISTS`)
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/UsersEnvelope'}
+          example: {code: 404, codeS: CODE_NOT_FOUND, msg: not found}
+    IdentityAssignments:
+      description: OK. One array per resource type.
+      content:
+        application/json:
+          schema:
+            allOf:
+              - {$ref: '#/components/schemas/UsersEnvelope'}
+              - type: object
+                properties:
+                  data:
+                    type: object
+                    description: 'Keys seen: `wifi`, `vpn`, `camera`, `drive`, `light`, `ev_station`.'
+                    additionalProperties: {type: array, items: {type: object, additionalProperties: true}}
     # ---- Cloud errors
     CloudBadRequest:
       description: Invalid parameters
@@ -12672,6 +13362,86 @@ components:
         code: {type: integer, examples: [0]}
         codeS: {type: string, examples: [SUCCESS]}
         msg: {type: string}
+    UsersPage:
+      type: object
+      description: Paging fields on paged `/proxy/users/api/v2/*` lists.
+      properties:
+        page: {type: integer, description: 'Current page, starting at 1'}
+        num: {type: integer, description: 'Items on this page'}
+        total: {type: integer, description: 'Items across all pages'}
+        update_time: {type: integer}
+        show_source: {type: boolean}
+    ConsoleRoleWrite:
+      type: object
+      required: [name, permissions, permission_resources]
+      properties:
+        name: {type: string}
+        is_private: {type: boolean}
+        permissions:
+          type: array
+          description: One entry per permission area; `formulas` holds the chosen level.
+          items:
+            type: object
+            required: [manifest_unique_key, formulas]
+            properties:
+              manifest_unique_key: {type: string, examples: [network.management]}
+              formulas: {type: array, items: {type: string}, examples: [[readonly]]}
+        permission_resources: {type: array, items: {type: object, additionalProperties: true}}
+    ConsoleUserGroup:
+      type: object
+      properties:
+        unique_id: {type: string, format: uuid}
+        name: {type: string, examples: [Basic]}
+        up_id: {type: string, format: uuid, description: 'Parent group'}
+        up_ids: {type: array, items: {type: string, format: uuid}, description: 'Ancestor chain'}
+        system_name: {type: string}
+        create_time: {type: string, format: date-time}
+        updated_time: {type: string, format: date-time}
+        user_count: {type: integer}
+        resources: {$ref: '#/components/schemas/IdentityResources'}
+    IdentityResources:
+      type: object
+      description: Resources granted to a user or group. Booleans for on/off services, counts for the rest.
+      properties:
+        wifi: {type: boolean}
+        vpn: {type: boolean}
+        talk: {type: boolean}
+        camera: {type: integer}
+        evstation: {type: integer}
+        light: {type: integer}
+        access:
+          type: [object, 'null']
+          properties:
+            nfc: {type: integer}
+            pin_code: {type: integer}
+            policy: {type: integer}
+            door_guard: {type: integer}
+    IdentityServiceStatus:
+      type: object
+      properties:
+        enabled: {type: boolean}
+        allow_enable: {type: boolean}
+        assigned: {type: boolean}
+        hidden: {type: boolean}
+        exceptions:
+          type: [array, 'null']
+          items:
+            type: object
+            properties:
+              code: {type: string, examples: [CODE_IDENTITY_NOT_INSTALLED]}
+              message: {type: string}
+        tips: {type: ['null', object]}
+        application:
+          type: object
+          properties:
+            name: {type: string}
+            version: {type: string}
+            installed: {type: boolean}
+            configured: {type: boolean}
+            running: {type: boolean}
+            updating: {type: boolean}
+            support_identity: {type: boolean}
+        metadata: {type: object, additionalProperties: true, description: 'Service-specific, for example the Wi-Fi `ssid`'}
     ConsoleRole:
       type: object
       properties:
@@ -12690,7 +13460,14 @@ components:
         unique_id: {type: string, format: uuid}
         username: {type: string}
         full_name: {type: string}
-        status: {type: string, examples: [ACTIVE]}
+        status: {type: string, examples: [ACTIVE, DEACTIVATED]}
+        user_status: {type: string, examples: [ACTIVE, DEACTIVATED]}
+        source_name: {type: string, description: 'Where the user came from', examples: [UI, Identity]}
+        email_status: {type: string, examples: [VERIFIED, UNVERIFIED]}
+        deactivated_time: {type: integer, description: 'Epoch seconds; present on deactivated users'}
+        nfc_display_id: {type: string, description: 'Printed NFC card id. The card credential (`nfc_token`) is redacted.'}
+        groups: {type: array, items: {$ref: '#/components/schemas/ConsoleUserGroup'}}
+        resources: {$ref: '#/components/schemas/IdentityResources'}
         only_local_account: {type: boolean, description: 'True for a local account with no UI (cloud) login - best for integrations'}
         only_ui_account: {type: boolean}
         create_time: {type: integer}

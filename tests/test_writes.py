@@ -361,7 +361,7 @@ async def test_journal_is_redacted_and_failure_to_journal_blocks_the_write(make_
 async def test_tier_c_needs_an_approval_note(settings, tmp_path):
     from unifi_console_mcp.writes import EntitySpec, WriteEngine
 
-    mcp, api = create_server(
+    _mcp, api = create_server(
         dataclasses.replace(settings, enable_writes=True, write_entities=frozenset({"firewall_policy"}))
     )
     try:

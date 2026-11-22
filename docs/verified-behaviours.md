@@ -16,6 +16,10 @@ versions. Where a finding explains a design choice in a tool, it says so.
 
 * Control Plane View is not enough for backups, support files, firmware, syslog settings or API keys (`403`).
 * Backups needed more than Control Plane Admin on a custom role; the full Super Admin role worked.
+* The console's user directory (`/proxy/users/api/v2/users/search`, user groups, identity assignments) lists every user,
+  not only administrators, including deactivated ones. The spec documents the user and role writes (create, update,
+  role, deactivate, delete) from UI captures, but they are **blocked**: no tool can change console users or roles.
+  User records include the UniFi Access card credential (`nfc_token`), which is redacted.
 
 ## Support files and backups
 

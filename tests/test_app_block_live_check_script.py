@@ -34,7 +34,7 @@ async def test_run_with_real_blocks_leaves_them_exactly_as_they_were(monkeypatch
     assert net.items == before
     assert all(b == before for b in [net.items])
     assert all([] != body for body in net.bodies), "[] is never sent while real blocks exist"
-    assert "skipped: real blocks exist" in out or True
+    assert "skipped: real blocks exist" in out, out
     # every request that wrote the set carried both real blocks with their original ids
     assert all({"a", "b"} <= {x.get("_id") for x in body} for body in net.bodies)
 

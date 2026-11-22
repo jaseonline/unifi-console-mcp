@@ -20,7 +20,7 @@ with open(har, "rb") as f:
             try:
                 d = json.loads(txt)["data"]
                 nets.append((t, {n["name"]: n for n in d}))
-            except Exception as ex:
+            except (ValueError, KeyError, TypeError) as ex:
                 nets.append((t, {"_err": str(ex)}))
         if "wss/" in path:
             msgs = e.get("_webSocketMessages") or []
@@ -67,5 +67,6 @@ for i in range(1, len(nets)):
 res["snapshot_times"] = [t for t, _ in nets]
 res["diffs"] = diffs
 res["websockets"] = ws
-json.dump(res, open(out, "w"), indent=1, default=str)
+with open(out, "w", encoding="utf-8") as fh:
+    json.dump(res, fh, indent=1, default=str)
 print("ok", len(timeline), len(nets), len(ws))

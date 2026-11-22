@@ -133,7 +133,7 @@ async def test_create_sends_what_the_ui_sends_and_verifies(make_session):
 async def test_update_description_sends_only_that_field(make_session):
     net = FakeLists(with_real=True)
     async with make_session(net) as c:
-        pre, out = await apply(c, {"action": "update", "target": "Sonos ports", "description": "Sonos S2"})
+        _pre, out = await apply(c, {"action": "update", "target": "Sonos ports", "description": "Sonos S2"})
     assert net.bodies == [{"description": "Sonos S2"}]
     assert out["verified"] and list(out["diff"]) == ["description"]
     assert net.items[SONOS["_id"]]["group_members"] == ["1400", "3400-3405"]
@@ -142,7 +142,7 @@ async def test_update_description_sends_only_that_field(make_session):
 async def test_add_and_remove_members_replace_the_array_whole(make_session):
     net = FakeLists(with_real=True)
     async with make_session(net) as c:
-        pre, out = await apply(
+        _pre, out = await apply(
             c,
             {
                 "action": "update",
@@ -288,7 +288,7 @@ async def test_unused_list_can_be_deleted_and_rolled_back(make_session):
     net = FakeLists(with_real=True)
     net.policies = [{"_id": "p2", "name": "Other"}]
     async with make_session(net) as c:
-        pre, out = await apply(c, {"action": "delete", "target": "Sonos ports"})
+        _pre, out = await apply(c, {"action": "delete", "target": "Sonos ports"})
     assert out["verified"] and not net.items
     assert out["rollback"]["action"] == "create" and out["rollback"]["changes"]["group_members"] == [
         "1400",
@@ -352,7 +352,7 @@ async def test_ipv6_list_create_matches_the_captured_body(make_session):
         "description": "",
     }
     async with make_session(net) as c:
-        pre, out = await apply(c, args)
+        _pre, out = await apply(c, args)
     assert out["verified"] is True
     assert net.bodies == [
         {

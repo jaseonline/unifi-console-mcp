@@ -347,13 +347,12 @@ def make_validate(ack_exposure: bool, ack_outage: bool, console_net: str | None)
         f = Findings()
         zones, nets, clients = ctx.get("zones", []), ctx.get("networks", []), ctx.get("clients", [])
         b = before or {}
-        if before is not None:
-            if not _is_custom(before):
-                f.errors.append(
-                    'This is a system-defined (or generated "(Return)") policy. Only custom policies can be changed here; '
-                    "edit the custom policy it belongs to instead."
-                )
-                return f
+        if before is not None and not _is_custom(before):
+            f.errors.append(
+                'This is a system-defined (or generated "(Return)") policy. Only custom policies can be changed here; '
+                "edit the custom policy it belongs to instead."
+            )
+            return f
         if action == "move":
             return f
         src, dst = after.get("source") or {}, after.get("destination") or {}

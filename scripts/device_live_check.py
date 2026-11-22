@@ -110,7 +110,7 @@ async def wait_connected(engine: WriteEngine, mac: str, seconds: int = 240) -> b
         await _pause(5)
         try:
             rows = await engine._read_list("listDevicesBasic")
-        except Exception:  # noqa: BLE001 - the console can be briefly unreachable
+        except Exception:  # noqa: BLE001, S112 - the console can be briefly unreachable
             continue
         if any(str(r.get("mac", "")).lower() == mac and r.get("state") == 1 and not r.get("disabled") for r in rows):
             return True
@@ -242,7 +242,7 @@ async def ap_stages(client: Client, engine: WriteEngine, row: dict[str, Any], st
             out = await apply(client, {"action": "restart", "target": mac, "wait_seconds": 300}, approve=True)
             print(f"  tier={out['tier']} verified={out['verified']} waited={out.get('waited_seconds')} s")
             failures += not out["verified"]
-    except Exception as exc:  # report, then fall through to the restore
+    except Exception as exc:  # noqa: BLE001  report, then fall through to the restore
         failures += 1
         print(f"  ERROR: {type(exc).__name__}: {exc}")
     finally:

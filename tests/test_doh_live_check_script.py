@@ -30,7 +30,7 @@ async def test_dry_run_touches_nothing(capsys):
     assert "Dry run only" in capsys.readouterr().out
 
 
-async def test_run_adds_reverts_proves_the_auto_restore_and_ends_on_the_original(monkeypatch, tmp_path, dns, capsys):
+async def test_run_adds_reverts_proves_the_auto_restore_and_ends_on_the_original(monkeypatch, tmp_path, dns, capsys):  # noqa: F811  (dns is the imported fixture)
     patch_settings(monkeypatch, tmp_path, dns.port)
     net = FakeDoh(dns)
     code = await load_script("doh_live_check").main(True, httpx.MockTransport(net))
@@ -42,14 +42,14 @@ async def test_run_adds_reverts_proves_the_auto_restore_and_ends_on_the_original
     assert "auto_restored=True" in out
 
 
-async def test_it_stops_unless_doh_is_in_manual_mode(monkeypatch, tmp_path, dns, capsys):
+async def test_it_stops_unless_doh_is_in_manual_mode(monkeypatch, tmp_path, dns, capsys):  # noqa: F811  (dns is the imported fixture)
     patch_settings(monkeypatch, tmp_path, dns.port)
     net = FakeDoh(dns, {**ORIGINAL, "state": "off", "server_names": []})
     assert await load_script("doh_live_check").main(True, httpx.MockTransport(net)) == 1
     assert "not in manual mode" in capsys.readouterr().out and net.writes() == []
 
 
-async def test_a_failure_midway_still_ends_on_the_original(monkeypatch, tmp_path, dns, capsys):
+async def test_a_failure_midway_still_ends_on_the_original(monkeypatch, tmp_path, dns, capsys):  # noqa: F811  (dns is the imported fixture)
     patch_settings(monkeypatch, tmp_path, dns.port)
     net = FakeDoh(dns)
     net.ignore_post = True  # the console silently ignores writes: the check must fail but touch nothing else

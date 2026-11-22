@@ -161,7 +161,7 @@ async def main(run: bool, with_fixed_ip: bool = False, transport: Any = None) ->
                         await step("fixed ip", {"fixed_ip": spare}, {"fixed_ip"})
                 else:
                     print("\n[5] fixed IP: skipped (run with --with-fixed-ip to include it)")
-            except Exception as exc:  # report, then fall through to the restore
+            except Exception as exc:  # noqa: BLE001  report, then fall through to the restore
                 failures += 1
                 print(f"  ERROR: {type(exc).__name__}: {exc}")
             finally:

@@ -1,8 +1,10 @@
 import collections
+import itertools
 import json
 import sys
 
-d = json.load(open(sys.argv[1]))
+with open(sys.argv[1], encoding="utf-8") as fh:
+    d = json.load(fh)
 rows = d["rows"]
 print("time span", rows[0]["ts"], rows[-1]["ts"], "PUT1~1792298419 PUT2~1792298479")
 for r in rows:
@@ -26,7 +28,7 @@ for mac, v in per.items():
         ups[:1],
         ups[-1:],
         "uptime monotonic",
-        all(b >= a for a, b in zip(ups, ups[1:])),
+        all(b >= a for a, b in itertools.pairwise(ups)),
     )
 print("--- client:sync count by 10s bucket")
 b = collections.Counter(int(r["ts"] // 10 * 10) for r in rows if r["kind"] == "client:sync")

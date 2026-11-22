@@ -308,7 +308,7 @@ async def test_update_sends_whole_object_without_hits_and_diffs_only_the_change(
 async def test_enable_uses_batch_put_and_probe_then_disable(make_session, dns):
     net = FakeFw(dns)
     async with make_session(net) as c:
-        pre, out = await apply(c, {"action": "enable", "target": "zz-a"})
+        _pre, out = await apply(c, {"action": "enable", "target": "zz-a"})
         assert net.writes()[0] == ("PUT", f"{POLICIES}/batch", [{"_id": "p-a", "enabled": True}])
         assert out["verified"] and out["guard"] == {"probe_after": "ok"} and net.by("p-a")["enabled"] is True
         _, out2 = await apply(c, {"action": "disable", "target": "zz-a"})
@@ -343,7 +343,7 @@ async def test_delete_uses_batch_delete_with_a_list(make_session, dns):
 async def test_move_sends_reorder_and_verifies_order(make_session, dns):
     net = FakeFw(dns)
     async with make_session(net) as c:
-        pre, out = await apply(c, {"action": "move", "target": "zz-c", "position": "before", "relative_to": "zz-a"})
+        _pre, out = await apply(c, {"action": "move", "target": "zz-c", "position": "before", "relative_to": "zz-a"})
     assert net.writes()[0] == (
         "PUT",
         f"{POLICIES}/batch-reorder",

@@ -381,7 +381,7 @@ WAN_ID = WAN_NET
 async def test_client_target_with_schedule_burst_and_priority(make_session):
     net = FakeTraffic()
     async with make_session(net) as c:
-        pre, out = await apply(
+        _pre, out = await apply(
             c,
             {
                 "action": "create",
@@ -425,7 +425,7 @@ async def test_prioritize_and_weekly_schedule(make_session):
 async def test_block_internet_needs_acknowledgement_only_when_enabled(make_session):
     net = FakeTraffic()
     async with make_session(net) as c:
-        _, out = await apply(
+        _, _out = await apply(
             c,
             {
                 "action": "create",

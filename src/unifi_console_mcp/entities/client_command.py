@@ -196,7 +196,7 @@ async def run(
             "body": body,
         }
         engine._journal({"event": "attempt", **base})
-        status, data, problem = await engine._send_json(op.method, path, body, op.needs_session)
+        status, _data, problem = await engine._send_json(op.method, path, body, op.needs_session)
         if problem:
             engine._journal({"event": "failed", "journal_id": journal_id, "http_status": status, "error": problem})
             raise UniFiError(

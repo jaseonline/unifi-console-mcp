@@ -153,7 +153,7 @@ async def test_add_and_remove_members_replace_the_array_whole(make_session):
 async def test_deleting_the_unused_group_works_and_rollback_recreates(make_session):
     net = FakeGroups()
     async with make_session(net) as c:
-        pre, out = await apply(c, {"action": "delete", "target": "cams-id"})
+        _pre, out = await apply(c, {"action": "delete", "target": "cams-id"})
     assert out["verified"] and "cams-id" not in net.items and "Sonos" in [r["name"] for r in net.items.values()]
     assert out["rollback"]["action"] == "create"
     assert out["rollback"]["changes"] == {"name": "Cameras", "type": "CLIENTS", "members": ["aa:aa:aa:aa:aa:10"]}

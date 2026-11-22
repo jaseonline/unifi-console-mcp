@@ -137,7 +137,7 @@ async def main(run: bool, transport: Any = None) -> int:
                 made.remove(c_id)
                 await step("delete A", {"action": "delete", "target": a_id})
                 made.remove(a_id)
-            except Exception as exc:  # report, then fall through to cleanup
+            except Exception as exc:  # noqa: BLE001  report, then fall through to cleanup
                 failures += 1
                 print(f"  ERROR: {type(exc).__name__}: {exc}")
             finally:

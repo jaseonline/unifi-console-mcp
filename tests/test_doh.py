@@ -371,7 +371,7 @@ async def test_probe_failing_after_the_change_restores_once_and_says_so(make_ses
 async def test_force_fail_switch_proves_the_restore_with_a_healthy_resolver(make_session, dns):
     net = FakeDoh(dns)
     async with make_session(net, dns_probe_force_fail=True) as c:
-        pre, out = await apply(c, ADD_GOOGLE)
+        _pre, out = await apply(c, ADD_GOOGLE)
     assert out["applied"] is False and out["guard"]["auto_restored"] is True
     assert out["guard"]["probe_after_restore"] == "ok"  # the switch only fails the "change" phase
     assert net.group["server_names"] == ["cloudflare", "cloudflare-ipv6"] and len(net.bodies) == 2

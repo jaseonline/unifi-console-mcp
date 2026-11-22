@@ -4,6 +4,14 @@ All notable changes to this project. Versions follow `__version__` in `src/unifi
 
 ## Unreleased
 
+- Spec: 28 operations from a UI capture. Console user management reads (`searchConsoleUsers`, `getConsoleUser`,
+  `getConsoleSelf`, `listUserGroups`, `listUserGroupMembers`, `listIdentityAssignments`, `listGroupAssignments`,
+  `getIdentityServicesStatus`, `getUserInvitationStatus`); user and role writes (`createConsoleUser`,
+  `updateConsoleUser`, `deleteConsoleUser`, `setConsoleUserRole`, `deactivateConsoleUser`, `activateConsoleUser`,
+  `createRole`, `updateRole`), documented but blocked; and Network reads (`listDhcpOptions`, `listDpiAppRules`,
+  `listDpiGroups`, `listCountryCodes`, `listHotspotPackages`, `getHotspotInfo`, `listVpnUsers`, `listRadiusUsers`,
+  `listTestConfigs`, `suggestNetworkSubnets`, `listTimezones`).
+- Redaction hides `nfc_token` (the UniFi Access card credential on console user records).
 - Spec: operations are regrouped by function into 40 tags (was 20), e.g. Backup, Firmware, Logs, Ports & PoE, WAN,
   VPN, DoH, Firewall policies, Groups, SSL inspection, Device management. The largest tag is now 17 operations (Firewall
   was 60, Networks 44, Devices 38). `x-tagGroups` nests them under nine sections for Redocly-style viewers. Each

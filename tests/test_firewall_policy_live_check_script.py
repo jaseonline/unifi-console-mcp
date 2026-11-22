@@ -32,7 +32,7 @@ async def test_dry_run_touches_nothing(capsys):
     assert "Dry run only" in capsys.readouterr().out
 
 
-async def test_run_proves_every_action_and_leaves_nothing_behind(monkeypatch, tmp_path, dns, capsys):
+async def test_run_proves_every_action_and_leaves_nothing_behind(monkeypatch, tmp_path, dns, capsys):  # noqa: F811  (dns is the imported fixture)
     patch_settings(monkeypatch, tmp_path, dns.port)
     net = FakeFw(dns)
     before = [dict(r) for r in net.rows]
@@ -53,7 +53,7 @@ async def test_run_proves_every_action_and_leaves_nothing_behind(monkeypatch, tm
             assert body["source"]["zone_id"] == Z["Dmz"] and body["destination"]["zone_id"] == Z["Vpn"]
 
 
-async def test_it_stops_when_a_zone_has_networks(monkeypatch, tmp_path, dns, capsys):
+async def test_it_stops_when_a_zone_has_networks(monkeypatch, tmp_path, dns, capsys):  # noqa: F811  (dns is the imported fixture)
     patch_settings(monkeypatch, tmp_path, dns.port)
     net = FakeFw(dns)
     orig = net.__call__
@@ -74,7 +74,7 @@ async def test_it_stops_when_a_zone_has_networks(monkeypatch, tmp_path, dns, cap
     assert "no networks" in capsys.readouterr().out and net.writes() == []
 
 
-async def test_a_failure_midway_still_cleans_up(monkeypatch, tmp_path, dns, capsys):
+async def test_a_failure_midway_still_cleans_up(monkeypatch, tmp_path, dns, capsys):  # noqa: F811  (dns is the imported fixture)
     patch_settings(monkeypatch, tmp_path, dns.port)
     net = FakeFw(dns)
     net.break_dns = lambda m, p, b: False

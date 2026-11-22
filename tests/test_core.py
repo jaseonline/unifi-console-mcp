@@ -119,6 +119,12 @@ def test_redact_removes_x_fields_and_secrets():
     assert "hunter2" not in json.dumps(out)
 
 
+def test_redact_hides_console_user_nfc_token():
+    out = redact({"data": [{"username": "u", "nfc_token": "04A1B2C3", "nfc_display_id": "1234"}]})
+    assert out["data"][0]["nfc_token"] == "[redacted]"
+    assert out["data"][0]["nfc_display_id"] == "1234" and out["data"][0]["username"] == "u"
+
+
 def test_redact_leaves_boolean_flags_visible():
     data = {
         "private_preshared_keys_enabled": False,

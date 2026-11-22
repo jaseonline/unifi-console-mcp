@@ -286,7 +286,7 @@ async def test_a_stale_preview_is_refused_when_another_block_changed(make_sessio
 async def test_no_change_sends_nothing(make_session):
     net = FakeBlocks([make_block("a", "A")])
     async with make_session(net) as c:
-        pre, out = await apply(c, {"changes": [{"op": "update", "target": "A", "apps": [852009]}]})
+        _pre, out = await apply(c, {"changes": [{"op": "update", "target": "A", "apps": [852009]}]})
     assert out["applied"] is False and net.writes() == []
 
 
@@ -328,7 +328,7 @@ async def test_blocking_the_whole_private_network_needs_approval_note(make_sessi
     async with make_session(net) as c:
         res = await c.call_tool(TOOL, {"changes": [op]})
         assert "approval_note" in res.content[0].text and net.writes() == []
-        pre, out = await apply(c, {"changes": [op], "approval_note": "plan 2026-10-18"})
+        _pre, out = await apply(c, {"changes": [op], "approval_note": "plan 2026-10-18"})
     assert out["verified"] is True and net.bodies[0][0]["network_ids"] == [PRIVATE]
 
 

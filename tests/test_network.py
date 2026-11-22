@@ -269,7 +269,7 @@ NEW = {"action": "create", "name": "zz-net", "vlan": 3999, "subnet": "10.199.99.
 async def test_create_is_disabled_in_the_named_zone_with_the_captured_shape_and_skips_the_probe(make_session, dns):
     fake = FakeNet(dns)
     async with make_session(fake) as c:
-        pre, out = await apply(c, NEW)
+        _pre, out = await apply(c, NEW)
     _, path, body = fake.writes()[0]
     assert (
         path == NETS
@@ -409,7 +409,7 @@ async def test_dhcp_dns_servers_set_the_flag_and_slots(make_session, dns):
     fake = FakeNet(dns)
     async with make_session(fake) as c:
         await apply(c, NEW)
-        pre, out = await apply(c, {"action": "update", "target": "zz-net", "dhcp_dns": ["1.1.1.1", "9.9.9.9"]})
+        _pre, out = await apply(c, {"action": "update", "target": "zz-net", "dhcp_dns": ["1.1.1.1", "9.9.9.9"]})
         b = fake.by("zz-net")
         assert b["dhcpd_dns_enabled"] is True and (
             b["dhcpd_dns_1"],
@@ -419,7 +419,7 @@ async def test_dhcp_dns_servers_set_the_flag_and_slots(make_session, dns):
         ) == ("1.1.1.1", "9.9.9.9", "", "")
         assert b["dhcpd_ip_1"] == "10.199.99.1"  # the gateway slot is not a DNS slot
         # dropping the second server (the LAN_Guest case) leaves only the first
-        pre, out = await apply(c, {"action": "update", "target": "zz-net", "dhcp_dns": ["1.1.1.1"]})
+        _pre, out = await apply(c, {"action": "update", "target": "zz-net", "dhcp_dns": ["1.1.1.1"]})
         b = fake.by("zz-net")
         assert (b["dhcpd_dns_1"], b["dhcpd_dns_2"]) == ("1.1.1.1", "") and out["verified"]
         await apply(c, {"action": "update", "target": "zz-net", "dhcp_dns": []})

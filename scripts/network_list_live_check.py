@@ -124,7 +124,7 @@ async def main(run: bool, transport: Any = None) -> int:
                 print(f"  used_by={out['_preview']['used_by']} verified={out['verified']}")
                 failures += not out["verified"] or bool(out["_preview"]["used_by"])
                 created_id = None
-            except Exception as exc:  # report, then fall through to cleanup
+            except Exception as exc:  # noqa: BLE001  report, then fall through to cleanup
                 failures += 1
                 print(f"  ERROR: {type(exc).__name__}: {exc}")
             finally:

@@ -456,7 +456,7 @@ def build_plan(
             warnings.append(
                 "Saving settings on a gateway re-provisions it. Treat any gateway change as a firewall change."
             )
-        changes = {k: {"from": (row.get(k) if k != "stp_priority" else row.get(k)), "to": v} for k, v in body.items()}
+        changes = {k: {"from": row.get(k), "to": v} for k, v in body.items()}
         return DPlan(
             "update",
             tier,

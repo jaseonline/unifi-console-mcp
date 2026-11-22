@@ -131,7 +131,7 @@ NEW = {"action": "create", "record_type": "A", "key": "Test.example.home.", "val
 async def test_create_sends_the_four_captured_keys_and_verifies(make_session):
     net = FakeDns()
     async with make_session(net) as c:
-        pre, out = await apply(c, NEW)
+        _pre, out = await apply(c, NEW)
     assert net.bodies == [{"enabled": True, "record_type": "A", "key": "test.example.home", "value": "192.168.1.77"}]
     assert out["verified"] and out["rollback"] == {"action": "delete", "target": out["id"]}
 
@@ -140,7 +140,7 @@ async def test_create_finds_the_record_when_the_reply_has_no_id(make_session):
     net = FakeDns()
     net.no_id_in_reply = True
     async with make_session(net) as c:
-        pre, out = await apply(c, {**NEW, "key": "nas.example.home", "record_type": "AAAA", "value": "fd00::1"})
+        _pre, out = await apply(c, {**NEW, "key": "nas.example.home", "record_type": "AAAA", "value": "fd00::1"})
     assert out["verified"] and out["id"]  # two records share the name; the sent values pick the right one
 
 
@@ -167,7 +167,7 @@ async def test_enable_and_disable_use_the_whole_record(make_session):
 async def test_delete_removes_and_rollback_recreates(make_session):
     net = FakeDns()
     async with make_session(net) as c:
-        pre, out = await apply(c, {"action": "delete", "target": "off-id"})
+        _pre, out = await apply(c, {"action": "delete", "target": "off-id"})
     assert out["verified"] and "off-id" not in net.items
     assert out["rollback"]["action"] == "create" and out["rollback"]["changes"]["key"] == "old.example.home"
 
@@ -236,14 +236,14 @@ async def test_type_cannot_change(make_session):
 async def test_existing_odd_records_can_still_be_toggled(make_session):
     odd = rec("odd-id", "mycloud", "CNAME", "device-local-1435d109.remotewd.com")
     async with make_session(FakeDns((odd,))) as c:
-        pre, out = await apply(c, {"action": "disable", "target": "mycloud"})
+        _pre, out = await apply(c, {"action": "disable", "target": "mycloud"})
     assert out["verified"]
 
 
 async def test_aaaa_values_are_written_in_compressed_form(make_session):
     net = FakeDns()
     async with make_session(net) as c:
-        pre, out = await apply(
+        _pre, out = await apply(
             c,
             {
                 "action": "create",
@@ -259,7 +259,7 @@ async def test_silent_failure_is_reported(make_session):
     net = FakeDns()
     net.ignore_put = True
     async with make_session(net) as c:
-        pre, out = await apply(c, {"action": "update", "target": "nas-id", "value": "192.168.1.12"})
+        _pre, out = await apply(c, {"action": "update", "target": "nas-id", "value": "192.168.1.12"})
     assert out["verified"] is False and out["mismatches"][0]["field"] == "value"
 
 

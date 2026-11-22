@@ -14,7 +14,18 @@ from typing import Any
 REDACTED = "[redacted]"
 
 _SECRET_SUBSTRINGS = ("password", "passphrase", "secret", "private_key", "preshared", "psk", "api_key", "apikey")
-_SECRET_EXACT = {"token", "api_token", "access_token", "auth_token", "apikey", "api_key", "jwt", "csrf_token"}
+# nfc_token: the console user records (/proxy/users/api/v2/...) carry the UniFi Access card credential.
+_SECRET_EXACT = {
+    "token",
+    "api_token",
+    "access_token",
+    "auth_token",
+    "apikey",
+    "api_key",
+    "jwt",
+    "csrf_token",
+    "nfc_token",
+}
 
 
 def is_secret_key(key: str) -> bool:

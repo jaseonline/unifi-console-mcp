@@ -194,7 +194,7 @@ async def test_logging_levels_send_the_captured_sequence_and_cannot_verify(make_
 async def test_logging_levels_default_is_auto_warn_and_auto_refuses_debug(make_session):
     net = FakeSettings()
     async with make_session(net) as (c, _):
-        pre, out = await apply(c, "unifi_console_logging_levels", {})
+        _pre, out = await apply(c, "unifi_console_logging_levels", {})
         assert net.system[-1] == {"cmd": "set-param", "key": "debug.setting_preference", "value": "auto"}
         bad = await call(c, "unifi_console_logging_levels", {"setting_preference": "auto", "device": "debug"})
     assert bad["errors"] and out["rollback"]["setting_preference"] == "auto"

@@ -168,7 +168,7 @@ async def main(run: bool, transport: Any = None) -> int:
                     f"  verified={out['verified']} names={[r.get('name') for r in rows if str(r.get('name')).startswith(PREFIX)]}"
                 )
                 failures += not out["verified"]
-            except Exception as exc:  # report, then fall through to the restore
+            except Exception as exc:  # noqa: BLE001  report, then fall through to the restore
                 failures += 1
                 print(f"  ERROR: {type(exc).__name__}: {exc}")
             finally:

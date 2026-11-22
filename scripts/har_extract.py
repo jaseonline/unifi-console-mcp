@@ -145,7 +145,7 @@ def main() -> None:
                     cache[norm(url.path)] = text  # only the latest read of each path is kept
                 continue
             body = (req.get("postData") or {}).get("text")
-            ids, before = find_before(cache, url.path, body)
+            _ids, before = find_before(cache, url.path, body)
             item = {
                 "method": method,
                 "path": norm(url.path),

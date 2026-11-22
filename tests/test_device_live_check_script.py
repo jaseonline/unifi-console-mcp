@@ -91,7 +91,7 @@ async def test_full_stages_disable_and_restart_the_ap_only(monkeypatch, tmp_path
     assert not net.rows[0].get("disabled")
     touched = {b.get("mac") for _m, p, b in net.writes() if p.endswith("devmgr")}
     assert touched == {AP}
-    assert all(p.endswith("id-ap") or p.endswith("devmgr") for _m, p, _b in net.writes())
+    assert all(p.endswith(("id-ap", "devmgr")) for _m, p, _b in net.writes())
 
 
 async def test_remove_adopt_needs_a_device_and_never_the_ap(monkeypatch, tmp_path, capsys):
@@ -118,7 +118,7 @@ async def test_remove_then_adopt_as_two_separate_runs_restores_what_it_can(monke
     net.rows[0]["port_overrides"] = [{"port_idx": 3, "name": "TV", "native_networkconf_id": "net-a"}]
     # run 1: remove only
     assert await mod.main(True, httpx.MockTransport(net), stages=("remove",), spare=SW) == 0, capsys.readouterr().out
-    out1 = capsys.readouterr().out
+    capsys.readouterr()  # discard run 1's output so out2 holds only run 2
     assert not any(r["mac"] == SW for r in net.rows) and [p for p in net.pending if p["mac"] == SW]
     snaps = list((tmp_path / "journal" / "device-snapshots").glob("*.json"))
     assert len(snaps) == 1 and "TV" in snaps[0].read_text() and "Switch-Leaf" in snaps[0].read_text()

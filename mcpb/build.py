@@ -34,7 +34,9 @@ def run(cmd: list[str]) -> str:
     exe = shutil.which(cmd[0])
     if not exe:
         raise SystemExit(f"'{cmd[0]}' not found on PATH")
-    proc = subprocess.run([exe, *cmd[1:]], cwd=ROOT, capture_output=True, text=True)
+    proc = subprocess.run(
+        [exe, *cmd[1:]], cwd=ROOT, capture_output=True, text=True, check=False
+    )  # returncode handled below
     out = (proc.stdout + proc.stderr).strip()
     if proc.returncode:
         raise SystemExit(f"{' '.join(cmd)} failed ({proc.returncode}):\n{out}")

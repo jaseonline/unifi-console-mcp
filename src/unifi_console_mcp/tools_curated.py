@@ -680,11 +680,7 @@ def register(mcp: MCPServer, api: Api) -> None:
             def rows(res: RunResult, keep: re.Pattern[str]) -> list[Any]:
                 items = res.data if isinstance(res.data, list) else []
                 return [
-                    {
-                        k: iso(v) if k.endswith("_time") or k.endswith("_at") else v
-                        for k, v in i.items()
-                        if keep.search(k)
-                    }
+                    {k: iso(v) if k.endswith(("_time", "_at")) else v for k, v in i.items() if keep.search(k)}
                     for i in items
                     if isinstance(i, dict)
                 ]

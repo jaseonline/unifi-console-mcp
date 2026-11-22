@@ -189,7 +189,7 @@ async def test_a_client_can_be_addressed_by_mac_id_or_name(make_session, target)
 async def test_setting_a_note_on_an_unnoted_client_also_sets_noted(make_session):
     net = FakeClients()
     async with make_session(net) as c:
-        pre, out = await apply(c, {"target": NEW["mac"], "note": "spare"})
+        _pre, out = await apply(c, {"target": NEW["mac"], "note": "spare"})
     assert net.bodies == [{"note": "spare", "noted": True}]
     assert out["verified"] and out["rollback"]["changes"] == {"note": "", "noted": False}
 
@@ -206,7 +206,7 @@ async def test_move_fixed_ip_inside_the_network_sends_only_the_address(make_sess
 async def test_fixed_ip_on_a_client_without_one_turns_it_on(make_session):
     net = FakeClients()
     async with make_session(net) as c:
-        pre, out = await apply(c, {"target": NEW["mac"], "fixed_ip": "10.88.1.90"})
+        _pre, out = await apply(c, {"target": NEW["mac"], "fixed_ip": "10.88.1.90"})
     assert net.bodies == [{"use_fixedip": True, "fixed_ip": "10.88.1.90"}]
     assert out["verified"] and out["rollback"]["changes"]["use_fixedip"] is False
 
@@ -254,7 +254,7 @@ async def test_a_clients_own_address_is_not_a_conflict(make_session):
 async def test_local_dns_record_is_lowercased_and_enabled(make_session):
     net = FakeClients()
     async with make_session(net) as c:
-        pre, out = await apply(c, {"target": "Harmony Hub", "local_dns_record": "Hub.Example.Home"})
+        _pre, out = await apply(c, {"target": "Harmony Hub", "local_dns_record": "Hub.Example.Home"})
     assert net.bodies == [{"local_dns_record": "hub.example.home", "local_dns_record_enabled": True}]
     assert out["verified"] and out["rollback"]["changes"] == {"local_dns_record": "", "local_dns_record_enabled": False}
 
@@ -262,7 +262,7 @@ async def test_local_dns_record_is_lowercased_and_enabled(make_session):
 async def test_clearing_the_dns_record_disables_it(make_session):
     net = FakeClients()
     async with make_session(net) as c:
-        pre, out = await apply(c, {"target": "Amazon Echo", "local_dns_record": ""})
+        _pre, out = await apply(c, {"target": "Amazon Echo", "local_dns_record": ""})
     assert net.bodies == [{"local_dns_record": "", "local_dns_record_enabled": False}] and out["verified"]
 
 
@@ -367,7 +367,7 @@ async def test_silent_failure_is_reported_not_retried(make_session):
     net = FakeClients()
     net.ignore_put = True
     async with make_session(net) as c:
-        pre, out = await apply(c, {"target": "Harmony Hub", "note": "n"})
+        _pre, out = await apply(c, {"target": "Harmony Hub", "note": "n"})
     assert out["verified"] is False and out["mismatches"][0]["field"] == "note" and len(net.writes()) == 1
 
 

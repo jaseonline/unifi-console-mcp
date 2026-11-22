@@ -159,7 +159,7 @@ async def live_tools() -> list[dict[str, str]]:
 
 
 def build(version: str, tools: list[dict[str, str]]) -> dict:
-    env = {ENV[k]: "${user_config.%s}" % k for k in USER_CONFIG}
+    env = {ENV[k]: f"${{user_config.{k}}}" for k in USER_CONFIG}
     return {
         "manifest_version": "0.4",
         "name": "unifi-console-mcp",

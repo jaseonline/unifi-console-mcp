@@ -240,7 +240,7 @@ async def main(run: bool, transport: Any = None) -> None:
         for test in (test_static_dns, test_port_forward, test_client_group, test_network_list):
             try:
                 await test(r)
-            except Exception as exc:  # report and carry on; cleanup runs below
+            except Exception as exc:  # noqa: BLE001  report and carry on; cleanup runs below
                 print(f"  ERROR in {test.__name__}: {type(exc).__name__}: {exc}")
             finally:
                 await r.delete_all()

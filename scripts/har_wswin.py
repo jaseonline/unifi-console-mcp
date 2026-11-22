@@ -21,7 +21,7 @@ with open(har, "rb") as f:
             ts = float(m["time"])
             try:
                 d = json.loads(m["data"])
-            except Exception:
+            except (ValueError, KeyError, TypeError):
                 kinds["unparsed"] += 1
                 continue
             meta = (d.get("meta") or {}) if isinstance(d, dict) else {}
@@ -53,5 +53,6 @@ with open(har, "rb") as f:
         # keep only non-routine rows (events, anything not stat sync) plus device state/uptime per device
         keep = [r for r in rows if r["kind"] not in ("session-metadata:sync",)]
         res = {"total_receive": len(rows), "kinds": dict(kinds), "rows": keep}
-json.dump(res, open(out, "w"), indent=0, default=str)
+with open(out, "w", encoding="utf-8") as fh:
+    json.dump(res, fh, indent=0, default=str)
 print("ok", res.get("total_receive"), res.get("kinds"))

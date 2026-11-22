@@ -90,11 +90,10 @@ class FakeWan(FakeNet):
             return httpx.Response(
                 200, json=wrap([{"subsystem": "wan", "status": self.wan_status}, {"subsystem": "lan", "status": "ok"}])
             )
-        if method == "GET" and path in (BASIC, DEVS):
-            if self.pending > 0:
-                self.pending -= 1
-                if self.pending == 0 and not self.stuck_until_second_put:
-                    self.gw["state"], self.gw["provisioned_at"] = 1, self.gw["provisioned_at"] + 1
+        if method == "GET" and path in (BASIC, DEVS) and self.pending > 0:
+            self.pending -= 1
+            if self.pending == 0 and not self.stuck_until_second_put:
+                self.gw["state"], self.gw["provisioned_at"] = 1, self.gw["provisioned_at"] + 1
         if method == "PUT" and path == f"{NETS}/{N_WAN}":
             body = json.loads(request.content)
             self.log.append((method, path, body))
@@ -184,7 +183,7 @@ async def test_apply_sends_the_whole_object_waits_for_the_gateway_and_verifies(m
     fake = FakeWan(dns)
     start = copy.deepcopy(fake.wan())
     async with make_session(fake) as c:
-        pre, out = await apply(c, FLIP)
+        _pre, out = await apply(c, FLIP)
     body = fake.puts[0]
     assert body["report_wan_event"] is True and body["x_uplink_password"] == FAKE_SECRET
     assert {k: v for k, v in body.items() if k != "report_wan_event"} == {
@@ -198,7 +197,7 @@ async def test_apply_sends_the_whole_object_waits_for_the_gateway_and_verifies(m
 async def test_provider_speeds_merge_into_the_nested_object(make_session, dns):
     fake = FakeWan(dns)
     async with make_session(fake) as c:
-        pre, out = await apply(c, {"target": "WAN1", "download_kbps": 900000})
+        _pre, out = await apply(c, {"target": "WAN1", "download_kbps": 900000})
     assert fake.wan()["wan_provider_capabilities"] == {
         "upload_kilobits_per_second": 1000000,
         "download_kilobits_per_second": 900000,
