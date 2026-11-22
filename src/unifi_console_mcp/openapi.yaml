@@ -1945,6 +1945,38 @@ paths:
                   - properties: {data: {type: array, items: {$ref: '#/components/schemas/LegacySysInfo'}}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/api/s/{site}/stat/sdn:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    get:
+      operationId: getRemoteManagementStatus
+      summary: Remote management (cloud access) status
+      description: 'Whether remote access through the UI cloud is switched on and connected, from a UI capture. Usually one entry.'
+      tags: [Console]
+      x-unifi-api: controller
+      security: [{ControllerSession: []}]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - {$ref: '#/components/schemas/LegacyEnvelope'}
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          additionalProperties: true
+                          properties:
+                            enabled: {type: boolean, description: 'Remote access switched on'}
+                            connected: {type: boolean, description: 'Connected to the UI cloud now'}
+                            is_cloud_key: {type: boolean}
+                            is_udm: {type: boolean}
+                            ubic_env: {type: string, description: 'UI cloud environment', examples: [prod]}
+                            has_sso_auth: {type: boolean, description: 'UI account (SSO) sign-in configured'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/api/s/{site}/stat/widget/warnings:
     parameters: [{$ref: '#/components/parameters/Site'}]
     get:
@@ -5155,6 +5187,196 @@ paths:
       security: [{ControllerSession: []}]
       responses:
         '200': {$ref: '#/components/responses/LegacyList'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/v2/api/info:
+    get:
+      operationId: getNetworkAppInfo
+      summary: Current admin, their sites and the console
+      description: |
+        What the Network UI loads first, from a UI capture: the signed-in administrator (`self`), the sites they can open
+        (`sites`, with their role on each) and the console (`system`: hostname, versions, model). `self` includes the
+        administrator's e-mail address and UI account name. The UI also sends an opaque `ui_settings_version`; it is not
+        needed.
+      tags: [Console]
+      x-unifi-api: controller
+      security: [{ControllerSession: []}]
+      parameters:
+        - {name: preferred_site_name, in: query, required: false, description: 'Internal name of the site to open first', schema: {type: string, examples: [default]}}
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                properties:
+                  self:
+                    type: object
+                    additionalProperties: true
+                    properties:
+                      admin_id: {type: string, format: uuid}
+                      uid: {type: string, format: uuid, description: 'Console user id'}
+                      name: {type: string, examples: [Alex Example]}
+                      email: {type: string, format: email, examples: [admin@example.com]}
+                      is_owner: {type: boolean}
+                      is_super: {type: boolean}
+                      requires_new_password: {type: boolean}
+                      ubic_name: {type: string, description: 'UI account name', examples: [admin@example.com]}
+                  sites:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                      properties:
+                        _id: {type: string}
+                        name: {type: string, description: 'Internal name used in paths', examples: [default]}
+                        desc: {type: string, examples: [Default]}
+                        role: {type: string, examples: [admin]}
+                        permissions: {type: array, items: {type: string}}
+                        device_count: {type: integer}
+                        is_active: {type: boolean}
+                        timezone: {type: string, examples: [Europe/London]}
+                  system:
+                    type: object
+                    additionalProperties: true
+                    properties:
+                      hostname: {type: string, examples: [Cloud-Key-Gen2-Plus]}
+                      inform_port: {type: integer, examples: [8080]}
+                      multiple_sites_supported: {type: boolean}
+                      has_webrtc_support: {type: boolean}
+                      host_meta: {$ref: '#/components/schemas/DeviceModel'}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/v2/api/site/{site}/models:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    get:
+      operationId: listDeviceModels
+      summary: Device model catalogue
+      description: 'Every UniFi model the Network application knows: code name, SKU, full name, `sysid` and UI image ids. From a UI capture.'
+      tags: [Supporting resources]
+      x-unifi-api: controller
+      security: [{ControllerSession: []}]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  model_list: {type: array, items: {$ref: '#/components/schemas/DeviceModel'}}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/v2/api/site/{site}/degradation-status:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    get:
+      operationId: getDegradationStatus
+      summary: Whether the Network application is in safe mode
+      description: '`safe_mode` is true when the application runs degraded, for example after a database problem. The aggregated dashboard carries the same flag. Seen only `false`.'
+      tags: [Console]
+      x-unifi-api: controller
+      security: [{ControllerSession: []}]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  safe_mode: {type: boolean}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/v2/api/site/{site}/ulp/users_groups:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    get:
+      operationId: listIdentityUsersGroups
+      summary: Identity users and groups as the firewall sees them
+      description: |
+        Users and user groups from the console's identity directory, as offered for firewall policies that match
+        `USER_IDENTITY` (`ulp_user_ids`, `ulp_user_group_ids`). From a UI capture. A user lists its groups in `group_ids`.
+      tags: [Users]
+      x-unifi-api: controller
+      security: [{ControllerSession: []}]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                      properties:
+                        unique_id: {type: string, format: uuid}
+                        full_name: {type: string, examples: [Example User]}
+                        group_ids: {type: array, items: {type: string}}
+                        avatar_url: {type: string}
+                  groups:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                      properties:
+                        unique_id: {type: string, format: uuid}
+                        name: {type: string, examples: [Staff]}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/v2/api/site/{site}/wireguard/users:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    get:
+      operationId: listWireguardUsers
+      summary: WireGuard VPN server users
+      description: 'Peers of the gateway WireGuard VPN server. Empty array when captured, so item fields are not known; any key fields are redacted.'
+      tags: [VPN]
+      x-unifi-api: controller
+      security: [{ControllerSession: []}]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {type: array, items: {type: object, additionalProperties: true}}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/v2/api/site/{site}/ospf/router:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    get:
+      operationId: listOspfRouters
+      summary: OSPF router configurations
+      description: 'OSPF router settings on the site. Empty array when captured, so item fields are not known.'
+      tags: [Routing]
+      x-unifi-api: controller
+      security: [{ControllerSession: []}]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {type: array, items: {type: object, additionalProperties: true}}
+        '401': {$ref: '#/components/responses/LegacyUnauthorized'}
+        '500': {$ref: '#/components/responses/LegacyServerError'}
+  /proxy/network/v2/api/site/{site}/stacking:
+    parameters: [{$ref: '#/components/parameters/Site'}]
+    get:
+      operationId: listControllerSwitchStacks
+      summary: Switch stacks (Network application)
+      description: 'Groups of stacked switches, as the Network UI reads them. Empty array when captured, so item fields are not known. The Integration API equivalent is `listSwitchStacks`.'
+      tags: [Switching]
+      x-unifi-api: controller
+      security: [{ControllerSession: []}]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: {type: array, items: {type: object, additionalProperties: true}}
         '401': {$ref: '#/components/responses/LegacyUnauthorized'}
         '500': {$ref: '#/components/responses/LegacyServerError'}
   /proxy/network/v2/api/site/{site}/hotspot/info:
@@ -13238,7 +13460,8 @@ components:
         connection_state_type: {type: string, examples: [ALL, RESPOND_ONLY, CUSTOM]}
         connection_states: {type: array, items: {type: string}}
         create_allow_respond: {type: boolean, description: 'Auto-allow return traffic'}
-        match_ip_sec: {type: boolean}
+        match_ip_sec: {type: boolean, description: 'Whether IPsec matching applies; `match_ip_sec_type` says which way'}
+        match_ip_sec_type: {type: string, enum: [MATCH_IP_SEC, MATCH_NON_IP_SEC], description: 'Match only IPsec traffic, or only traffic that is not IPsec. The UI sent `match_ip_sec: true` with `MATCH_NON_IP_SEC`; the defaults endpoint returns `false` with `MATCH_IP_SEC`.'}
         logging: {type: boolean}
         report_flow: {type: boolean}
         schedule: {type: object, additionalProperties: true, properties: {mode: {type: string, examples: [ALWAYS]}}}
@@ -13246,13 +13469,32 @@ components:
         last_hit: {type: [integer, 'null'], description: 'Timestamp of the last match; null if never matched'}
         source: {$ref: '#/components/schemas/FirewallPolicyUiEndpoint'}
         destination: {$ref: '#/components/schemas/FirewallPolicyUiEndpoint'}
+    DeviceModel:
+      type: object
+      description: 'A UniFi model as the Network application catalogues it (`listDeviceModels`, and `host_meta` in `getNetworkAppInfo`).'
+      additionalProperties: true
+      properties:
+        id: {type: string, format: uuid}
+        model_name: {type: string, description: 'Internal model code', examples: [UCKP]}
+        model_fullName: {type: string, examples: [CloudKey+]}
+        model_abbreviation: {type: string, examples: [UCK G2 Plus]}
+        model_sysid: {type: string, description: 'Hexadecimal system id', examples: [e970]}
+        sku: {type: string, examples: [UCK-G2-PLUS]}
+        default_image_id: {type: string}
+        topology_image_id: {type: string}
+        nopadding_image_id: {type: string}
+        rack_image_id: {type: string, description: 'Empty when the model has no rack image'}
+        blueprint_image_id: {type: string}
+        blueprint_dark_image_id: {type: string}
     FirewallPolicyUiEndpoint:
       type: object
       properties:
         zone_id: {type: string}
-        matching_target: {type: string, examples: [ANY, NETWORK, IP, CLIENT, IID]}
+        matching_target: {type: string, description: '`USER_IDENTITY` matches users and groups from the identity directory (see `listIdentityUsersGroups`).', examples: [ANY, NETWORK, IP, CLIENT, IID, USER_IDENTITY]}
         matching_target_type: {type: string}
         network_ids: {type: array, items: {type: string}}
+        ulp_user_ids: {type: array, items: {type: string, format: uuid}, description: 'Identity users matched when `matching_target` is `USER_IDENTITY`'}
+        ulp_user_group_ids: {type: array, items: {type: string}, description: 'Identity user groups matched when `matching_target` is `USER_IDENTITY`'}
         ips: {type: array, items: {type: string}}
         client_macs: {type: array, items: {type: string}}
         iid: {type: string}

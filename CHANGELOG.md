@@ -14,6 +14,13 @@ All notable changes to this project. Versions follow `__version__` in `src/unifi
 - Spec: NAT rule writes from UI captures (`createNatRule`, `updateNatRule`, `deleteNatRule`), documented but blocked,
   and a `NatRule` schema for `listNatRules` (type, IP version, protocol, outbound interface, translated address and
   port, source and destination filters).
+- Spec: eight reads from a UI capture: `getNetworkAppInfo` (signed-in admin, their sites, the console),
+  `getRemoteManagementStatus`, `getDegradationStatus`, `listDeviceModels`, `listIdentityUsersGroups`,
+  `listWireguardUsers`, `listOspfRouters` and `listControllerSwitchStacks`. Firewall policies document
+  `match_ip_sec_type` and the `USER_IDENTITY` target with `ulp_user_ids` and `ulp_user_group_ids`.
+- `unifi_console_firewall_policy`: the rollback call after deleting a policy with an IID or `USER_IDENTITY` endpoint,
+  or after changing such a target, would have left the target out, and a create without one matches everything. Those
+  cases now return the stored policy and a note instead of a call. Changing a target also clears the `ulp_*` lists.
 - Redaction hides `nfc_token` (the UniFi Access card credential on console user records).
 - Spec: operations are regrouped by function into 40 tags (was 20), e.g. Backup, Firmware, Logs, Ports & PoE, WAN,
   VPN, DoH, Firewall policies, Groups, SSL inspection, Device management. The largest tag is now 17 operations (Firewall

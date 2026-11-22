@@ -15,7 +15,9 @@ Rules this tool keeps to:
   * A change that touches an enabled policy runs inside the DNS safety net (see `dnsprobe.py`): tested before and after, and
     put back once, automatically, if DNS fails afterwards. The test runs from the console's own network, so it cannot see a
     problem that only affects another VLAN; the preview names the networks a policy touches for that reason.
-  * Fields this tool does not offer (IID targets, schedules, custom connection states) are kept exactly as read.
+  * Fields this tool does not offer (IID and USER_IDENTITY targets, schedules, custom connection states) are kept exactly
+    as read. A rollback call cannot set those targets either, so where replaying one would widen the policy (recreating a
+    deleted one, or undoing a target change) the result gives no call, only the stored policy and a note.
 """
 
 from __future__ import annotations
@@ -187,6 +189,8 @@ def _endpoint_prepare(
             "match_opposite_networks",
             "match_opposite_ips",
             "match_opposite_iid",
+            "ulp_user_ids",
+            "ulp_user_group_ids",
         ):
             ep.pop(k, None)
         if target == "any":
@@ -639,9 +643,37 @@ def restore_ok(plan: Plan, rows: list[dict[str, Any]], new_id: str | None) -> bo
     return all(same(cur.get(k), v) for k, v in keep.items())
 
 
+FRIENDLY_TARGETS = {"ANY": "any", "NETWORK": "networks", "CLIENT": "clients", "IP": "ips"}
+# Everything that says what an endpoint matches, apart from its zone and ports.
+TARGET_FIELDS = (
+    "matching_target",
+    "network_ids",
+    "client_macs",
+    "ips",
+    "iid",
+    "ulp_user_ids",
+    "ulp_user_group_ids",
+    "match_opposite_networks",
+    "match_opposite_ips",
+    "match_opposite_iid",
+)
+
+
+def _inexpressible_sides(row: dict[str, Any]) -> list[str]:
+    """Endpoints whose target this tool cannot set (IID, USER_IDENTITY or anything new)."""
+    return [
+        side
+        for side in ("source", "destination")
+        if str((row.get(side) or {}).get("matching_target") or "ANY") not in FRIENDLY_TARGETS
+    ]
+
+
 def to_friendly(row: dict[str, Any]) -> dict[str, Any]:
+    """The tool arguments that describe `row`. An endpoint whose target is not in FRIENDLY_TARGETS gets no
+    `target` (the tool cannot set one), so check `_inexpressible_sides` before replaying this."""
+
     def ep(e: dict[str, Any]) -> dict[str, Any]:
-        t = {"ANY": "any", "NETWORK": "networks", "CLIENT": "clients", "IP": "ips"}.get(str(e.get("matching_target")))
+        t = FRIENDLY_TARGETS.get(str(e.get("matching_target")))
         out: dict[str, Any] = {"zone": e.get("zone_id")}
         if t:
             out["target"] = t
@@ -679,6 +711,8 @@ def rollback(plan: Plan, new_id: str | None) -> dict[str, Any]:
     if plan.action == "create":
         return call(action="delete", target=new_id)
     if plan.action == "delete":
+        if sides := _inexpressible_sides(b):
+            return _no_rollback_call(b, sides, "recreate")
         out = call(action="create", **to_friendly(b))
         out["note"] = (
             "Recreated with a new id at the end of its zone pair; use move to put it back. "
@@ -696,9 +730,31 @@ def rollback(plan: Plan, new_id: str | None) -> dict[str, Any]:
             target=me,
             **({"position": "first"} if i == 0 else {"position": "after", "relative_to": ids[i - 1]}),
         )
+    # An update call without `target` keeps the endpoint's current target. That is right while the target is
+    # untouched, but cannot put back an IID or USER_IDENTITY target the change replaced.
+    a = plan.after or {}
+    lost = [
+        side
+        for side in _inexpressible_sides(b)
+        if any((b.get(side) or {}).get(k) != (a.get(side) or {}).get(k) for k in TARGET_FIELDS)
+    ]
+    if lost:
+        return _no_rollback_call(b, lost, "restore")
     full = to_friendly(b)
     full.pop("enabled", None)
     return call(action="update", target=plan.ident, **full)
+
+
+def _no_rollback_call(before: dict[str, Any], sides: list[str], verb: str) -> dict[str, Any]:
+    targets = ", ".join(f"{s} {before[s].get('matching_target')}" for s in sides)
+    return {
+        "tool": None,
+        "note": (
+            f"No rollback call: this tool cannot set the {targets} target, and a call without it would match more "
+            f"traffic than the original. To {verb} the policy, use the UniFi UI with `before` below."
+        ),
+        "before": {k: v for k, v in before.items() if k not in NO_SEND},
+    }
 
 
 # ----------------------------------------------------------------------------------------------- spec

@@ -340,6 +340,40 @@ async def test_delete_uses_batch_delete_with_a_list(make_session, dns):
     assert out["rollback"]["arguments"]["action"] == "create" and out["rollback"]["arguments"]["name"] == "zz-c"
 
 
+def _user_identity(net):
+    """Make zz-c match identity users: a target the tool cannot set."""
+    net.by("p-c")["source"].update(matching_target="USER_IDENTITY", ulp_user_ids=["u-1"], ulp_user_group_ids=["g-1"])
+
+
+async def test_delete_of_user_identity_policy_gives_no_widening_rollback_call(make_session, dns):
+    net = FakeFw(dns)
+    _user_identity(net)
+    async with make_session(net) as c:
+        _, out = await apply(c, {"action": "delete", "target": "zz-c"})
+    rb = out["rollback"]
+    assert out["applied"] and rb["tool"] is None and "arguments" not in rb
+    assert "source USER_IDENTITY" in rb["note"] and rb["before"]["source"]["ulp_user_ids"] == ["u-1"]
+
+
+async def test_update_away_from_user_identity_clears_ulp_ids_and_gives_no_rollback_call(make_session, dns):
+    net = FakeFw(dns)
+    _user_identity(net)
+    async with make_session(net) as c:
+        _, out = await apply(c, {"action": "update", "target": "zz-c", "source": {"target": "any"}})
+    sent = net.writes()[0][2]["source"]
+    assert sent["matching_target"] == "ANY" and "ulp_user_ids" not in sent and "ulp_user_group_ids" not in sent
+    assert out["rollback"]["tool"] is None and out["rollback"]["before"]["source"]["matching_target"] == "USER_IDENTITY"
+
+
+async def test_update_keeping_user_identity_target_still_has_a_rollback_call(make_session, dns):
+    net = FakeFw(dns)
+    _user_identity(net)
+    async with make_session(net) as c:
+        _, out = await apply(c, {"action": "update", "target": "zz-c", "description": "d"})
+    assert net.writes()[0][2]["source"]["ulp_user_ids"] == ["u-1"]
+    assert out["rollback"]["tool"] == TOOL and out["rollback"]["arguments"]["action"] == "update"
+
+
 async def test_move_sends_reorder_and_verifies_order(make_session, dns):
     net = FakeFw(dns)
     async with make_session(net) as c:

@@ -102,6 +102,10 @@ versions. Where a finding explains a design choice in a tool, it says so.
   source zone UUID, the destination zone UUID and the index run together (`2147483647` for the default block,
   `30000` and up for system allow rules). Fetching one policy by id works only for custom policies; a composite id
   returns 404 (checked November 2026). Read system policies from the list instead.
+* A policy endpoint can match identity users and groups (`matching_target: USER_IDENTITY` with `ulp_user_ids` and
+  `ulp_user_group_ids`), seen in a UI capture. The tool keeps such a target, and an IID one, as read but cannot set
+  either, so after deleting such a policy, or changing such a target, it returns the stored policy and a note instead
+  of a rollback call: replaying one without the target would match more traffic.
 
 ## Clients
 
