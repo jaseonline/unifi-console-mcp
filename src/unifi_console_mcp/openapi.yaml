@@ -17,7 +17,7 @@ info:
     ## Getting started
     1. **Integration API:** create a key in `https://192.168.1.2/network/default/integrations` and send it as `X-API-KEY`. Call `listLocalSites` first; the returned `id` is `{siteId}` for every other Integration call (see the **Links** on that response).
     2. **Controller API:** call `localLogin` via `https://192.168.1.2/auth/login`. Keep the `TOKEN` cookie, and echo the `X-CSRF-Token` response header on every state-changing request. `{site}` is the site *name*, normally `default`.
-    3. **Site Manager:** create a key at `https://unifi.ui.com/settings/api-keys`` and send it as `X-API-Key` to `api.ui.com`. It is a different key from the Integration API's.
+    3. **Site Manager:** create a key at `https://unifi.ui.com/settings/api-keys` and send it as `X-API-Key` to `api.ui.com`. It is a different key from the Integration API's.
 
     ## Conventions
     - Operations that change state carry `x-destructive: true` (shown under each operation). Per the project change-management rule, firewall, VLAN and tunnel changes need a written plan and approval before use.

@@ -4,6 +4,24 @@ All notable changes to this project. Versions follow `__version__` in `src/unifi
 
 ## Unreleased
 
+- **Behaviour change: writes are now on by default.** Before, an unset `UNIFI_CONSOLE_ENABLE_WRITES` meant read-only and
+  every entity also had to be listed in `UNIFI_CONSOLE_WRITE_ENTITIES`. Now configuration writes are allowed unless you
+  set `UNIFI_CONSOLE_READ_ONLY=true`, and individual entities are switched off with
+  `UNIFI_CONSOLE_DISABLE_ENTITIES=wan,doh`. Every write still needs a preview, `confirm=true` and the preview's
+  fingerprint, is journalled and read back, and tier C changes still need an `approval_note`. To keep the old
+  behaviour, set `UNIFI_CONSOLE_READ_ONLY=true`.
+- The old variables still work for one release and print a deprecation note at startup: `UNIFI_CONSOLE_ENABLE_WRITES=false`
+  (or an unparsable value) means read-only, `ENABLE_WRITES=true` is ignored, and a non-empty `UNIFI_CONSOLE_WRITE_ENTITIES`
+  still restricts writes to those entities. They will be removed in a later release. The MCPB install form gains
+  "Read-only mode" and "Entities switched off"; the old fields stay, marked deprecated.
+- `unifi_console_switch_port`: the preview fingerprint included live device counters (`_uptime`, `total_used_power`), so
+  applying was refused with "differs from the preview you confirmed". It now covers only the device identity and the
+  `port_overrides` array.
+- `unifi_console_switch_port`: building the rollback after a storm-control change raised `ValueError: not enough values
+  to unpack` when the change also added `stormctrl_type`, after the write had already gone through.
+- Writes: a read-back that does not match is repeated up to four times, one second apart, before it is reported as a
+  mismatch, because the console can apply a change just after it answers.
+
 - Spec: 28 operations from a UI capture. Console user management reads (`searchConsoleUsers`, `getConsoleUser`,
   `getConsoleSelf`, `listUserGroups`, `listUserGroupMembers`, `listIdentityAssignments`, `listGroupAssignments`,
   `getIdentityServicesStatus`, `getUserInvitationStatus`); user and role writes (`createConsoleUser`,

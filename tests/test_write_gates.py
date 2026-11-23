@@ -99,3 +99,95 @@ async def test_a_disabled_entity_is_refused_but_others_are_not(settings, tmp_pat
         assert eng.blocked_reason(other, None) is None
     finally:
         await api.client.aclose()
+
+
+async def _apply_through_the_server(settings, tmp_path, **overrides):
+    """Preview then apply one port-forward create through a real in-process server; return (reply text, requests sent)."""
+    import dataclasses
+
+    import httpx
+    from mcp.client import Client
+    from test_writes import NEW, TOOL, FakePortForwards, Wrapped, call
+
+    from unifi_console_mcp.server import create_server
+
+    net = FakePortForwards()
+    s = dataclasses.replace(settings, journal_dir=tmp_path / "journal", **overrides)
+    mcp, api = create_server(s, transport=httpx.MockTransport(net))
+    try:
+        async with Client(mcp) as client:
+            wrapped = Wrapped(client)
+            pre = await call(wrapped, NEW)
+            assert pre["ok"] and pre["preview"], pre  # a preview is always allowed, whatever the gate says
+            res = await wrapped.call_tool(TOOL, {**NEW, "confirm": True, "fingerprint": pre["fingerprint"]})
+            text = res.content[0].text
+    finally:
+        await api.client.aclose()
+    return text, net.writes()
+
+
+async def test_default_server_applies_a_confirmed_change(settings, tmp_path):
+    text, writes = await _apply_through_the_server(settings, tmp_path, enable_writes=True)
+    assert writes, text
+
+
+async def test_read_only_server_refuses_the_apply_and_sends_nothing(settings, tmp_path):
+    text, writes = await _apply_through_the_server(settings, tmp_path, enable_writes=False)
+    assert "UNIFI_CONSOLE_READ_ONLY" in text and writes == []
+
+
+async def test_a_disabled_entity_refuses_the_apply_and_sends_nothing(settings, tmp_path):
+    text, writes = await _apply_through_the_server(
+        settings, tmp_path, enable_writes=True, disabled_entities=frozenset({"port_forward"})
+    )
+    assert "UNIFI_CONSOLE_DISABLE_ENTITIES" in text and writes == []
+
+
+async def test_disabling_one_entity_leaves_the_others_working(settings, tmp_path):
+    text, writes = await _apply_through_the_server(
+        settings, tmp_path, enable_writes=True, disabled_entities=frozenset({"wan", "doh"})
+    )
+    assert writes, text
+
+
+async def test_every_typed_write_tool_is_annotated_as_able_to_change_things(settings):
+    """Writes are on by default now, so clients rely on these hints to decide when to ask before calling a tool."""
+    import dataclasses
+
+    from mcp.client import Client
+
+    from unifi_console_mcp.server import create_server
+
+    typed_writers = {
+        "app_block",
+        "client",
+        "client_command",
+        "client_group",
+        "data_retention",
+        "device",
+        "doh",
+        "dynamic_dns",
+        "firewall_policy",
+        "network",
+        "network_list",
+        "port_forward",
+        "qos_rule",
+        "static_dns",
+        "switch_port",
+        "syslog",
+        "traffic_object",
+        "wan",
+        "wifi",
+    }
+    mcp, api = create_server(dataclasses.replace(settings, enable_writes=True))
+    try:
+        async with Client(mcp) as client:
+            tools = {t.name: t for t in (await client.list_tools()).tools}
+    finally:
+        await api.client.aclose()
+    for key in typed_writers:
+        a = tools[f"unifi_console_{key}"].annotations
+        assert a.read_only_hint is False and a.destructive_hint is True, key
+    # The raw-operation tool may create backups and support files but never applies configuration.
+    assert tools["unifi_console_call_operation"].annotations.read_only_hint is False
+    assert tools["unifi_console_call_operation"].annotations.destructive_hint is False
