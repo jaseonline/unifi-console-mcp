@@ -2,7 +2,7 @@
   "manifest_version": "0.4",
   "name": "unifi-console-mcp",
   "display_name": "UniFi Console",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Read, audit and (optionally) change your UniFi Network from Claude, with a preview-then-confirm flow for every change.",
   "long_description": "UniFi Console connects Claude to your own UniFi console over your local network. It covers the documented Integration API plus the controller and UniFi OS APIs: system log, firewall policy hit counts, PoE budget, switch ports, access review, backups and support files. Read tools are always safe. Configuration changes can be switched off with Read-only mode; otherwise every change is previewed first and applied only after you approve it, with an audit journal and secrets always redacted. Everything runs on your computer and talks only to your console.",
   "author": {

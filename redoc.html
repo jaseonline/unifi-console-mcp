@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Redoc CE</title>
+    <!-- needed for adaptive design -->
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!--
+    Redoc CE doesn't reset the body margin
+    -->
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+    Redoc element with link to your API description
+    <redoc spec-url="https://raw.githubusercontent.com/Redocly/museum-openapi-example/main/openapi.yaml"></redoc>
+    -->
+    <redoc spec-url="https://raw.githubusercontent.com/jaseonline/unifi-console-mcp/2bcb938829a14d29dddb203c73d025d9f095653c/src/unifi_console_mcp/openapi.yaml"></redoc>
+    <!--
+    Link to Redoc script on CDN for rendering standalone element
+    -->
+    <script type="module" src="https://cdn.redoc.ly/redoc/v3.x/bundles/redoc.standalone.js"></script>
+  </body>
+</html>

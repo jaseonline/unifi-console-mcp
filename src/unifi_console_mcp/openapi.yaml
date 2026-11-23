@@ -1,13 +1,13 @@
 openapi: 3.1.0
 info:
-  title: UniFi API for use with unifi-console-mcp
+  title: UniFi API for unifi-console-mcp
   version: 2.0.0
   summary: Reference for the UniFi Cloud Key Gen2 Plus console (official Integration API, controller API, UniFi OS) and UniFi Site Manager.
   description: |
     ## How this reference is organised
     Each operation appears under exactly one tag, named for the resource it works on (Devices, Clients, Firewall and so on), so the same resource's operations from different APIs sit together. The API an operation belongs to is in its `x-unifi-api` extension.
 
-    | x-unifi-api | Base path | Auth | Stability |
+    | `x-unifi-api`` | Base path | Auth | Stability |
     |---|---|---|---|
     | `integration` | `/proxy/network/integration/v1` | `ApiKey` (local key) | Official, versioned |
     | `controller` | `/proxy/network/api/s/{site}` and `/proxy/network/v2/api/site/{site}` | `ControllerSession` (+ `CsrfToken` on writes) | Undocumented and may change between Network Application releases |
@@ -32,18 +32,17 @@ info:
     - Integration API paths, parameters, enums and required fields are checked against the console's own built-in reference (UniFi Network API 11.0.81, `/unifi-api/network` or `/proxy/network/api-docs/integration.json`) and its OpenAPI document (`getIntegrationOpenApi`). Nested types (Wi-Fi security, firewall traffic filters and schedules, ACL filters, IPv4/IPv6 network configuration and so on) are generated from that document.
     - Controller-API schemas are deliberately partial (fields of interest only).
   contact:
-    name: jase
     url: https://github.com/jaseonline/unifi-console-mcp
     email: jase@example.home
   license:
-    name: 'MIT License'
-    identifier: MIT
+    name: MIT
+    url: https://opensource.org/license/mit/
 externalDocs:
   description: UniFi Developer Portal (Official APIs)
   url: https://developer.ui.com/
 servers:  
   - url: https://{host}:{port}
-    description: Local console
+    description: UniFi Local Console
     variables:
       host:
         default: '192.168.1.2'
@@ -63,9 +62,7 @@ tags:
   - name: Auth
     description: UniFi OS console login/logout. Produces the session used by the `controller` and `unifi_os` operations.
   - name: Sites
-    description: |
-      Sites on this console (`integration`, `controller`) and across every console on the UI account (`site_manager`).
-      Start with `listLocalSites`: its `id` is `{siteId}` for every other Integration call.
+    description: "Sites on this console (`integration`, `controller`) and across every console on the UI account (`site_manager`). Start with `listLocalSites`: its `id` is `{siteId}` for every other Integration call."
     externalDocs: {description: 'Network API reference', url: 'https://developer.ui.com/network'}
   - name: Console
     description: Console identity, installed applications, Network application and controller system info, and site feature flags.
@@ -75,9 +72,7 @@ tags:
   - name: Backup
     description: Network application backups (`controller`) and console backups, local and cloud (`unifi_os`).
   - name: Firmware
-    description: |
-      Console and application update status, devices eligible for a rolling upgrade, and firmware a device can roll back to.
-      Upgrades and reverts themselves are `deviceManagerCommand` commands (Device management).
+    description: Console and application update status, devices eligible for a rolling upgrade, and firmware a device can roll back to. Upgrades and reverts themselves are `deviceManagerCommand` commands (Device management).
   - name: Support files
     description: Generate and download console and device support files (diagnostic bundles).
   - name: Certificates
@@ -97,9 +92,7 @@ tags:
   - name: Traffic insights
     description: Insights - traffic flows, per-application and per-country usage, traffic rate and the dashboard.
   - name: Devices
-    description: |
-      Device inventory and detail, statistics, device tags, topology and wireless uplinks: adopted devices (`integration`),
-      ports, radios and time series (`controller`), and devices across every console on the UI account (`site_manager`).
+    description: "Device inventory and detail, statistics, device tags, topology and wireless uplinks: adopted devices (`integration`), ports, radios and time series (`controller`), and devices across every console on the UI account (`site_manager`)."
   - name: Device management
     description: Adopt, remove, restart and locate devices, device commands (including firmware upgrade and revert), device settings and replacement candidates.
   - name: Ports & PoE
@@ -133,9 +126,7 @@ tags:
   - name: QoS
     description: QoS rules, bandwidth profiles and traffic policy objects (per-network or per-client QoS, routing and secure settings).
   - name: Firewall policies
-    description: |
-      Zone-based firewall policies and their ordering (`integration`); the UI's policy table with hit counts, batch
-      enable/disable, reorder and delete, and legacy firewall rules (`controller`).
+    description: Zone-based firewall policies and their ordering (`integration`); the UI's policy table with hit counts, batch enable/disable, reorder and delete, and legacy firewall rules (`controller`).
   - name: Firewall zones
     description: Firewall zones, their member networks and the zone-to-zone policy matrix.
   - name: Groups
@@ -184,8 +175,7 @@ paths:
     post:
       operationId: localLogin
       summary: Log in to the console (session cookie)
-      description: |
-        Returns a `TOKEN` cookie and an `X-CSRF-Token` response header, both required by the controller API. Use a local-only admin account; MFA (`token`) is needed only for UI-account logins with 2FA.
+      description: Returns a `TOKEN` cookie and an `X-CSRF-Token` response header, both required by the controller API. Use a local-only admin account; MFA (`token`) is needed only for UI-account logins with 2FA.
       tags: [Auth]
       x-unifi-api: unifi_os
       security: []
@@ -319,9 +309,7 @@ paths:
     get:
       operationId: listAdoptedDevices
       summary: List adopted devices
-      description: |
-        Filterable on `id`, `macAddress`, `ipAddress`, `model`, `state` (`eq ne in notIn`), `name` (also `like`), `supported`,
-        `firmwareUpdatable` (`eq ne`), `firmwareVersion` (all comparisons, `like`, `isNull`), `features` and `interfaces` (set functions).
+      description: Filterable on `id`, `macAddress`, `ipAddress`, `model`, `state` (`eq ne in notIn`), `name` (also `like`), `supported`, `firmwareUpdatable` (`eq ne`), `firmwareVersion` (all comparisons, `like`, `isNull`), `features` and `interfaces` (set functions).
       tags: [Devices]
       x-unifi-api: integration
       parameters:
@@ -1262,10 +1250,7 @@ paths:
     get:
       operationId: listAclRules
       summary: List switch ACL rules
-      description: |
-        Filterable on `type`, `id`, `enabled`, `name`, `description`, `action`, `index`, `protocolFilter`, `networkId`,
-        `enforcingDeviceFilter.deviceIds`, `metadata.origin`, and on `sourceFilter.*` / `destinationFilter.*`
-        (`type`, `ipAddressesOrSubnets`, `portFilter`, `networkIds`, `macAddresses`, `prefixLength`).
+      description: Filterable on `type`, `id`, `enabled`, `name`, `description`, `action`, `index`, `protocolFilter`, `networkId`, `enforcingDeviceFilter.deviceIds`, `metadata.origin`, and on `sourceFilter.*` / `destinationFilter.*` (`type`, `ipAddressesOrSubnets`, `portFilter`, `networkIds`, `macAddresses`, `prefixLength`).
       tags: [ACL rules]
       x-unifi-api: integration
       parameters:
@@ -1996,8 +1981,7 @@ paths:
       operationId: listEvents
       deprecated: true
       summary: Recent events
-      description: |
-        Deprecated. Returns HTTP 404 on Network 11.0.81 (probed 2026-10-17); use `querySystemLogAll` (and `getSystemLogCount`) instead. Kept for older controller versions.
+      description: Deprecated. Returns HTTP 404 on Network 11.0.81 (probed 2026-10-17); use `querySystemLogAll` (and `getSystemLogCount`) instead. Kept for older controller versions.
       tags: [Logs]
       x-unifi-api: controller
       security: [{ControllerSession: []}]
@@ -2065,9 +2049,7 @@ paths:
     post:
       operationId: systemCommand
       summary: Create a Network application backup
-      description: |
-        Network application settings only (plus statistics if `days` is set). Take one before any structural change.
-        Returns the backup file URL in `data[0].url`. For a whole-console backup use `createConsoleBackup`.
+      description: Network application settings only (plus statistics if `days` is set). Take one before any structural change. Returns the backup file URL in `data[0].url`. For a whole-console backup use `createConsoleBackup`.
       tags: [Backup]
       x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
@@ -2234,10 +2216,7 @@ paths:
     get:
       operationId: getRadioIsolationMatrix
       summary: AP-to-AP radio isolation and neighbour matrix (Radio AI)
-      description: |
-        How well each AP hears the others, per radio band. `ap_radio_neighbours` lists, for each AP, the other APs it hears,
-        grouped by channel, with signal strength. `ap_radio_isolation` lists channel interference per AP (empty when none).
-        Bands with no capable APs come back with empty lists (`6e` on this site). Captured 2026-10-19 (Network 11.0.81).
+      description: How well each AP hears the others, per radio band. `ap_radio_neighbours` lists, for each AP, the other APs it hears, grouped by channel, with signal strength. `ap_radio_isolation` lists channel interference per AP (empty when none). Bands with no capable APs come back with empty lists (`6e` on this site). Captured 2026-10-19 (Network 11.0.81).
       tags: [WiFi insights]
       x-unifi-api: controller
       security: [{ControllerSession: []}]
@@ -2278,10 +2257,7 @@ paths:
     get:
       operationId: getWifiRadioStats
       summary: Per-radio Wi-Fi statistics over a time window
-      description: |
-        One row per AP radio: traffic, average client signal, channel utilisation, interference and transmit retries, averaged
-        over the window. `radio_name` is the AP's interface (`wifi0` = 2.4 GHz, `wifi1` = 5 GHz on the APs captured).
-        Captured 2026-10-19 (Network 11.0.81).
+      description: "One row per AP radio: traffic, average client signal, channel utilisation, interference and transmit retries, averaged over the window. `radio_name` is the AP's interface (`wifi0` = 2.4 GHz, `wifi1` = 5 GHz on the APs captured). Captured 2026-10-19 (Network 11.0.81)."
       tags: [WiFi insights]
       x-unifi-api: controller
       security: [{ControllerSession: []}]
@@ -2558,10 +2534,7 @@ paths:
     post:
       operationId: siteManagerCommand
       summary: Site command (remove devices)
-      description: |
-        Captured 2026-10-18 (`device-remove.har`): `{"macs": [mac, ...], "cmd": "delete-device"}` removes ("forgets") the
-        devices from the site. The reply is the device record. The device must be adopted again to rejoin, and the
-        device's `_id` changes when it is. **Irreversible short of re-adopting**; use `unifi_console_device`.
+      description: Removes ("forgets") the devices from the site. The reply is the device record. The device must be adopted again to rejoin, and the device's `_id` changes when it is. **Irreversible short of re-adopting**; use `unifi_console_device`.
       x-destructive: true
       tags: [Device management]
       x-unifi-api: controller
@@ -2784,7 +2757,7 @@ paths:
       operationId: updateDohSetting
       summary: Update the DNS over HTTPS (DoH) setting group
       description: |
-        Captured in the DoH HAR (2026-10-17). Body is the whole group as the UI sends it:
+        Body is the whole group as the UI sends it:
         `{key: doh, state, server_names[], custom_servers[]}`. `state` is `off`, `manual` (named resolvers from
         `getDohAvailableServerNames`) or `custom` (entries `{server_name, sdns_stamp, enabled}`). The UI clears the other
         list when switching mode. The reply is the legacy envelope with the whole group.
@@ -2886,10 +2859,7 @@ paths:
     post:
       operationId: generateDeviceSupportFile
       summary: Start generating a device support file (about 3 minutes)
-      description: |
-        Returns 200 with an empty body at once; the file is built on the device. Progress arrives on the site events
-        WebSocket as `meta.message: support-file:update` with `data[0].status` (see the Alerts tag), and
-        `getDeviceSupportFileStatus` can be polled. The UI sends the literal body `null`.
+      description: "Returns 200 with an empty body at once; the file is built on the device. Progress arrives on the site events WebSocket as `meta.message: support-file:update` with `data[0].status` (see the Alerts tag), and `getDeviceSupportFileStatus` can be polled. The UI sends the literal body `null`."
       tags: [Support files]
       x-unifi-api: controller
       security: [{ControllerSession: [], CsrfToken: []}]
